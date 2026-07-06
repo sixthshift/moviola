@@ -10,8 +10,19 @@
  * build artifact, dist/scrolly.iife.js (kept in sync with every embed by
  * scripts/sync-embeds.mjs).
  *
- * Usage: node scripts/validate-story.mjs <file.html> [--tier1]
+ * Usage: node scripts/validate-story.mjs <file.html> [--tier1] [--report <out.html>]
  * Exits 0 if every story on the page passes; prints one JSON report.
+ *
+ * `--report <out.html>` (SPEC §15.6.3) additionally writes a self-contained
+ * storyboard: the forward/reverse screenshots this run already captures for
+ * consistency-checking, laid out one row per step, with the JSON report
+ * printed at the top. Purely an extra output file — stdout/exit code are
+ * unaffected by the flag.
+ *
+ * Note for the next builder: puppeteer/playwright clip screenshots need
+ * `captureBeyondViewport:false`-equivalent handling or sticky layouts re-lay
+ * mid-capture; this validator sidesteps that entirely by always screenshotting
+ * the plain viewport and cropping the decoded PNG itself (see cropImage).
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -31,13 +42,35 @@ const DWELL_MS = 500
 
 function parseArgs(argv) {
   const args = argv.slice(2)
-  const flags = new Set(args.filter(a => a.startsWith('--')))
-  const files = args.filter(a => !a.startsWith('--'))
+  const files = []
+  let tier1 = false
+  let reportPath = null
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === '--tier1') {
+      tier1 = true
+    } else if (arg === '--report') {
+      i++
+      reportPath = args[i]
+      if (!reportPath) {
+        console.error('--report requires a path argument')
+        process.exit(1)
+      }
+    } else if (!arg.startsWith('--')) {
+      files.push(arg)
+    }
+  }
   if (files.length !== 1) {
-    console.error('usage: node scripts/validate-story.mjs <file.html> [--tier1]')
+    console.error(
+      'usage: node scripts/validate-story.mjs <file.html> [--tier1] [--report <out.html>]'
+    )
     process.exit(1)
   }
-  return { file: path.resolve(process.cwd(), files[0]), tier1: flags.has('--tier1') }
+  return {
+    file: path.resolve(process.cwd(), files[0]),
+    tier1,
+    reportPath: reportPath ? path.resolve(process.cwd(), reportPath) : null,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -353,7 +386,11 @@ async function settleAtStep(page, storyIndex, stepIndex) {
   return info.id
 }
 
-async function captureState(page, storyIndex) {
+// `id` and `captureRaw` exist for the --report storyboard: id labels the row,
+// and captureRaw keeps the already-taken screenshot buffer (no extra capture)
+// so it can be embedded as a data URI later. Neither affects the comparisons
+// statesMatch performs, which only ever look at activeStep/shown/screenshot.
+async function captureState(page, storyIndex, id, { captureRaw = false } = {}) {
   const dom = await page.evaluate(si => {
     const root = document.querySelectorAll('.scrolly')[si]
     const shown = [...root.querySelectorAll('[data-show].is-shown')]
@@ -372,9 +409,11 @@ async function captureState(page, storyIndex) {
   }, storyIndex)
   const png = await page.screenshot()
   return {
+    id,
     activeStep: dom.activeStep,
     shown: dom.shown,
     screenshot: cropImage(decodePng(png), dom.clip),
+    ...(captureRaw ? { pngBuffer: png } : {}),
   }
 }
 
@@ -385,25 +424,27 @@ function statesMatch(a, b) {
   return true
 }
 
-async function driveStory(page, storyIndex, stepCount) {
+async function driveStory(page, storyIndex, stepCount, { captureRaw = false } = {}) {
   const forward = []
   for (let i = 0; i < stepCount; i++) {
-    await settleAtStep(page, storyIndex, i)
-    forward.push(await captureState(page, storyIndex))
+    const id = await settleAtStep(page, storyIndex, i)
+    forward.push(await captureState(page, storyIndex, id, { captureRaw }))
   }
 
   let bidirectionalConsistent = true
+  const reverse = new Array(stepCount)
 
   for (let i = stepCount - 1; i >= 0; i--) {
-    await settleAtStep(page, storyIndex, i)
-    const state = await captureState(page, storyIndex)
+    const id = await settleAtStep(page, storyIndex, i)
+    const state = await captureState(page, storyIndex, id, { captureRaw })
+    reverse[i] = state
     if (!statesMatch(forward[i], state)) bidirectionalConsistent = false
   }
 
   const jumpOrder = stepCount >= 2 ? [stepCount - 1, 1, stepCount - 1, 0] : [stepCount - 1]
   for (const i of jumpOrder) {
-    await settleAtStep(page, storyIndex, i)
-    const state = await captureState(page, storyIndex)
+    const id = await settleAtStep(page, storyIndex, i)
+    const state = await captureState(page, storyIndex, id)
     if (!statesMatch(forward[i], state)) bidirectionalConsistent = false
   }
 
@@ -417,7 +458,86 @@ async function driveStory(page, storyIndex, stepCount) {
     }
   }
 
-  return { bidirectionalConsistent, distinctGraphicStates }
+  // Storyboard rows for --report: forward vs. the direct reverse pass (not
+  // the extra out-of-order jump checks), one row per step in document order.
+  const steps = captureRaw
+    ? forward.map((f, i) => ({
+        id: f.id,
+        forwardPng: f.pngBuffer,
+        reversePng: reverse[i].pngBuffer,
+        match: statesMatch(f, reverse[i]),
+      }))
+    : undefined
+
+  return { bidirectionalConsistent, distinctGraphicStates, steps }
+}
+
+// ---------------------------------------------------------------------------
+// --report: a self-contained storyboard HTML (SPEC §15.6.3). Every image is
+// inlined as a data: URI so the page has zero external references — the
+// validator's own scanSourceForExternalRefs, run against this output, must
+// find nothing.
+// ---------------------------------------------------------------------------
+
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  )
+}
+
+function pngDataUri(buf) {
+  return `data:image/png;base64,${buf.toString('base64')}`
+}
+
+function buildReportHtml(file, report, storiesSteps) {
+  const sections = report.stories
+    .map((story, i) => {
+      const rows = (storiesSteps[i] || [])
+        .map(
+          step => `
+      <tr>
+        <td>${escapeHtml(step.id)}</td>
+        <td><img src="${pngDataUri(step.forwardPng)}" alt="forward ${escapeHtml(step.id)}"></td>
+        <td><img src="${pngDataUri(step.reversePng)}" alt="reverse ${escapeHtml(step.id)}"></td>
+        <td class="${step.match ? 'match' : 'mismatch'}">${step.match ? 'match' : 'mismatch'}</td>
+      </tr>`
+        )
+        .join('')
+      return `
+    <section>
+      <h2>${escapeHtml(story.key)} <span class="${story.pass ? 'match' : 'mismatch'}">${story.pass ? 'PASS' : 'FAIL'}</span></h2>
+      <table>
+        <thead><tr><th>step</th><th>forward</th><th>reverse</th><th>state</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`
+    })
+    .join('')
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>scrolly validator report — ${escapeHtml(path.basename(file))}</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem; background: #fff; color: #111; }
+  pre { background: #f4f4f4; padding: 1rem; overflow: auto; border-radius: 0.5rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0 2rem; }
+  th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; vertical-align: top; }
+  img { max-width: 220px; display: block; }
+  .match { color: #1a7f37; font-weight: 600; }
+  .mismatch { color: #cf222e; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>scrolly validator report</h1>
+<p>${escapeHtml(file)}</p>
+<pre>${escapeHtml(JSON.stringify(report, null, 2))}</pre>
+${sections}
+</body>
+</html>
+`
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +545,7 @@ async function driveStory(page, storyIndex, stepCount) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { file, tier1 } = parseArgs(process.argv)
+  const { file, tier1, reportPath } = parseArgs(process.argv)
   if (!fs.existsSync(file)) {
     console.error(`no such file: ${file}`)
     process.exit(1)
@@ -485,10 +605,10 @@ async function main() {
 
   const stories = []
   for (const [index, rootMeta] of roots.entries()) {
-    const { bidirectionalConsistent, distinctGraphicStates } =
+    const { bidirectionalConsistent, distinctGraphicStates, steps } =
       rootMeta.stepCount > 0
-        ? await driveStory(page, index, rootMeta.stepCount)
-        : { bidirectionalConsistent: true, distinctGraphicStates: 0 }
+        ? await driveStory(page, index, rootMeta.stepCount, { captureRaw: Boolean(reportPath) })
+        : { bidirectionalConsistent: true, distinctGraphicStates: 0, steps: [] }
 
     const failures = []
     if (rootMeta.stepCount < 4) failures.push('stepCount<4')
@@ -500,6 +620,7 @@ async function main() {
       distinctGraphicStates,
       bidirectionalConsistent,
       _failuresSoFar: failures,
+      _steps: steps,
     })
   }
 
@@ -538,7 +659,7 @@ async function main() {
     if (externalUrls.length) failures.push('externalUrls')
     if (allErrors.length) failures.push('consoleErrors')
     if (!s.bidirectionalConsistent) failures.push('bidirectionalConsistent')
-    const { _failuresSoFar, ...rest } = s
+    const { _failuresSoFar, _steps, ...rest } = s
     return {
       ...rest,
       glueTier,
@@ -554,6 +675,17 @@ async function main() {
     file,
     stories: finalStories,
     pass: finalStories.every(s => s.pass),
+  }
+
+  if (reportPath) {
+    fs.writeFileSync(
+      reportPath,
+      buildReportHtml(
+        file,
+        report,
+        stories.map(s => s._steps)
+      )
+    )
   }
 
   console.log(JSON.stringify(report, null, 2))

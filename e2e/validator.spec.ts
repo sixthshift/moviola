@@ -25,6 +25,7 @@ const VALIDATOR = path.join(ROOT, 'scripts/validate-story.mjs')
 
 interface StoryReport {
   pass: boolean
+  stepCount: number
   glueTier: string
   glueFlags: string[]
   externalUrls: string[]
@@ -38,8 +39,11 @@ interface Report {
   stories: StoryReport[]
 }
 
-function runValidator(absHtmlPath: string): { code: number | null; report: Report } {
-  const result = spawnSync('node', [VALIDATOR, absHtmlPath], { encoding: 'utf8' })
+function runValidator(
+  absHtmlPath: string,
+  extraArgs: string[] = []
+): { code: number | null; report: Report } {
+  const result = spawnSync('node', [VALIDATOR, absHtmlPath, ...extraArgs], { encoding: 'utf8' })
   let report: Report
   try {
     report = JSON.parse(result.stdout)
@@ -141,6 +145,62 @@ test('fixtures-clean/wheel-in-comment: passes — "wheel" in a comment never tri
   expect(code).toBe(0)
   expect(firstStory(report).pass).toBe(true)
   expect(firstStory(report).glueTier).not.toBe('fail')
+})
+
+test('--report: writes a self-contained storyboard with one <img> per step per direction and no external refs', () => {
+  const src = path.join(import.meta.dirname, 'fixtures-clean/wheel-in-comment.html')
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-validator-'))
+  const dest = path.join(tmpDir, `${crypto.randomUUID()}.html`)
+  const reportPath = path.join(tmpDir, 'report.html')
+  fs.copyFileSync(src, dest)
+  try {
+    const { code, report } = runValidator(dest, ['--report', reportPath])
+    expect(code).toBe(0)
+    expect(report.pass).toBe(true)
+    expect(fs.existsSync(reportPath)).toBe(true)
+
+    const reportHtml = fs.readFileSync(reportPath, 'utf8')
+    const stepCount = report.stories[0]?.stepCount ?? 0
+    expect(stepCount).toBeGreaterThan(0)
+    const imgCount = (reportHtml.match(/<img\b/g) || []).length
+    expect(imgCount).toBe(stepCount * 2) // forward + reverse shot per step
+
+    // The same (https?:)?// external-reference scan the validator runs
+    // against authored pages, applied to its own generated report: must
+    // find nothing — every image is a data: URI, every style inline.
+    const isExternalRef = (v: string) => /^(https?:)?\/\//i.test(v.trim())
+    const attrRe = /\b(?:src|href|xlink:href)\s*=\s*(["'])([^"']*)\1/gi
+    const cssUrlRe = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi
+    const found: string[] = []
+    for (const re of [attrRe, cssUrlRe]) {
+      let m: RegExpExecArray | null
+      while ((m = re.exec(reportHtml))) {
+        const ref = m[2] ?? ''
+        if (isExternalRef(ref)) found.push(ref)
+      }
+    }
+    expect(found).toEqual([])
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
+})
+
+test('--report: stdout and exit code are byte-identical to a run without the flag', () => {
+  const src = path.join(import.meta.dirname, 'fixtures-clean/wheel-in-comment.html')
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-validator-'))
+  const dest = path.join(tmpDir, `${crypto.randomUUID()}.html`)
+  const reportPath = path.join(tmpDir, 'report.html')
+  fs.copyFileSync(src, dest)
+  try {
+    const plain = spawnSync('node', [VALIDATOR, dest], { encoding: 'utf8' })
+    const reported = spawnSync('node', [VALIDATOR, dest, '--report', reportPath], {
+      encoding: 'utf8',
+    })
+    expect(reported.status).toBe(plain.status)
+    expect(reported.stdout).toBe(plain.stdout)
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  }
 })
 
 test('index.html: the repo demo passes end to end', () => {
