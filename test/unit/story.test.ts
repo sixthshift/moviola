@@ -199,6 +199,65 @@ describe('events (§7.1)', () => {
   })
 })
 
+/* ---- §15.2 --progress-<id> ------------------------------------------------ */
+
+describe('--progress-<id> (§15.2)', () => {
+  const buildProgressStory = () => {
+    document.body.innerHTML = `
+      <article class="scrolly">
+        <figure></figure>
+        <section class="step" id="intro"></section>
+        <section class="step" id="not valid"></section>
+        <section class="step"></section>
+      </article>`
+    root = document.querySelector('.scrolly') as HTMLElement
+    steps = [...document.querySelectorAll<HTMLElement>('.step')]
+  }
+
+  beforeEach(buildProgressStory)
+
+  test('a valid id gets a variable; an invalid ident and an id-less step get none', () => {
+    scrollToStep(0) // intro's top exactly on the trigger
+    Scrolly.init(root)
+    expect(root.style.getPropertyValue('--progress-intro')).toBe('0.0000')
+    expect(root.style.getPropertyValue('--progress-not valid')).toBe('')
+    expect(root.style.cssText).not.toContain('--progress-2')
+  })
+
+  test('tracks --step-progress while its chapter is active', async () => {
+    scrollToStep(0)
+    Scrolly.init(root)
+    IOStub.instances[0]?.fire(true)
+
+    setRect(steps[0] as HTMLElement, 300, 1200) // nudge into the chapter
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    const progress = root.style.getPropertyValue('--progress-intro')
+    expect(progress).toBe(root.style.getPropertyValue('--step-progress'))
+    expect(progress).not.toBe('0.0000')
+  })
+
+  test('holds 1 once its chapter has fully passed', async () => {
+    scrollToStep(0)
+    Scrolly.init(root)
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1) // the second step is active now; intro is behind it
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    expect(root.style.getPropertyValue('--progress-intro')).toBe('1.0000')
+  })
+
+  test('destroy removes every --progress-* variable', () => {
+    scrollToStep(0)
+    const story = Scrolly.init(root)
+    story.destroy()
+    expect(root.style.getPropertyValue('--progress-intro')).toBe('')
+  })
+})
+
 /* ---- teardown ------------------------------------------------------------ */
 
 describe('destroy (§7.2/§7.3)', () => {

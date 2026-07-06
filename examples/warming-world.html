@@ -639,6 +639,24 @@ var Scrolly = (function() {
 	function stepProgress(top, end, trigger) {
 		return clamp((trigger - top) / Math.max(1, end - top));
 	}
+	/**
+	* Per-step chapter progress (§15.2): the active step's chapter is
+	* `stepProgress`; chapters already passed hold `1`; chapters not yet
+	* reached are `0`. Both `tops` and `ends` are indexed by step, `ends[i]`
+	* being the next step's top or (for the last step) its own bottom — the
+	* same span `stepProgress` already runs. Composing `activeIndex` and
+	* `stepProgress` means it inherits their exact-mirror-on-reverse property
+	* and is monotonic non-increasing across steps at any scroll position.
+	*/
+	function chapterProgress(tops, ends, trigger) {
+		const active = activeIndex(tops, trigger);
+		return tops.map((top, i) => {
+			var _ends$i;
+			if (active < 0 || i > active) return 0;
+			if (i < active) return 1;
+			return stepProgress(top, (_ends$i = ends[i]) !== null && _ends$i !== void 0 ? _ends$i : top, trigger);
+		});
+	}
 	//#endregion
 	//#region src/keyboard.ts
 	function handleKeydown(e, host) {
@@ -667,6 +685,7 @@ var Scrolly = (function() {
 	*/
 	var OFFSET = .5;
 	var stepId = (el, i) => el.id || String(i);
+	var VALID_IDENT = /^[A-Za-z0-9_-]+$/;
 	var instances = /* @__PURE__ */ new WeakMap();
 	/** `Scrolly.init()` is idempotent per element: re-init returns the existing Story. */
 	function getOrCreateStory(el, opts) {
@@ -685,6 +704,10 @@ var Scrolly = (function() {
 			this.graphic = root.querySelector(":scope > figure");
 			this.steps = [...root.querySelectorAll(":scope > .step")];
 			this.shown = this.graphic ? [...this.graphic.querySelectorAll("[data-show]")] : [];
+			this._progressIds = this.steps.map((s, index) => ({
+				id: s.id,
+				index
+			})).filter(({ id }) => VALID_IDENT.test(id));
 			this._onScroll = () => this._tick();
 			this._onKey = (e) => handleKeydown(e, this);
 			instances.set(root, this);
@@ -718,9 +741,11 @@ var Scrolly = (function() {
 			const last = this.steps[this.steps.length - 1];
 			if (!first || !last) return;
 			const trigger = window.innerHeight * this.offset;
-			const active = activeIndex(this.steps.map((s) => s.getBoundingClientRect().top), trigger);
+			const tops = this.steps.map((s) => s.getBoundingClientRect().top);
+			const active = activeIndex(tops, trigger);
 			if (active !== this.active) this._activate(active);
-			const story = storyProgress(first.getBoundingClientRect().top, last.getBoundingClientRect().bottom, trigger);
+			const lastBottom = last.getBoundingClientRect().bottom;
+			const story = storyProgress(first.getBoundingClientRect().top, lastBottom, trigger);
 			let step = 0;
 			const current = this.steps[active];
 			if (current) {
@@ -731,6 +756,13 @@ var Scrolly = (function() {
 			}
 			this.root.style.setProperty("--story-progress", story.toFixed(4));
 			this.root.style.setProperty("--step-progress", step.toFixed(4));
+			if (this._progressIds.length > 0) {
+				const chapters = chapterProgress(tops, [...tops.slice(1), lastBottom], trigger);
+				for (const { id, index } of this._progressIds) {
+					var _chapters$index;
+					this.root.style.setProperty(`--progress-${id}`, ((_chapters$index = chapters[index]) !== null && _chapters$index !== void 0 ? _chapters$index : 0).toFixed(4));
+				}
+			}
 			if (active >= 0) emit(this.root, "progress", {
 				...this._detail(active),
 				progress: step,
@@ -793,6 +825,7 @@ var Scrolly = (function() {
 			this.root.removeAttribute("data-active-step");
 			this.root.style.removeProperty("--step-progress");
 			this.root.style.removeProperty("--story-progress");
+			for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`);
 			instances.delete(this.root);
 		}
 	};
