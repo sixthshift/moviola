@@ -4,16 +4,20 @@
   "description": "The scrollytelling framework — you write the DOM, scrolly runs the state machine, effects live in your CSS.",
   "exports": {
     ".": "./src/scrolly.js",
-    "./scrolly.css": "./src/scrolly.css"
+    "./scrolly.css": "./src/scrolly.css",
+    "./dist/*": "./dist/*"
   },
   "files": [
-    "src"
+    "src",
+    "dist"
   ],
   "license": "MIT",
   "scripts": {
-    "test": "bun test"
+    "test": "bun test",
+    "build": "node scripts/build.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "puppeteer-core": "^25.3.0"
   }
 }
