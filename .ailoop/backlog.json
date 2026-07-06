@@ -13,12 +13,16 @@
     "Acceptance sharpened by 2-agent red-team at intake (ledger [0004])."
   ],
   "project": "scrolly",
-  "caps": { "maxAttempts": 3, "thrash": 2, "chunk": 10 },
+  "caps": {
+    "maxAttempts": 3,
+    "thrash": 2,
+    "chunk": 10
+  },
   "tickets": [
     {
       "id": "S101",
       "title": "Story validator: screenshot-based choreography checks for any scrolly HTML file",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
       "files": [
         "test/validate-story.mjs",
@@ -36,14 +40,18 @@
       "context": "Read README.md (contract tables), SPEC.md §5 + §14, test/semantics.test.js (puppeteer-core patterns, Chrome path). Build `node test/validate-story.mjs <file.html> [--tier1]` printing a JSON report and exiting 0/1. RED-TEAM-HARDENED DESIGN REQUIREMENTS (non-negotiable): (1) distinctGraphicStates is SCREENSHOT-BASED — at each step's trigger position take a viewport screenshot of the story region and compare hashes; states are distinct only if pixels differ beyond a small threshold. This covers canvas graphics automatically and rejects invisible/occluded attribute toggles. (2) glueTier via RUNTIME INSTRUMENTATION, not text grep: before any page script runs (evaluateOnNewDocument), wrap EventTarget.prototype.addEventListener (flag scroll/wheel/touchstart/touchmove), onwheel/onscroll property setters, window.IntersectionObserver construction, and Element.prototype.getBoundingClientRect; attribute each call to lib vs author via Error().stack correlation with script order — AND the lib script block must be byte-identical to src/scrolly.js (read from disk), else the ENTIRE block counts as author code. tier1 = zero author calls flagged AND author scripts contain only Scrolly.init statement(s) (AST-light check acceptable: strip comments/strings first). tier2 = no flagged calls. else fail, with the specific flagged API named in the report. Words like 'wheel' in comments/strings must NOT trip it. (3) externalUrls: network-request interception is the authority (page.on('request'), anything not file:// on the fixture's own path), plus a secondary source scan matching (https?:)?// in src/href/xlink:href/srcset/CSS url(). (4) consoleErrors: attach console/pageerror/unhandledrejection listeners BEFORE goto; dwell ≥300ms after each scroll position. (5) bidirectionalConsistent: record state (screenshot hash + data-active-step + is-shown set) at each step top-to-bottom, then bottom-to-top, then a NON-MONOTONIC jump order (last→second→last→first); every revisit must match the first visit. (6) Multi-story pages: per-story reports keyed by root index/id; overall exit is the AND of all stories. (7) No fixture-name special-casing: the validator source must not reference fixture filenames. Exit-0 thresholds per story: stepCount>=4, distinctGraphicStates>=4, glueTier ok, no externalUrls, no consoleErrors, bidirectionalConsistent. Craft the broken/clean fixtures named in files (self-contained, lib inlined byte-identical from src/): dead-steps (4 steps, class churn but pixel-identical graphic), external-url (an https:// img AND a protocol-relative //cdn ref), scroll-jack (plain addEventListener('wheel')), scroll-jack-obfuscated (window['addEventListener']('whe'+'el',...) or onwheel= assignment), asymmetric-state (author stepenter draw that accumulates instead of drawing full state — passes everything except bidirectional), runtime-error (author JS throws after load), fetch-external (URL only constructed at runtime via fetch('ht'+'tps://...')), and fixtures-clean/wheel-in-comment (tier-2-clean page whose author script merely CONTAINS the word wheel in a comment — must PASS). test/validator.test.js asserts every contrast pair below, and runs each broken fixture from a COPY at a randomized temp filename (no name sniffing). If this ticket proves bigger than one session, return tooBig with a proposed split (e.g. core driver / instrumentation / fixtures+tests) rather than half-building.",
       "acceptance": "- `node test/validate-story.mjs index.html` → exit 0, JSON report with all specified fields\n- dead-steps → exit 1, report's failure reasons include distinctGraphicStates<4 and do NOT include glueTier/externalUrls failures (exclusivity)\n- external-url → exit 1 listing BOTH the https:// and the protocol-relative URL; no other failure reasons\n- fetch-external → exit 1 with the intercepted request URL listed (proves real network interception, not source regex)\n- scroll-jack AND scroll-jack-obfuscated → exit 1, glueTier=fail naming the flagged API; no other failure reasons\n- fixtures-clean/wheel-in-comment → exit 0 (comment/string mentions must not trip instrumentation)\n- asymmetric-state → exit 1 solely for bidirectionalConsistent=false\n- runtime-error → exit 1 solely for consoleErrors non-empty\n- `grep -E 'dead-steps|external-url|scroll-jack|asymmetric|runtime-error|fetch-external' test/validate-story.mjs` → no matches (no fixture sniffing)\n- validator.test.js runs every broken fixture via randomized-temp-filename copies and asserts the exact failure reason per case\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Independent verify (workflow wf_d6471f1e-2ce): verified=true, no regression, no out-of-scope, no gaming. Coordinator gate on merged tree d057805: bun test 45 pass/5 files; validate-story index exit 0; all 7 broken fixtures fail for exactly their one reason (dead-steps:distinctGraphicStates<4, external-url:externalUrls, fetch-external:externalUrls via interception, scroll-jack+obfuscated:glueTier fail naming addEventListener(wheel), asymmetric:bidirectionalConsistent, runtime-error:consoleErrors); clean fixture exit 0; fixture-name grep 0. Commit bca6566 (merge of ticket/S101 b2355e5)."
     },
     {
       "id": "S102",
       "title": "Tier-1 example: stepped chart build (What's-Warming-the-World choreography)",
       "status": "todo",
-      "depends_on": ["S101"],
-      "files": ["examples/warming-world.html"],
+      "depends_on": [
+        "S101"
+      ],
+      "files": [
+        "examples/warming-world.html"
+      ],
       "origin": "SPEC §14 Tier 1 (Bloomberg 2015); sharpened per red-team (ledger [0004])",
       "context": "Read README.md, docs/recipes.md (stepped chart + chapter theming), index.html (lib-inlining reference), SPEC.md §14. Single self-contained page: inline-SVG line chart, 6 factor-series over a shared time axis (hand-written path data; each series must be visually distinct and non-degenerate — real curve shapes, not flat lines), side-right story, 6+ steps. Each step reveals/highlights exactly one more series via data-show on SVG groups + [data-active-step] CSS: past series visibly dimmed (opacity/stroke), active series emphasized, per-step annotation callouts. Chapter theming REQUIRED: a page-level --accent custom property changes per step and is consumed visibly (headings/annotations). ONLY author JS: Scrolly.init(). Lib JS+CSS inlined byte-identical from src/. Prose: real sentences, ≥25 words per step, no two steps sharing a sentence — gallery quality (final publish-worthiness is a human gate, but lorem/duplicate text fails mechanically).",
       "acceptance": "- `node test/validate-story.mjs examples/warming-world.html --tier1` → exit 0, stepCount>=6, distinctGraphicStates>=6\n- behavioral (in verify, puppeteer): at step 4, computed opacity of a step-1 series group is < 0.6× the active series group's opacity (past-dimming is real)\n- computed value of --accent on the story root differs across ≥3 different data-active-step values\n- every series path's bounding box has height > 5% of the chart height (no degenerate flat lines)\n- each step's visible prose ≥25 words; no sentence appears in two steps (mechanical text scan)\n- inlined lib block byte-identical to src/scrolly.js (extract+diff)\n- `bun test` green",
@@ -54,8 +62,12 @@
       "id": "S103",
       "title": "Tier-1 example: stepped scatter highlight with real inter-step gap (Colorism choreography)",
       "status": "todo",
-      "depends_on": ["S101"],
-      "files": ["examples/stepped-scatter.html"],
+      "depends_on": [
+        "S101"
+      ],
+      "files": [
+        "examples/stepped-scatter.html"
+      ],
       "origin": "SPEC §14 Tier 1 (Pudding 2019; §5.1 gap showcase); sharpened per red-team (ledger [0004])",
       "context": "Read README.md, docs/recipes.md, SPEC.md §5.1 + §14. Single self-contained page: inline-SVG scatter of ~60 circles with HAND-WRITTEN deterministic coordinates (no Math.random anywhere in the file; coordinates must be spread — not clumped/coincident), side-left story, 5+ steps highlighting cohorts via [data-active-step] CSS plus data-show annotations. Include flowing prose OUTSIDE the story (≥120 words total before/after the article) and ONE large intra-story gap (CSS margin between two steps > 1.5 viewport heights) where the gap region still shows the held graphic state — the gap demonstrates §5.1, it is not a dead step: both steps flanking it must have real content (≥25 words each). ONLY author JS: Scrolly.init(). Lib inlined byte-identical.",
       "acceptance": "- `node test/validate-story.mjs examples/stepped-scatter.html --tier1` → exit 0, stepCount>=5, distinctGraphicStates>=5, bidirectionalConsistent\n- `grep -c 'Math.random' examples/stepped-scatter.html` → 0\n- circle spread: min pairwise center distance > 4px AND stddev of cx and of cy each > 8% of the SVG viewport dimension (from source, mechanical)\n- highlighted vs non-highlighted circles differ in computed fill or fill-opacity by ≥0.3 at each step (puppeteer)\n- validator report shows one adjacent-step trigger-position delta > 1.5 viewport heights; both flanking steps have ≥25 words\n- visible text outside .scrolly ≥120 words\n- inlined lib byte-identical to src/scrolly.js; `bun test` green",
@@ -66,8 +78,12 @@
       "id": "S104",
       "title": "Tier-2 example: imperative dot re-draw per step, bidirectional + non-monotonic safe (Black-Boys choreography)",
       "status": "todo",
-      "depends_on": ["S101"],
-      "files": ["examples/dots-flow.html"],
+      "depends_on": [
+        "S101"
+      ],
+      "files": [
+        "examples/dots-flow.html"
+      ],
       "origin": "SPEC §14 Tier 2 (NYT Upshot 2018; §13.2 scrollama-port pattern); sharpened per red-team (ledger [0004])",
       "context": "Read README.md (JS API), docs/recipes.md (idempotent full-state draws), SPEC.md §14 Tier-2 budget. Single self-contained page: ~200 dots (SVG or canvas) regrouping/recoloring per step (e.g. flowing between outcome columns), positions from an inline seeded PRNG (mulberry32 with a FIXED literal seed — two page loads must render identically). Driven ONLY by story.on('stepenter') with PURE full-state draw functions: given a step id, draw everything from scratch — no accumulation, no direction branching. Movement may animate (CSS transitions/rAF tween) but END states must be deterministic per step. Author JS must contain no scroll/wheel/touch listeners, no IntersectionObserver, no getBoundingClientRect — the validator's runtime instrumentation enforces this; write clean code, not grep-dodging code. 5+ steps, visibly different groupings (screenshot-hash distinct). Real prose ≥25 words/step.",
       "acceptance": "- `node test/validate-story.mjs examples/dots-flow.html` → exit 0, glueTier=tier2, stepCount>=5, distinctGraphicStates>=5, bidirectionalConsistent (includes the validator's non-monotonic traversal — this catches accumulator cheats)\n- determinism: two fresh page loads, screenshot hash of the initial story state identical (in verify)\n- purity probe (in verify): navigate a→c→b vs reload-then-b; step-b screenshot hashes match\n- `bun test` green",
@@ -78,8 +94,12 @@
       "id": "S105",
       "title": "Tier-2 example: continuous scroll-linked motion via --step-progress, overlay layout (R2D3 choreography)",
       "status": "todo",
-      "depends_on": ["S101"],
-      "files": ["examples/scroll-linked.html"],
+      "depends_on": [
+        "S101"
+      ],
+      "files": [
+        "examples/scroll-linked.html"
+      ],
       "origin": "SPEC §14 Tier 2 (R2D3 2015) + §6.1 overlay coverage; sharpened per red-team (ledger [0004])",
       "context": "Read README.md (custom properties), docs/recipes.md (parallax/progress), SPEC.md §5.2. Single self-contained page, data-layout=\"overlay\": full-bleed inline-SVG scene with TWO INDEPENDENTLY-PARAMETERIZED elements moving continuously within chapters — pure CSS transforms via calc(var(--step-progress) * ...) with DIFFERENT coefficients/axes (e.g. a boundary line rotating while points translate). Smooth motion, no steps() easing. Discrete data-show swaps between chapters as well. Steps are overlay cards; set --scrolly-card-bg/-fg for readable contrast. Target ZERO author JS beyond Scrolly.init() (tier1) — all continuous motion must be pure CSS. 5+ steps, real prose ≥25 words/step.",
       "acceptance": "- `node test/validate-story.mjs examples/scroll-linked.html --tier1` → exit 0, stepCount>=5\n- continuous motion (in verify): sample computed transform of BOTH driven elements at 20/40/60/80% of one chapter — four distinct values each, consecutive deltas within 3× of each other (rules out steps()/threshold fakes), total travel ≥8px translate or ≥5deg rotate per element, and the two elements' transform sequences are not identical\n- determinism: direct-load at 60% vs scrolled-to 60% transforms differ <1px — checked at TWO viewport sizes (1000×800 and 500×700)\n- overlay cards: computed background-color of .step > * is non-transparent at widths 400, 600, and 719\n- data-layout=\"overlay\" present; `bun test` green",
@@ -90,8 +110,12 @@
       "id": "S106",
       "title": "Tier-3 example: multi-story longform, mixed layouts, per-story independence (Snow-Fall structure)",
       "status": "todo",
-      "depends_on": ["S101"],
-      "files": ["examples/longform.html"],
+      "depends_on": [
+        "S101"
+      ],
+      "files": [
+        "examples/longform.html"
+      ],
       "origin": "SPEC §14 Tier 3 (Snow Fall 2012, structure only); sharpened per red-team (ledger [0004])",
       "context": "Read README.md, SPEC.md §4 + §14 Tier 3. Single self-contained longform article: headline, 3+ prose sections (≥60 words each), THREE independent .scrolly stories interleaved — one side-right, one overlay, one side-left — EACH with 4+ steps, 4+ screenshot-distinct graphic states, and a distinct graphic treatment (different SVG scenes/palettes — not copy-paste with recolor; the validator's screenshot hashing must show inter-story difference too). One Scrolly.init() call total (tier1 budget). The point is structural: prose flows between stories, layouts coexist, state machines are independent.",
       "acceptance": "- `node test/validate-story.mjs examples/longform.html --tier1` → exit 0 with PER-STORY reports: each of the three stories individually has stepCount>=4 and distinctGraphicStates>=4 (aggregate/first-story-only passes are a validator bug — S101 specifies per-story)\n- independence (in verify): scroll story 1 to its step 2, then story 2 fully; story 1's data-active-step still equals its actual last-left id (non-empty, asserted by value) and story 3 is all is-future\n- three distinct data-layout values present; each prose section ≥60 words\n- `bun test` green",
@@ -101,33 +125,55 @@
     {
       "id": "S107",
       "title": "dist/ packaging: ESM + IIFE + minified builds, behaviorally equivalent, deterministic",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
-      "files": ["scripts/build.mjs", "dist/scrolly.esm.js", "dist/scrolly.iife.js", "dist/scrolly.min.js", "test/dist.test.js"],
+      "files": [
+        "scripts/build.mjs",
+        "dist/scrolly.esm.js",
+        "dist/scrolly.iife.js",
+        "dist/scrolly.min.js",
+        "test/dist.test.js"
+      ],
       "origin": "SPEC §9 (name-independent; npm publish stays human-gated); sharpened per red-team (ledger [0004])",
       "context": "Read SPEC.md §9 and oracle locked decisions ('dist builds are ADDITIVE — src never modularized'). Add esbuild as devDependency. scripts/build.mjs: ALWAYS deletes and regenerates dist/ (no skip-if-exists), no timestamps/dates anywhere in output. Emit: (1) dist/scrolly.iife.js = src/scrolly.js verbatim; (2) dist/scrolly.min.js = esbuild-minified; (3) dist/scrolly.esm.js = `const window = globalThis;` + IIFE source + `export default globalThis.Scrolly` (or equivalent that works under bun import AND <script type=module> in a browser). package.json: \"build\" script + exports entries for ./dist/*. test/dist.test.js asserts the full Phase C oracle INCLUDING behavioral parity for ALL THREE builds: for each of esm (via type=module page), iife, and min, a fixture page (reuse test/fixture.html geometry with the script swapped) must activate step 'a' at scrollY=1700 under puppeteer. DO NOT touch src/.",
       "acceptance": "- `rm -rf dist && bun run build` exits 0 producing exactly 3 files; repeat `rm -rf dist && bun run build` → both runs' file hashes identical (regeneration proven, not cache)\n- `bun -e \"const m=await import('./dist/scrolly.esm.js'); if(typeof m.default.init!=='function')process.exit(1)\"` → exit 0\n- behavioral parity: fixture activates step 'a' at scrollY=1700 for esm (type=module), iife, AND min builds (all three in test/dist.test.js)\n- min.js is NOT byte-identical to src/scrolly.js, is smaller, and contains none of the identifiers _engaged/_onScroll/_ticking (minification is real)\n- gzip(dist/scrolly.min.js) ≤ 4096 bytes\n- `git status --porcelain src/` empty AND `git diff --stat src/` empty (no edits, no new files under src/)\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Independent verify: verified=true, clean scope, no gaming. Coordinator gate on merged tree: double rm-rf build byte-identical (DETERMINISTIC); ESM import init fn OK; min.js 2034B gz <=4096, mangled (no _engaged/_onScroll/_ticking); git status src/ empty; dist tests in 45-green suite. Commit b2c2f1f (merge of ticket/S107 f1bc3e6)."
     },
     {
       "id": "S108",
       "title": "Two typography themes (structural-CSS-free, full element coverage) + swap proof",
-      "status": "todo",
+      "status": "done",
       "depends_on": [],
-      "files": ["themes/editorial.css", "themes/system.css", "test/themes.test.js"],
+      "files": [
+        "themes/editorial.css",
+        "themes/system.css",
+        "test/themes.test.js"
+      ],
       "origin": "SPEC §12 v1.0 themes + §2.4; sharpened per red-team (ledger [0004])",
       "context": "Read SPEC.md §2.4/§6 and src/scrolly.css (themes must not restate ANY lib rule). Two opt-in stylesheets, system font stacks only (self-contained: no @font-face files, no @import, no url()): themes/editorial.css — serif display stack (font-family must include a serif token), warm palette, generous measure; themes/system.css — system-ui stack, tight, neutral. Each theme MUST style all of: .step h1-h4, .step p, figure captions (figcaption or .caption), and set --scrolly-card-bg/-fg. Allowed properties: font-*, line-height, letter-spacing, color, background-color, text-* (incl. text-overflow), max-width/padding on step content blocks. FORBIDDEN (grep-enforced): position, sticky, display, grid, flex, height, min-height, z-index, transform, isolation, overflow (bare/x/y — text-overflow is fine), and ALL at-rules except none (no @media, @container, @supports, @import, @font-face). test/themes.test.js: (1) forbidden-token scan on both files (regex must allowlist text-overflow); (2) semantic check: editorial font-family contains 'serif' token, system contains 'system-ui'; (3) behavioral: load index.html with theme <link> injected AFTER the lib stylesheet vs without — computed font-family of a .step h2, a .step p, AND color of a figure caption each DIFFER across loads; computed position of the figure ('sticky') IDENTICAL across loads.",
       "acceptance": "- forbidden-token scan green on both theme files (list above, text-overflow allowlisted)\n- editorial.css has a serif-family token; system.css has system-ui; the two files' font stacks differ\n- puppeteer: h2 font-family, p font-family, and caption color all differ with/without theme; figure position identical; theme link injected after lib CSS\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Independent verify: verified=true, clean scope, no gaming. Coordinator gate: themes.test.js 15 tests green within 45-green merged suite (forbidden-token scan, serif vs system-ui, behavioral swap proof, figure sticky identical). Commit d057805 (merge of ticket/S108 8f06f12)."
     },
     {
       "id": "S109",
       "title": "Docs closure: README gallery (tier-verified), SPEC status sync (gated), link checker with contrast proof",
       "status": "todo",
-      "depends_on": ["S102", "S103", "S104", "S105", "S106", "S107", "S108"],
-      "files": ["README.md", "SPEC.md", "scripts/check-links.mjs"],
+      "depends_on": [
+        "S102",
+        "S103",
+        "S104",
+        "S105",
+        "S106",
+        "S107",
+        "S108"
+      ],
+      "files": [
+        "README.md",
+        "SPEC.md",
+        "scripts/check-links.mjs"
+      ],
       "origin": "SPEC §12 v1.0 docs; sharpened per red-team (ledger [0004])",
       "context": "Read README.md, SPEC.md, docs/recipes.md, and the merged tree. README: add Gallery section listing EVERY examples/*.html with a one-line specific description (no two entries sharing text) and its tier — the claimed tier must match reality (tier1 claims must pass `validate-story.mjs --tier1`). Add Themes and dist/ usage sections; keep the terse contract-first voice. SPEC.md: flip §9 dist item and §12 completed milestone items to ✅ ONLY where the artifact exists on disk; do NOT touch §14 pass-bar lines (human-gated) and do NOT modify any ❓-marked line anywhere — human gates must survive byte-identical. scripts/check-links.mjs: scans README.md, SPEC.md, docs/recipes.md for relative links/hrefs, exits 1 listing each unresolved path; must be provably non-vacuous (see acceptance).",
       "acceptance": "- `node scripts/check-links.mjs` → exit 0 on the real tree\n- contrast proof (in test or verify): run check-links against a temp copy of README containing a link to a nonexistent file → exit 1 naming that exact path\n- README gallery file-set equals `ls examples/*.html` exactly; no two gallery descriptions identical; every tier1-labelled entry passes `validate-story.mjs --tier1`\n- SPEC.md: §14 pass-bar lines still present (grep 'Both Tier 1 targets' and '≥ 2 of 3') with no ✅ on them; every ❓ line in SPEC.md byte-identical to pre-ticket state (diff against git)\n- §9 dist line ✅ iff dist/ non-empty; §11 recipes line ✅ iff docs/recipes.md exists\n- `bun test` green",

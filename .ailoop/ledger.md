@@ -82,3 +82,48 @@ Append-only journal. How the loop got where it is. Newest entry at the bottom.
   glance before the gallery is marketing).
   evidence: agent reports (session task outputs); scheduler re-run green
        (9 tickets, no problems/cycles; batch 1 = S101+S107+S108).
+
+[0005] run — drive started; base commit made under loop authority
+  decision: proceed (interpret /ailoop re-invocation as authorization)
+  why: pre-flight [0003] escalated the missing base commit with two options
+       (user commits, or loop commits authorized). User re-invoked /ailoop
+       without committing — read as "start the drive", which requires the
+       commit; loop commit machinery is precedented (deckard run). If this
+       reading is wrong the commit is soft-resettable; flagged in the chunk
+       report.
+  evidence: git bf5d814 (v0.1 core + intake, whole staged tree, verified
+       green per [0002]).
+
+[0006] batch S101+S107+S108 — dispatched (build-phase workflow, attempt 1)
+  decision: continue
+  why: scheduler batch[0]; file-disjoint. Two mechanical launch faults fixed
+       first (no build spend lost — first launch died in 20ms): (a) workflow
+       args passed as JSON string instead of object → tickets.map crash;
+       (b) template's isolation:'worktree' would fork the SESSION repo
+       (deckard), not scrolly → adapted script with self-managed worktrees
+       of /Users/jason/LocalWorkspace/scrolly (workers create ticket/<id>
+       branches, commit, independent verify per branch, integrate to main,
+       gate on merged tree). Adapted script in session scratchpad; worth
+       upstreaming a repoPath note to the skill template later.
+  evidence: run wf_d6471f1e-2ce (in flight)
+
+[0007] batch S101+S107+S108 — all done, merged, gate GREEN (attempt 1/3 each)
+  decision: continue (close 3 tickets)
+  why: builds done; 3 independent verifies all verified=true (no regression,
+       no out-of-scope, no gaming suspicion). Integrate agent completed the
+       merges (bca6566, b2c2f1f, d057805) but died on a session limit while
+       reporting; gate agent never ran. Coordinator reconciled repo state
+       from git (merges present, main clean) and RAN THE GATE ITSELF on the
+       merged tree — all green:
+       - baseline: bun test 45 pass 0 fail across 5 files; node --check ok;
+         skill-assets diffs clean
+       - Phase A: index exit 0; 7 broken fixtures each fail for exactly
+         their one stated reason; clean fixture exit 0; fixture-name grep 0
+       - Phase C: double rm-rf build byte-identical; ESM import ok; min.js
+         2034B gz; mangleProps verified; src/ untouched
+       - S108: themes suite (15) green inside merged run
+       Worktrees + ticket branches cleaned. S101 builder note worth keeping:
+       puppeteer clip screenshots need captureBeyondViewport:false or sticky
+       layouts re-lay (documented in validator source).
+  evidence: stored per-ticket in backlog.json; merged tree = d057805.
+  phase state: Phase A CLOSED, Phase C CLOSED, S108 of Phase D done.
