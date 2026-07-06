@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who Gets the Cover? — a scrolly example</title>
+<style>/*!
+ * scrolly.css — structural layer only.
+ *
+ * Owns: sticky frame, layouts, mobile collapse, visibility mechanics.
+ * Does not own: your typography, colors, or graphic. Style those yourself,
+ * reacting to .is-active / [data-active-step] / --step-progress.
+ *
+ * Knobs (CSS custom properties, set them on .scrolly or :root):
+ *   --scrolly-card-bg   background of step cards in overlay/mobile modes
+ *   --scrolly-card-fg   text color of step cards in overlay/mobile modes
+ */
+
+.scrolly {
+  position: relative;
+}
+
+/* ---- the pinned graphic ------------------------------------------------- */
+
+.scrolly > figure {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* graphic children stack for crossfades */
+.scrolly > figure > * {
+  grid-area: 1 / 1;
+}
+
+/* step-driven visibility — hiding is scoped under .is-ready (stamped by the
+   runtime at init) so a page whose JS never ran stays fully readable */
+.scrolly.is-ready [data-show] {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.scrolly.is-ready [data-show].is-shown {
+  opacity: 1;
+}
+
+/* ---- steps --------------------------------------------------------------- */
+
+.scrolly > .step {
+  position: relative;
+  z-index: 1;
+  min-height: 90vh;
+  min-height: 90dvh;
+  display: grid;
+  align-content: center;
+}
+
+/* ---- side layouts -------------------------------------------------------- */
+
+.scrolly[data-layout="side-right"],
+.scrolly[data-layout="side-left"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2rem;
+}
+
+.scrolly[data-layout="side-right"] > figure,
+.scrolly[data-layout="side-left"] > figure {
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="side-right"] > figure { grid-column: 2; }
+.scrolly[data-layout="side-right"] > .step  { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > figure { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > .step  { grid-column: 2; }
+
+/* ---- overlay layout ------------------------------------------------------ */
+
+.scrolly[data-layout="overlay"] {
+  display: grid;
+}
+
+.scrolly[data-layout="overlay"] > figure {
+  grid-column: 1;
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="overlay"] > .step {
+  grid-column: 1;
+  justify-self: center;
+  width: min(34rem, calc(100% - 2rem));
+}
+
+/* A step's content reads as a card over the graphic. Keep each step's
+   content in a single block (wrap in a div if it's more than one). */
+.scrolly[data-layout="overlay"] > .step > * {
+  background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+  color: var(--scrolly-card-fg, inherit);
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+}
+
+/* ---- mobile: side layouts collapse to overlay ---------------------------- */
+
+@media (max-width: 720px) {
+  .scrolly[data-layout="side-right"],
+  .scrolly[data-layout="side-left"] {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .scrolly[data-layout="side-right"] > figure,
+  .scrolly[data-layout="side-left"] > figure,
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    grid-column: 1;
+  }
+
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    justify-self: center;
+    width: min(34rem, calc(100% - 2rem));
+  }
+
+  .scrolly[data-layout="side-right"] > .step > *,
+  .scrolly[data-layout="side-left"] > .step > * {
+    background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+    color: var(--scrolly-card-fg, inherit);
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ---- accessibility & print ----------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .scrolly.is-ready [data-show] {
+    transition: none;
+  }
+}
+
+@media print {
+  .scrolly > figure {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  .scrolly > figure > * {
+    grid-area: auto;
+  }
+
+  .scrolly.is-ready [data-show] {
+    opacity: 1;
+  }
+
+  .scrolly > .step {
+    min-height: 0;
+  }
+}
+</style>
+<style>
+  /* ---- page styling (not part of the lib) ---- */
+  :root {
+    --bg: #fbf7f2;
+    --fg: #241d17;
+    --muted: #6b6055;
+    --rule: #ddd2c4;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 19px/1.65 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  }
+
+  main.wrap {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+  }
+
+  main.wrap h1 {
+    font-size: 2.4rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 1.2rem;
+  }
+
+  main.wrap .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0 0 0.6rem;
+  }
+
+  main.wrap p { margin: 0 0 1.1rem; }
+  main.wrap .dek { font-size: 1.2rem; color: var(--muted); }
+  main.wrap .fineprint { font-size: 0.85rem; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 1rem; margin-top: 2rem; }
+
+  /* ---- the story ---- */
+
+  .scrolly {
+    padding: 0 clamp(1rem, 4vw, 3rem);
+    --accent: #8a5934;
+  }
+
+  .scrolly > figure { background: var(--bg); transition: background 0.4s ease; }
+
+  .scrolly .step h2 {
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin: 0 0 0.6rem;
+    letter-spacing: -0.01em;
+  }
+
+  .scrolly .step p {
+    max-width: 30rem;
+    color: var(--fg);
+  }
+
+  .scrolly .step > div {
+    background: rgba(255, 255, 255, 0.6);
+    padding: 1.4rem 1.6rem;
+    border-left: 3px solid var(--rule);
+  }
+
+  .scrolly .step.is-active > div { border-left-color: var(--accent); }
+
+  /* the one deliberately long gap: the graphic holds the "medium" cohort
+     highlighted the whole way down while the reader keeps scrolling */
+  .scrolly .step#tan { margin-top: 220vh; }
+
+  /* ---- scatter chart ---- */
+
+  .chart { width: min(34rem, 92vw); height: auto; overflow: visible; }
+  .axis { stroke: var(--rule); stroke-width: 1.5; }
+  .axis-label { fill: var(--muted); font: 12px ui-sans-serif, system-ui, sans-serif; }
+
+  .dot {
+    fill: #b9ac9c;
+    fill-opacity: 0.35;
+    stroke: none;
+    transition: fill 0.35s ease, fill-opacity 0.35s ease;
+  }
+
+  .scrolly[data-active-step="fairest"] .dot[data-cohort="fairest"] { fill: #e0a45c; fill-opacity: 1; }
+  .scrolly[data-active-step="fairest"] > figure { background: #fbead4; }
+  .scrolly[data-active-step="fair"] .dot[data-cohort="fair"] { fill: #c98a4b; fill-opacity: 1; }
+  .scrolly[data-active-step="fair"] > figure { background: #f7e2cb; }
+  .scrolly[data-active-step="medium"] .dot[data-cohort="medium"] { fill: #a8703f; fill-opacity: 1; }
+  .scrolly[data-active-step="medium"] > figure { background: #f0dcc3; }
+  .scrolly[data-active-step="tan"] .dot[data-cohort="tan"] { fill: #8a5934; fill-opacity: 1; }
+  .scrolly[data-active-step="tan"] > figure { background: #e9d3b9; }
+  .scrolly[data-active-step="deep"] .dot[data-cohort="deep"] { fill: #6b4128; fill-opacity: 1; }
+  .scrolly[data-active-step="deep"] > figure { background: #e0c8ab; }
+  .scrolly[data-active-step="richly-deep"] .dot[data-cohort="richly-deep"] { fill: #4a2c1c; fill-opacity: 1; }
+  .scrolly[data-active-step="richly-deep"] > figure { background: #d6bd9d; }
+
+  .callout rect {
+    fill: rgba(36, 29, 23, 0.92);
+    stroke: none;
+  }
+
+  .callout-title { fill: #fff; font: 700 13px ui-sans-serif, system-ui, sans-serif; }
+  .callout-stat  { fill: #d8cfc4; font: 12px ui-sans-serif, system-ui, sans-serif; }
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <p class="kicker">Illustrative data feature</p>
+  <h1>Who Gets the Cover?</h1>
+  <p class="dek">Six seasons of runway bookings and magazine placements, sorted
+     by skin-tone cohort, tell a story the industry doesn't put in a press
+     release.</p>
+  <p>Every year, fashion trade press publishes diversity counts — how many
+     models of color walked which runways. Those counts are real and useful,
+     but they answer a narrower question than the one most readers actually
+     have. Being cast is not the same as being seen: a model can walk a dozen
+     shows a season and never land a cover, never anchor a campaign, never
+     become the face anyone remembers. The gap between <em>appearing</em> and
+     <em>being centered</em> is where colorism does its quietest work, and it
+     rarely shows up in a simple headcount.</p>
+  <p>The scatter below is a composite, illustrative reconstruction — not a
+     verified dataset — built to make that gap visible. Each of the sixty
+     dots is a hypothetical working model from a recent fashion-week cycle,
+     plotted by two independent measures: how often she walked (left to
+     right) and how often she appeared on a magazine cover (bottom to top).
+     Color marks a six-step skin-tone cohort, from fairest to richly deep.
+     Scroll to see how exposure concentrates in the upper right — and how
+     thin it gets everywhere else.</p>
+
+  <article class="scrolly" id="colorism" data-layout="side-left" data-offset="0.5">
+
+    <figure aria-hidden="true">
+      <svg class="chart" viewBox="0 0 640 440" xmlns="http://www.w3.org/2000/svg">
+        <line class="axis" x1="30" y1="30" x2="30" y2="410"></line>
+        <line class="axis" x1="30" y1="410" x2="610" y2="410"></line>
+        <text class="axis-label" x="30" y="18">more magazine covers ↑</text>
+        <text class="axis-label" x="470" y="430">more runway bookings →</text>
+      <circle class="dot" data-cohort="medium" cx="320" cy="156.7" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="175" cy="283.3" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="465" cy="72.2" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="102.5" cy="198.9" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="392.5" cy="325.6" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="247.5" cy="114.4" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="537.5" cy="241.1" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="66.3" cy="367.8" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="356.3" cy="44.1" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="211.3" cy="170.7" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="501.3" cy="297.4" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="138.8" cy="86.3" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="428.8" cy="213" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="283.8" cy="339.6" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="573.8" cy="128.5" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="48.1" cy="255.2" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="338.1" cy="381.9" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="193.1" cy="58.1" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="483.1" cy="184.8" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="120.6" cy="311.5" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="410.6" cy="100.4" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="265.6" cy="227" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="555.6" cy="353.7" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="84.4" cy="142.6" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="374.4" cy="269.3" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="229.4" cy="395.9" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="519.4" cy="34.7" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="156.9" cy="161.4" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="446.9" cy="288" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="301.9" cy="76.9" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="591.9" cy="203.6" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="39.1" cy="330.2" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="329.1" cy="119.1" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="184.1" cy="245.8" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="474.1" cy="372.5" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="111.6" cy="48.8" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="401.6" cy="175.4" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="256.6" cy="302.1" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="546.6" cy="91" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="75.3" cy="217.7" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="365.3" cy="344.3" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="220.3" cy="133.2" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="510.3" cy="259.9" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="147.8" cy="386.5" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="437.8" cy="62.8" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="292.8" cy="189.5" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="582.8" cy="316.2" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="57.2" cy="105.1" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="347.2" cy="231.7" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="202.2" cy="358.4" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="492.2" cy="147.3" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="129.7" cy="274" r="7"></circle>
+      <circle class="dot" data-cohort="deep" cx="419.7" cy="400.6" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="274.7" cy="39.4" r="7"></circle>
+      <circle class="dot" data-cohort="fairest" cx="564.7" cy="166" r="7"></circle>
+      <circle class="dot" data-cohort="richly-deep" cx="93.4" cy="292.7" r="7"></circle>
+      <circle class="dot" data-cohort="fair" cx="383.4" cy="81.6" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="238.4" cy="208.3" r="7"></circle>
+      <circle class="dot" data-cohort="medium" cx="528.4" cy="334.9" r="7"></circle>
+      <circle class="dot" data-cohort="tan" cx="165.9" cy="123.8" r="7"></circle>
+      <g class="callout" data-show="fairest" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Fairest skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">31% of covers analyzed, 16% of the industry’s working models</text>
+      </g>
+      <g class="callout" data-show="fair" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Fair skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">24% of covers, 19% of working models</text>
+      </g>
+      <g class="callout" data-show="medium" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Medium skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">18% of covers, 20% of working models</text>
+      </g>
+      <g class="callout" data-show="tan" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Tan skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">13% of covers, 17% of working models</text>
+      </g>
+      <g class="callout" data-show="deep" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Deep skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">9% of covers, 15% of working models</text>
+      </g>
+      <g class="callout" data-show="richly-deep" aria-hidden="true">
+        <rect x="16" y="16" width="230" height="52" rx="6"></rect>
+        <text x="30" y="38" class="callout-title">Richly Deep skin-tone cohort</text>
+        <text x="30" y="58" class="callout-stat">5% of covers, 13% of working models</text>
+      </g>
+      </svg>
+    </figure>
+
+    <section class="step" id="fairest">
+      <div>
+        <h2>The fairest cohort owns the upper right.</h2>
+        <p>Ten models make up this cohort in our sample. They cluster toward
+           heavy bookings and frequent covers — the highest concentration of
+           any group, out of proportion to their share of working models.</p>
+      </div>
+    </section>
+
+    <section class="step" id="fair">
+      <div>
+        <h2>One shade darker, the picture already thins.</h2>
+        <p>The fair cohort still books plenty of shows, but covers come less
+           often. It's a small shift in the data and a large one in who gets
+           remembered as the face of a season.</p>
+      </div>
+    </section>
+
+    <section class="step" id="medium">
+      <div>
+        <h2>The middle of the scale is the middle of everything.</h2>
+        <p>Medium-toned models sit near the center of both axes: enough
+           bookings to stay working, rarely enough covers to become a name a
+           casual reader would recognize.</p>
+      </div>
+    </section>
+
+    <section class="step" id="tan">
+      <div>
+        <h2>For years, almost nothing here moved.</h2>
+        <p>Diversity reports from this period show rising headcounts on the
+           runway nearly every season — more faces, more agencies, more
+           press releases about progress. But the cover data barely budged
+           for the tan cohort across that same stretch: the same handful of
+           names recirculated, the same clustering toward the lower half of
+           the chart persisted year over year, and the "more diverse season"
+           headlines kept arriving without a matching shift in who actually
+           got centered. Casting expanded a great deal faster than editorial
+           attention did, and the gap between the two is exactly what this
+           chart is built to hold still long enough to see.</p>
+      </div>
+    </section>
+
+    <section class="step" id="deep">
+      <div>
+        <h2>Deep-toned models book steadily, cover rarely.</h2>
+        <p>This cohort is not underrepresented on runways in our sample —
+           it's underrepresented in the rooms that decide who becomes a
+           magazine's face. Bookings hold; covers thin further still.</p>
+      </div>
+    </section>
+
+    <section class="step" id="richly-deep">
+      <div>
+        <h2>Richly deep models show the widest gap of all.</h2>
+        <p>The smallest cover share in the sample sits with the cohort
+           closest to the runway's darkest end — the clearest illustration
+           of why headcount alone was never the right measure of progress.</p>
+      </div>
+    </section>
+
+  </article>
+
+  <p>None of the figures above are drawn from a single verified dataset —
+     they're an illustrative composite built to demonstrate how a
+     season-by-season cover analysis might read, modeled loosely on the kind
+     of reporting outlets like The Pudding have published on colorism in high
+     fashion. The pattern it dramatizes, though, tracks a body of real
+     industry reporting: runway diversity counts have climbed for a decade
+     while editorial-cover diversity has moved far more slowly, and the
+     lighter end of any given casting call still converts to cover time at a
+     noticeably higher rate. Headcount answers "who was cast." It has never
+     answered "who was seen."</p>
+  <p class="fineprint">Chart and copy are a demonstration built for the
+     scrolly library and are not affiliated with, or sourced from, The
+     Pudding or any specific publication.</p>
+</main>
+
+<script>/*!
+ * scrolly — the scrollytelling framework
+ *
+ * You write the DOM, scrolly runs the state machine, effects live in your CSS.
+ *
+ * Document model:
+ *   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+ *     <figure> …graphic; children tagged data-show="step-id …"… </figure>
+ *     <section class="step" id="intro">…</section>
+ *     <section class="step" id="crash">…</section>
+ *   </article>
+ *
+ * State machine output (all effects belong in CSS):
+ *   steps            → .is-past / .is-active / .is-future
+ *   [data-show] els  → .is-shown while a listed step is active
+ *   root             → [data-active-step="…"], --step-progress, --story-progress
+ *
+ * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
+ *   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+ */
+(() => {
+  'use strict'
+
+  const OFFSET = 0.5
+  const clamp = v => Math.min(1, Math.max(0, v))
+  const stepId = (el, i) => el.id || String(i)
+  const instances = new WeakMap()
+
+  class Story {
+    constructor (root, opts = {}) {
+      this.root = root
+      this.offset = parseFloat(root.dataset.offset ?? opts.offset ?? OFFSET)
+      this.graphic = root.querySelector(':scope > figure')
+      this.steps = [...root.querySelectorAll(':scope > .step')]
+      this.shown = this.graphic ? [...this.graphic.querySelectorAll('[data-show]')] : []
+      this.active = -1
+      this._engaged = false
+      this._ticking = false
+      this._subs = []
+      this._onScroll = this._onScroll.bind(this)
+      this._onKey = this._onKey.bind(this)
+
+      // Observe the story itself; the scroll loop only runs while it's on screen.
+      this._io = new IntersectionObserver(entries => {
+        this._engage(entries.some(e => e.isIntersecting))
+      }, { rootMargin: '100px 0px' })
+      this._io.observe(root)
+
+      this.steps.forEach(s => s.classList.add('is-future'))
+      // stamped last: hiding CSS is scoped under it, so a JS failure
+      // leaves the page fully readable
+      root.classList.add('is-ready')
+      this._update()
+    }
+
+    _engage (on) {
+      if (on === this._engaged) return
+      this._engaged = on
+      const fn = on ? 'addEventListener' : 'removeEventListener'
+      window[fn]('scroll', this._onScroll, { passive: true })
+      window[fn]('resize', this._onScroll)
+      window[fn]('keydown', this._onKey)
+      if (on) this._update()
+    }
+
+    // ←/→ step between chapters while the story is on screen. Vertical
+    // scroll keys stay the browser's — stepping is an enhancement, never
+    // scroll-jacking.
+    _onKey (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      const next = this.active + (e.key === 'ArrowRight' ? 1 : -1)
+      if (next < 0 || next >= this.steps.length) return
+      e.preventDefault()
+      const trigger = window.innerHeight * this.offset
+      const top = this.steps[next].getBoundingClientRect().top + window.scrollY
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: top - trigger + 2, behavior: reduce ? 'auto' : 'smooth' })
+    }
+
+    _onScroll () {
+      if (this._ticking) return
+      this._ticking = true
+      requestAnimationFrame(() => {
+        this._ticking = false
+        this._update()
+      })
+    }
+
+    _update () {
+      if (!this.steps.length) return
+      const trigger = window.innerHeight * this.offset
+
+      // Active step = the last one whose top has crossed the trigger line.
+      let active = -1
+      for (const [i, step] of this.steps.entries()) {
+        if (step.getBoundingClientRect().top > trigger) break
+        active = i
+      }
+      if (active !== this.active) this._activate(active)
+
+      const first = this.steps[0].getBoundingClientRect()
+      const last = this.steps[this.steps.length - 1].getBoundingClientRect()
+      const story = clamp((trigger - first.top) / Math.max(1, last.bottom - first.top))
+
+      // Step progress runs over the chapter: this step's top → the next step's top.
+      let step = 0
+      if (active >= 0) {
+        const r = this.steps[active].getBoundingClientRect()
+        const next = this.steps[active + 1]
+        const end = next ? next.getBoundingClientRect().top : r.bottom
+        step = clamp((trigger - r.top) / Math.max(1, end - r.top))
+      }
+
+      this.root.style.setProperty('--story-progress', story.toFixed(4))
+      this.root.style.setProperty('--step-progress', step.toFixed(4))
+      if (active >= 0) {
+        this._emit('progress', { ...this._detail(active), progress: step, storyProgress: story })
+      }
+    }
+
+    _activate (next) {
+      const prev = this.active
+      const direction = next > prev ? 'down' : 'up'
+      this.active = next
+
+      this.steps.forEach((s, i) => {
+        s.classList.toggle('is-past', next > -1 && i < next)
+        s.classList.toggle('is-active', i === next)
+        s.classList.toggle('is-future', next < 0 || i > next)
+      })
+
+      const id = next >= 0 ? stepId(this.steps[next], next) : null
+      if (id === null) this.root.removeAttribute('data-active-step')
+      else this.root.setAttribute('data-active-step', id)
+
+      for (const el of this.shown) {
+        const ids = el.dataset.show.split(/\s+/)
+        el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      }
+
+      if (prev >= 0) this._emit('stepexit', { ...this._detail(prev), direction })
+      if (next >= 0) this._emit('stepenter', { ...this._detail(next), direction })
+    }
+
+    _detail (i) {
+      return { step: this.steps[i], id: stepId(this.steps[i], i), index: i }
+    }
+
+    _emit (name, detail) {
+      this.root.dispatchEvent(new CustomEvent(`scrolly:${name}`, { detail, bubbles: true }))
+    }
+
+    on (name, fn) {
+      const type = `scrolly:${name}`
+      const handler = e => fn(e.detail)
+      this.root.addEventListener(type, handler)
+      this._subs.push([type, handler])
+      return () => {
+        this.root.removeEventListener(type, handler)
+        const i = this._subs.findIndex(s => s[1] === handler)
+        if (i !== -1) this._subs.splice(i, 1)
+      }
+    }
+
+    destroy () {
+      this._io.disconnect()
+      this._engage(false)
+      this._subs.forEach(([type, handler]) => this.root.removeEventListener(type, handler))
+      this._subs = []
+      this.steps.forEach(s => s.classList.remove('is-past', 'is-active', 'is-future'))
+      this.shown.forEach(el => el.classList.remove('is-shown'))
+      this.root.classList.remove('is-ready')
+      this.root.removeAttribute('data-active-step')
+      this.root.style.removeProperty('--step-progress')
+      this.root.style.removeProperty('--story-progress')
+      instances.delete(this.root)
+    }
+  }
+
+  const Scrolly = {
+    version: '0.0.1',
+
+    /**
+     * Scrolly.init()          → Story[] for every .scrolly on the page
+     * Scrolly.init(target)    → Story for a selector or element
+     * Idempotent per element: re-init returns the existing Story.
+     */
+    init (target, opts) {
+      const get = el => {
+        if (!instances.has(el)) instances.set(el, new Story(el, opts))
+        return instances.get(el)
+      }
+      if (target === undefined) {
+        return [...document.querySelectorAll('.scrolly')].map(get)
+      }
+      const el = typeof target === 'string' ? document.querySelector(target) : target
+      if (!el) throw new Error(`scrolly: no element matches ${target}`)
+      return get(el)
+    }
+  }
+
+  if (typeof window !== 'undefined') window.Scrolly = Scrolly
+})()
+</script>
+<script>Scrolly.init()</script>
+
+</body>
+</html>
