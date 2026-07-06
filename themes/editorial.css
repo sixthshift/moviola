@@ -1,0 +1,41 @@
+/*!
+ * scrolly/themes/editorial.css — opt-in typography, warm serif.
+ *
+ * Typography/color only (SPEC §2.4): no geometry, no positioning, no
+ * at-rules. Load after scrolly.css. Card knobs feed the structural layer's
+ * --scrolly-card-bg / --scrolly-card-fg (SPEC §6.1).
+ */
+
+.scrolly {
+  --scrolly-card-bg: #f7f0e4;
+  --scrolly-card-fg: #2c2116;
+}
+
+.step h1,
+.step h2,
+.step h3,
+.step h4 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  color: #2c2116;
+}
+
+.step p {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  letter-spacing: 0.005em;
+  color: #4a3c2c;
+  max-width: 38rem;
+}
+
+.scrolly figure figcaption,
+.scrolly figure .caption {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-style: italic;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  color: #8a7355;
+}

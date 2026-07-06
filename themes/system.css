@@ -1,0 +1,40 @@
+/*!
+ * scrolly/themes/system.css — opt-in typography, tight neutral system-ui.
+ *
+ * Typography/color only (SPEC §2.4): no geometry, no positioning, no
+ * at-rules. Load after scrolly.css. Card knobs feed the structural layer's
+ * --scrolly-card-bg / --scrolly-card-fg (SPEC §6.1).
+ */
+
+.scrolly {
+  --scrolly-card-bg: #ffffff;
+  --scrolly-card-fg: #14161a;
+}
+
+.step h1,
+.step h2,
+.step h3,
+.step h4 {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #14161a;
+}
+
+.step p {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  letter-spacing: 0em;
+  color: #40454d;
+  max-width: 30rem;
+}
+
+.scrolly figure figcaption,
+.scrolly figure .caption {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
