@@ -323,6 +323,11 @@ violates principle 5 — scrolly observes scroll, never owns it).
   (§11); ESM build; keyboard stepping (scroll to next/prev step —
   enhancement, never scroll-jacking); 2–3 example stories (image sequence,
   D3, overlay); a11y decision from §8.
+- **v0.4 — cinematic**: the motion layer (§15) — chapter timelines
+  (`--progress-<id>` + `data-scrub`), the declarative camera
+  (`data-camera`/`data-focus`), morph (`data-morph`); runtime diagnostics
+  and director tooling (§15.6); gallery re-cuts as the acceptance test
+  (§15.7).
 - **v1.0 — public**: name settled; npm + CDN; demo site (GitHub Pages);
   themes (typography presets); `full` layout decision executed.
 
@@ -400,3 +405,274 @@ Per target, parity means:
 
 The recreations double as the example gallery (§12 v0.2/v1.0) — the suite
 is not throwaway test matter; it is the public proof and the marketing.
+
+---
+
+## 15. The motion layer (v0.4 proposal) ⬜
+
+**Status: draft for review — nothing below is implemented.**
+
+### 15.0 The gap this closes
+
+The contract has solved *states*: declaring what each chapter looks like is
+one attribute (`data-show`, `data-active-step`). What it has not made
+declarative is the space **between** states — dots migrating, a camera
+flying, a value counting up. Today that in-between is exactly where authors
+fall off the zero-JS path into `stepenter` callbacks: every Tier 2 target in
+§14 is Tier 2 *only* because interpolation between graphic keyframes has no
+declarative surface. The motion layer is one idea applied three ways:
+
+> scrolly compiles scroll into state; the motion layer compiles **state
+> changes** into platform-native motion — keyframes, camera, morph.
+
+Nothing here adds a rendering engine. Each primitive emits CSS-reactable
+state (principle 2) or batches the writes scrolly already makes; the
+browser renders all motion (CSS animations, View Transitions).
+
+### 15.1 DX axioms (normative for this layer's design)
+
+The adopter thesis (§1) is that AI agents and human developers are the same
+audience at different speeds: **if the surface is intuitive for a human to
+write and read, it is cheap and unambiguous for a model to emit.** A
+capability that needs a mental calculator, a config object, or a second
+file fails both audiences at once. Hence:
+
+1. **Author in the medium you're already writing.** Intent lives as
+   attributes on the step, next to the prose it choreographs; effects live
+   in CSS. No new file, no options object, no DSL.
+2. **The read-aloud test.** Every attribute must read as a stage direction:
+   `data-focus="#wuhan"`, `data-scrub="trains"`, `data-morph`. A newcomer
+   reading the HTML should be able to narrate the film without docs.
+3. **The zero-math rule.** The library owns every number a human would need
+   a calculator for (camera transforms, log-space zoom, monotonic progress
+   bookkeeping). The author owns every number that is a creative choice
+   (keyframe percentages, colors, framing).
+4. **View-source learnability.** Every primitive must be demonstrable in a
+   self-contained `file://` page; reading any gallery example teaches the
+   whole surface (the reveal.js property).
+5. **A progressive-disclosure ladder.** `data-show` (states) →
+   `data-scrub` (motion) → `data-focus` (camera) → `data-morph`
+   (interpolation) → events (escape hatch). Each rung is optional,
+   learnable in isolation, and never required by the rung above it.
+6. **Mistakes fail soft and speak up.** A dangling id or selector never
+   breaks the page (state holds, story keeps working) — and the runtime
+   says so in the console (§15.6). Silence is the worst DX.
+
+### 15.2 Chapter timelines — `--progress-<id>` and `data-scrub` ⬜
+
+**Problem.** `--step-progress` is one shared variable that resets each
+chapter, so nothing persistent can be hung on it; authors who want
+sequenced, scrubbed, *held* motion write JS.
+
+**Output (runtime).** For every step with an id, the root carries a
+monotonic per-chapter variable:
+
+| Variable | Semantics |
+|---|---|
+| `--progress-<id>` | `0` before the step's chapter, `0 → 1` through it (same span as `--step-progress`, §5.2), **holds `1`** after. Monotonic over scroll position; scrolling up mirrors exactly. |
+
+Per-frame cost stays bounded by step count (§5.3: two writes become
+`2 + N`). Ids must be valid custom-property idents (kebab-case, already the
+documented convention); steps without ids get no variable.
+
+**Mechanic (structural CSS + one init-time stamp).** Any element inside the
+story may declare `data-scrub="<step-id>"` (or valueless for the whole
+story). At init the runtime stamps it once with
+`--t: var(--progress-<id>)` (or `var(--story-progress)`); structural CSS
+supplies the scrubbing, the same way it already supplies the `data-show`
+crossfade:
+
+```css
+.scrolly.is-ready [data-scrub] {
+  animation-duration: 1s;          /* normalized; keyframes are the timeline */
+  animation-play-state: paused;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--t, 0) * -1s);
+}
+```
+
+The author writes a `@keyframes` and one attribute — the whole feature:
+
+```html
+<circle class="train" data-scrub="trains" r="4"/>
+```
+```css
+.train { offset-path: url(#rail-beijing); animation-name: ride; }
+@keyframes ride { from { offset-distance: 0% } to { offset-distance: 100% } }
+```
+
+Read aloud: *"this element rides its rail as the reader scrolls the
+`trains` chapter; scrolling back rewinds it; it stays arrived afterwards."*
+Scrubbed particles, camera moves, counters, build-ins — anything
+`@keyframes` can express — with zero JS and full reverse/jump correctness
+for free (the variable is a pure function of scroll position, §5.1).
+
+Rules:
+- Composability: `data-scrub` and `data-show` coexist on one element
+  (visibility × motion are orthogonal).
+- The mechanic is a default, not a contract: authors may override any of
+  the four `animation-*` declarations (e.g. re-derive `animation-delay`
+  from `--t` with a stagger term). The *variables* are the contract.
+- Degradation: unscoped pages (JS never ran) simply play the animation once
+  — readable, never blank (§8.1). `destroy()` removes the stamps.
+- Reduced motion: the raw variables stream (existing §8 stance), but the
+  structural mechanic quantizes — `animation-delay:
+  calc(round(var(--t, 0)) * -1s)` — so every scrub becomes a **cut at the
+  chapter midpoint**. One consistent story: under reduced motion, all
+  motion-layer output degrades to cuts.
+- ❓ Whether `data-scrub="a b"` (multi-chapter spans) is worth the added
+  semantics in v0.4 — defer unless a §14 target demands it.
+
+### 15.3 The declarative camera — `data-camera`, `data-focus`, `data-zoom` ⬜
+
+**Problem.** The dominant ambitious genre is a camera over a large canvas
+(map, chart, illustration). Today the rig is author-land calculator work:
+compose `translate(cx,cy) scale(k) translate(-x,-y)` per chapter by hand.
+This is exactly the §15.1-axiom-3 number the library should own.
+
+**Document model.** One element inside the graphic opts in as the stage:
+
+```html
+<figure>
+  <svg viewBox="0 0 2000 1000">
+    <g data-camera> …the world, including <circle id="wuhan"/>… </g>
+  </svg>
+</figure>
+<section class="step" id="outbreak" data-focus="#wuhan" data-zoom="6">…</section>
+<section class="step" id="trains"   data-focus="#china-east">…</section>
+<section class="step" id="world"    data-focus="#the-map">…</section>
+```
+
+A step's `data-focus` is a selector into the graphic naming *what to look
+at*; `data-zoom` is an optional magnification (default: **fit** — frame the
+target's box at ~70% of the stage, the framing a human means by "look at
+this"). The root may carry its own `data-focus` as the establishing shot
+used while no step is active.
+
+**Output.** The runtime resolves each shot to a transform in the camera
+element's untransformed coordinate space (inverting the current matrix via
+`DOMMatrix`/`getCTM`; endpoints re-measured on resize and on late layout
+changes, never per frame) and emits one composed custom property on the
+root, continuously interpolated:
+
+| Variable | Semantics |
+|---|---|
+| `--camera-transform` | the current shot; between two focused steps it interpolates across the earlier step's chapter progress — pan linear, **zoom in log space** (linear zoom reads as lurching; this is zero-math-rule territory) |
+
+Structural CSS applies it — the camera is geometry, squarely in
+scrolly.css's remit:
+
+```css
+.scrolly.is-ready [data-camera] { transform: var(--camera-transform, none); }
+```
+
+Author experience: mark the stage, point each step at a thing. No CSS, no
+numbers, no math — and the flight is scroll-scrubbed, so it is
+deterministic at every scroll position (reverse, jumps, and the §14
+validator's settle windows all hold by construction; no transition-timing
+tuning like the v0.3-era recreations needed).
+
+Rules:
+- Steps without `data-focus` hold the previous shot (mirrors §5.1 state
+  retention).
+- A `data-focus` selector that matches nothing: camera holds, console
+  diagnostic (§15.6) — never a throw, never a jump to identity.
+- Cuts instead of flights remain available one rung down the ladder
+  (`data-active-step` × transform recipe, unchanged).
+- Reduced motion: interpolation quantizes to the nearer shot — cuts, not
+  flights (same rule as §15.2).
+- ❓ Easing/apex control (van Wijk–Nuij smooth pan-zoom paths) — likely
+  v0.5; scroll pace is the reader's easing, so linear/log may be enough.
+- ❓ Non-selector shots (`data-focus="1200 400 3"` raw coordinates) —
+  defer; invisible anchor elements are idiomatic and view-source-teachable.
+
+### 15.4 Morph — `data-morph` (View Transitions) ⬜
+
+**Problem.** The regroup genre (§14 *Punishing Reach*: N elements
+re-sorting per chapter) is Tier 2 purely because moving-between-states
+needs FLIP math. The platform now ships FLIP natively.
+
+**Semantics.** With `data-morph` on the root, the runtime wraps each
+step-change's DOM writes (§5.2's atomic class/attribute/`is-shown` batch)
+in `document.startViewTransition()`. Any element the author names with CSS
+`view-transition-name` travels between its old and new rendered state;
+everything else cross-fades as today. All customization happens in author
+CSS on the `::view-transition-*` pseudo-elements — scrolly still only
+writes state.
+
+Rules (ordering and honesty guarantees):
+- Events keep their §7.1 contract exactly — `stepexit`/`stepenter` fire
+  synchronously with the state writes; the morph is fire-and-forget and can
+  never delay or reorder them. Progress variables are **never** routed
+  through transitions.
+- Latest-wins: a new step-change arriving mid-morph skips the in-flight
+  transition (`skipTransition()`); fast scrolling degrades to cuts, never a
+  queue.
+- No support / `prefers-reduced-motion`: no-op — cuts, identical to today.
+  `data-morph` is a pure progressive enhancement.
+- Generated collections name themselves in their own render code
+  (`el.style.viewTransitionName = 'dot-' + i`) — one line inside
+  author-land, still graphic-only glue (Tier 2 budget), or
+  `view-transition-name: auto` where supported. ❓ Whether auto-naming
+  moves a regroup story all the way to Tier 1 — decide during the §15.7
+  re-cut.
+
+### 15.5 What the motion layer is not (scope guards)
+
+- Not a chart/map renderer, not a physics/easing engine, not scroll
+  hijacking — §2's non-goals all still bind. The camera never touches
+  `scrollTop`; the reader's finger remains the playhead.
+- Not a timeline *format*: there is no `data-duration`, no sequencing
+  config. Time in this layer is scroll distance, expressed in the author's
+  own `@keyframes` percentages.
+- Not required: every v0.3 page runs unchanged; each primitive is opt-in by
+  one attribute.
+
+### 15.6 Diagnostics and the director's tools ⬜
+
+Writing is half the loop; *seeing* is the other half. reveal.js's ease is
+overview mode as much as its markup. scrollytelling's authoring loop today
+is scroll-down-scroll-up-squint; these close it:
+
+1. **Runtime diagnostics (in core).** `console.warn` with a `scrolly:`
+   prefix for referential mistakes that today fail silently: a `data-show`
+   / `data-scrub` / `data-focus` token matching no step or element; a
+   `data-camera` with no focused step. Diagnostics never alter behavior
+   (fail-soft rule, §15.1.6). ❓ Stripped from `scrolly.min.js` or kept —
+   decide by measuring; kept is better DX if the budget holds.
+2. **`scrolly-director.js` (separate opt-in file, like themes — zero core
+   bytes).** One script tag during authoring adds: the **trigger line
+   drawn on screen** with its offset value (the single most confusing
+   invisible concept in the medium); a chapter rail with click-to-jump and
+   live per-chapter progress meters; a state chip showing
+   `data-active-step`, both progress values, and current `is-shown`
+   elements. Toggle with `d`.
+3. **Contact sheets from the validator.** `validate-story.mjs --report
+   out.html` emits its per-step forward/reverse screenshots as a browsable
+   storyboard — the machine's eyes handed to the human. The capture
+   machinery already exists (§14); this is an output format.
+
+### 15.7 Conformance and acceptance
+
+- **Size**: the existing §3 bars hold — no amendment. Measured headroom at
+  proposal time: `scrolly.min.js` 2146 B of 4096 B gzipped, `scrolly.css`
+  1226 B of 2048 B. The three primitives are estimated ≲ 1 KB gzipped
+  combined; if implementation threatens the bar, the camera (largest) moves
+  to a separate opt-in file *before* the bar moves.
+- **Semantics**: `--progress-<id>` and `--camera-transform` interpolation
+  land in `geometry.ts` as pure functions, unit-tested like §5.
+- **The acceptance test is the gallery, again (§14 discipline):**
+  - `virus-got-out` re-cut with `data-camera`/`data-focus` +
+    `data-scrub` — camera *flights* replace the v0.3 transition cuts —
+    still passes `--tier1`.
+  - `dots-flow` re-cut with `data-morph` — the `stepenter` redraw JS
+    shrinks to graphic rendering only (or to zero if auto-naming pans out).
+  - `scroll-linked` re-cut with `data-scrub` replacing its progress-event
+    JS — passes `--tier1`.
+  - One net-new recreation exercising camera + scrub together at Tier 1
+    (candidate: R2D3's continuous zoom-tour, §14).
+- **The DX bar, made falsifiable (§10 discipline):** a fresh Claude Code
+  session given only the updated SKILL.md produces a working
+  camera-and-scrub story on the first render; a human developer given only
+  a gallery example's view-source reproduces the camera rig without
+  reading this spec. Both are release gates for v0.4.

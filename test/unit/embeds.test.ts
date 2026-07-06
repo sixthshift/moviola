@@ -29,9 +29,9 @@ const extract = (html: string, mark: string, tag: string): string => {
 const EMBED_DIRS = ['examples', 'e2e/fixtures-broken', 'e2e/fixtures-clean']
 
 describe('marker blocks embed the built library byte-identically', () => {
-  test('all five examples are present', () => {
+  test('all six examples are present', () => {
     expect(readdirSync(path.join(root, 'examples')).filter(f => f.endsWith('.html'))).toHaveLength(
-      5
+      6
     )
   })
 

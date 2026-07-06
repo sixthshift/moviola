@@ -94,6 +94,7 @@ verified against `scripts/validate-story.mjs --tier1`.
 | `examples/dots-flow.html` | 2 | Bidirectional particle-flow SVG re-triggered per step via `stepenter`, `side-right` layout |
 | `examples/scroll-linked.html` | 2 | Continuous scroll-linked SVG transform driven by `--step-progress`, `overlay` layout |
 | `examples/longform.html` | 3 | Three independent stories on one page, mixing `side-right`, `overlay`, and `side-left` layouts |
+| `examples/virus-got-out.html` | 1 | Structural recreation of the SPEC §14 Tier 2 target *How the Virus Got Out* (NYT 2020): CSS camera fly-tos per step, SMIL particle flows, a scroll-linked case bloom on `--story-progress`, chapter theming, `overlay` layout — zero author JS |
 
 ## Themes
 
