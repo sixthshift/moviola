@@ -1,64 +1,79 @@
 /*
- * The SPEC made executable: §5 state-machine semantics, §7 API, §8.1 no-JS,
- * §3 size budget — asserted against real Chrome over test/fixture.html.
+ * The SPEC made executable: §5 state-machine semantics, §7 API, §8.1 no-JS —
+ * asserted against real Chromium over e2e/fixture.html (which loads the dist
+ * build: we test what ships). The §3 size budget lives in test/unit/size.
  *
  * Fixture geometry: viewport 1000×800 → trigger line at 400.
  * Document tops: step a=2000, b=3000, c=4500 (500px gap after b).
+ *
+ * Tests are serial on one page: each scroll position builds on the last, and
+ * the recorded event log is cumulative by design.
  */
-import { test, expect, beforeAll, afterAll } from 'bun:test'
-import { gzipSync } from 'bun'
-import puppeteer from 'puppeteer-core'
+import { expect, type Page, test } from '@playwright/test'
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const FIXTURE = `file://${import.meta.dir}/fixture.html`
-
-let browser, page
-
-const snapshot = () => page.evaluate(() => {
-  const root = document.querySelector('#story')
-  const cls = id => [...document.getElementById(id).classList]
-    .filter(c => c.startsWith('is-')).sort().join(' ')
-  return {
-    ready: root.classList.contains('is-ready'),
-    activeStep: root.getAttribute('data-active-step'),
-    a: cls('a'), b: cls('b'), c: cls('c'),
-    ga: document.getElementById('ga').classList.contains('is-shown'),
-    gbc: document.getElementById('gbc').classList.contains('is-shown'),
-    stepProgress: parseFloat(root.style.getPropertyValue('--step-progress')),
-    storyProgress: parseFloat(root.style.getPropertyValue('--story-progress')),
-    events: window.__events.slice()
+declare global {
+  interface Window {
+    __events: [string, string, string][]
+    __story: { destroy(): void }
+    Scrolly: { init(target: string): unknown }
   }
+}
+
+const FIXTURE = `file://${import.meta.dirname}/fixture.html`
+
+test.describe.configure({ mode: 'serial' })
+
+let page: Page
+
+test.beforeAll(async ({ browser }) => {
+  page = await browser.newPage()
+  await page.goto(FIXTURE)
 })
 
-const scrollToAndSettle = async (y, expectActive) => {
+test.afterAll(async () => {
+  await page.close()
+})
+
+const snapshot = () =>
+  page.evaluate(() => {
+    const root = document.querySelector('#story') as HTMLElement
+    const cls = (id: string) =>
+      [...(document.getElementById(id) as HTMLElement).classList]
+        .filter(c => c.startsWith('is-'))
+        .sort()
+        .join(' ')
+    return {
+      ready: root.classList.contains('is-ready'),
+      activeStep: root.getAttribute('data-active-step'),
+      a: cls('a'),
+      b: cls('b'),
+      c: cls('c'),
+      ga: (document.getElementById('ga') as HTMLElement).classList.contains('is-shown'),
+      gbc: (document.getElementById('gbc') as HTMLElement).classList.contains('is-shown'),
+      stepProgress: parseFloat(root.style.getPropertyValue('--step-progress')),
+      storyProgress: parseFloat(root.style.getPropertyValue('--story-progress')),
+      events: window.__events.slice(),
+    }
+  })
+
+const scrollToAndSettle = async (y: number, expectActive: string) => {
   await page.evaluate(y => window.scrollTo(0, y), y)
   await page.waitForFunction(
-    id => document.querySelector('#story').getAttribute('data-active-step') === id,
-    { timeout: 3000 },
-    expectActive
+    id => document.querySelector('#story')?.getAttribute('data-active-step') === id,
+    expectActive,
+    { timeout: 3000 }
   )
   // one extra frame so progress vars from the same update are flushed
   await page.evaluate(() => new Promise(r => requestAnimationFrame(r)))
 }
 
-beforeAll(async () => {
-  browser = await puppeteer.launch({ executablePath: CHROME, headless: true })
-  page = await browser.newPage()
-  await page.setViewport({ width: 1000, height: 800 })
-  await page.goto(FIXTURE)
-})
-
-afterAll(async () => {
-  await browser?.close()
-})
-
-test('§8.1 no-JS: page readable, graphic states visible', async () => {
-  const nojs = await browser.newPage()
-  await nojs.setJavaScriptEnabled(false)
-  await nojs.setViewport({ width: 1000, height: 800 })
-  await nojs.goto(FIXTURE)
-  const opacity = await nojs.evaluate(() =>
-    getComputedStyle(document.getElementById('ga')).opacity)
+test('§8.1 no-JS: page readable, graphic states visible', async ({ browser }) => {
+  const nojs = await browser.newContext({ javaScriptEnabled: false })
+  const p = await nojs.newPage()
+  await p.goto(FIXTURE)
+  const opacity = await p.evaluate(
+    () => getComputedStyle(document.getElementById('ga') as HTMLElement).opacity
+  )
   expect(opacity).toBe('1')
   await nojs.close()
 })
@@ -101,7 +116,8 @@ test('§5.1/§5.2 step b: classes, data-show list membership, chapter progress o
   expect(s.stepProgress).toBeCloseTo(0.0333, 2)
   expect(s.events).toEqual([
     ['enter', 'a', 'down'],
-    ['exit', 'a', 'down'], ['enter', 'b', 'down']
+    ['exit', 'a', 'down'],
+    ['enter', 'b', 'down'],
   ])
 })
 
@@ -131,25 +147,29 @@ test('§5.1 reverse scroll: exact mirror, direction=up', async () => {
   expect(s.c).toBe('is-future')
   expect(s.ga).toBe(true)
   expect(s.gbc).toBe(false)
-  expect(s.events.slice(-2)).toEqual([['exit', 'c', 'up'], ['enter', 'a', 'up']])
+  expect(s.events.slice(-2)).toEqual([
+    ['exit', 'c', 'up'],
+    ['enter', 'a', 'up'],
+  ])
 })
 
 test('§7.2 init is idempotent per element', async () => {
-  const same = await page.evaluate(() => Scrolly.init('#story') === window.__story)
+  const same = await page.evaluate(() => window.Scrolly.init('#story') === window.__story)
   expect(same).toBe(true)
 })
 
 test('§7.2/§7.3 destroy restores the DOM; re-init works fresh', async () => {
   const after = await page.evaluate(() => {
     window.__story.destroy()
-    const root = document.querySelector('#story')
+    const root = document.querySelector('#story') as HTMLElement
     return {
       ready: root.classList.contains('is-ready'),
       activeStep: root.getAttribute('data-active-step'),
-      classes: [...document.querySelectorAll('.step')]
-        .flatMap(s => [...s.classList].filter(c => c.startsWith('is-'))),
+      classes: [...document.querySelectorAll('.step')].flatMap(s =>
+        [...s.classList].filter(c => c.startsWith('is-'))
+      ),
       shown: document.querySelectorAll('.is-shown').length,
-      stepProgress: root.style.getPropertyValue('--step-progress')
+      stepProgress: root.style.getPropertyValue('--step-progress'),
     }
   })
   expect(after.ready).toBe(false)
@@ -159,15 +179,11 @@ test('§7.2/§7.3 destroy restores the DOM; re-init works fresh', async () => {
   expect(after.stepProgress).toBe('')
 
   const fresh = await page.evaluate(() => {
-    const s = Scrolly.init('#story')
-    return s !== window.__story && document.querySelector('#story').classList.contains('is-ready')
+    const s = window.Scrolly.init('#story')
+    return (
+      s !== window.__story &&
+      (document.querySelector('#story') as HTMLElement).classList.contains('is-ready')
+    )
   })
   expect(fresh).toBe(true)
-})
-
-test('§3 size budget: ≤4KB gz JS, ≤2KB gz CSS', async () => {
-  const js = gzipSync(await Bun.file(`${import.meta.dir}/../src/scrolly.js`).arrayBuffer())
-  const css = gzipSync(await Bun.file(`${import.meta.dir}/../src/scrolly.css`).arrayBuffer())
-  expect(js.length).toBeLessThanOrEqual(4096)
-  expect(css.length).toBeLessThanOrEqual(2048)
 })

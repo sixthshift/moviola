@@ -2,22 +2,44 @@
   "name": "scrolly",
   "version": "0.0.1",
   "description": "The scrollytelling framework — you write the DOM, scrolly runs the state machine, effects live in your CSS.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/scrolly.esm.js",
+  "types": "./dist/scrolly.d.ts",
   "exports": {
-    ".": "./src/scrolly.js",
-    "./scrolly.css": "./src/scrolly.css",
+    ".": {
+      "types": "./dist/scrolly.d.ts",
+      "default": "./dist/scrolly.esm.js"
+    },
+    "./scrolly.css": "./dist/scrolly.css",
     "./dist/*": "./dist/*"
   },
   "files": [
+    "dist",
     "src",
-    "dist"
+    "themes"
   ],
-  "license": "MIT",
+  "sideEffects": false,
   "scripts": {
-    "test": "bun test",
-    "build": "node scripts/build.mjs"
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "bun run build && playwright test",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "bun run typecheck && bun run lint && bun run test && bun run test:e2e && node scripts/check-links.mjs && git diff --exit-code dist examples skill/assets"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.2",
+    "@microsoft/api-extractor": "^7.58.9",
+    "@playwright/test": "^1.61.1",
     "esbuild": "^0.28.1",
-    "puppeteer-core": "^25.3.0"
+    "happy-dom": "^20.10.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3",
+    "vite-plugin-dts": "^5.0.3",
+    "vitest": "^4.1.9"
   }
 }

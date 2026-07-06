@@ -1,0 +1,42 @@
+# Scaffolded by the `devcontainer` skill.
+services:
+  dev:
+    container_name: scrolly-dev
+    # PID-1 init (tini) reaps the child processes browsers leave behind —
+    # without it, every crashed/killed Chromium accumulates as a zombie.
+    init: true
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      # Keep node_modules in a container-private volume so the host (macOS)
+      # and this Debian container don't fight over one bind-mounted dir:
+      # native binaries are platform-specific, and `bun install` only
+      # materializes the current platform's. postCreateCommand repopulates it.
+      - scrolly-node-modules:/workspace/node_modules
+      - claude-config:/root/.claude
+      # Commit identity + signing config. SSH keys are deliberately NOT
+      # mounted — git auth uses SSH agent forwarding (VS Code forwards
+      # SSH_AUTH_SOCK automatically when ssh-agent runs on the host).
+      - ~/.gitconfig:/root/.gitconfig:ro
+    env_file:
+      # Relative to this file's directory (single-compose-file setup; the
+      # merge pattern would resolve from the root compose file instead).
+      - .env
+    environment:
+      - NODE_ENV=development
+      - TZ=Australia/Sydney
+      # Playwright resolves its image-baked browsers from here (set in the
+      # Dockerfile too; repeated so `docker compose exec` shells see it).
+      - PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+    ports:
+      - '3098:3098' # Static preview (examples)
+    command: sleep infinity
+    working_dir: /workspace
+
+volumes:
+  scrolly-node-modules:
+    driver: local
+  claude-config:
+    driver: local

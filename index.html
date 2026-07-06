@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scrolly — the scrollytelling framework</title>
-<link rel="stylesheet" href="src/scrolly.css">
+<link rel="stylesheet" href="dist/scrolly.css">
 <style>
   /* ---- demo page styling (not part of the lib) ---- */
   :root {
@@ -282,7 +282,7 @@
   <p><code>&lt;script src="scrolly.js"&gt;&lt;/script&gt; · Scrolly.init()</code></p>
 </footer>
 
-<script src="src/scrolly.js"></script>
+<script src="dist/scrolly.iife.js"></script>
 <script>
   const [story] = Scrolly.init()
   story.on('stepenter', ({ id, direction }) =>

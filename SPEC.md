@@ -58,7 +58,7 @@ Primary adopters, in order:
 | Requirement | Bar | Status |
 |---|---|---|
 | Zero runtime dependencies | hard | ✅ |
-| Size budget | ≤ 4 KB gzipped JS, ≤ 2 KB gzipped CSS | ✅ (2.1 KB + 1.2 KB) |
+| Size budget | ≤ 4 KB gzipped JS, ≤ 2 KB gzipped CSS | ✅ (measured on `dist/` by `test/unit/size.test.ts`) |
 | Works from `file://` | classic script, no modules required | ✅ |
 | Browser baseline | last-2-years evergreen (IntersectionObserver, CSS grid, custom properties, `:scope`, `100dvh` with `vh` fallback) | ✅ |
 | No-JS degradation | page remains fully readable (§8.1) | ✅ |
@@ -238,8 +238,19 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
 ## 9. Packaging & distribution
 
 - v0: classic script exposing `window.Scrolly`; CSS file alongside. ✅
-- ✅ v0.2: dual ESM/classic build (hand-maintained wrapper acceptable at
-  this size; no bundler in the repo).
+- ✅ v0.2: dual ESM/classic build (originally a hand-maintained wrapper;
+  see the v0.3 amendment below).
+- ✅ **v0.3 amendment — internal toolchain**: `src/` is TypeScript modules
+  built by Vite (`bun run build`); `dist/` is generated and committed. The
+  *consumer* contract is unchanged and remains the conformance bar (§3):
+  classic script from `file://`, zero runtime dependencies, size budgets.
+  The bundler is repo tooling, never a consumer requirement. The canonical
+  runtime artifact — the bytes embedded in examples, `skill/assets/`, and
+  matched by the §14 validator's lib detection — is `dist/scrolly.iife.js`,
+  kept in sync everywhere by `scripts/sync-embeds.mjs` and asserted by
+  `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
+  `window.Scrolly`; the ESM build exports the same object as its default
+  with no global side effect.
 - ⬜ npm publish + CDN (jsdelivr/unpkg) once the name is settled.
 - ❓ **Name**: "scrolly" is used semi-generically in the community and the
   npm name is likely taken. Verify; fallbacks to brainstorm if collision

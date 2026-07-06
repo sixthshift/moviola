@@ -1,0 +1,31 @@
+{
+  "name": "Scrolly Dev Container",
+  "dockerComposeFile": "docker-compose.dev.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+
+  "containerEnv": {
+    "ENABLE_LSP_TOOLS": "1",
+    "CLAUDE_CONFIG_DIR": "/root/.claude",
+    "IS_SANDBOX": "1"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["oven.bun-vscode", "ms-azuretools.vscode-docker", "mhutchie.git-graph"],
+      "settings": {
+        "dev.containers.dockerCredentialHelper": false,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "forwardPorts": [3098],
+  "portsAttributes": {
+    "3098": { "label": "Static preview (examples)", "onAutoForward": "notify" }
+  },
+
+  "postCreateCommand": "if [ -f package.json ]; then bun install; else echo 'No package.json yet — skipping bun install'; fi",
+
+  "remoteUser": "root"
+}

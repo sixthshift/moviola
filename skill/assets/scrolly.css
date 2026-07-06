@@ -68,10 +68,18 @@
   grid-row: 1 / span 999;
 }
 
-.scrolly[data-layout="side-right"] > figure { grid-column: 2; }
-.scrolly[data-layout="side-right"] > .step  { grid-column: 1; }
-.scrolly[data-layout="side-left"]  > figure { grid-column: 1; }
-.scrolly[data-layout="side-left"]  > .step  { grid-column: 2; }
+.scrolly[data-layout="side-right"] > figure {
+  grid-column: 2;
+}
+.scrolly[data-layout="side-right"] > .step {
+  grid-column: 1;
+}
+.scrolly[data-layout="side-left"] > figure {
+  grid-column: 1;
+}
+.scrolly[data-layout="side-left"] > .step {
+  grid-column: 2;
+}
 
 /* ---- overlay layout ------------------------------------------------------ */
 

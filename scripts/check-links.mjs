@@ -18,27 +18,39 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
-const DEFAULT_FILES = ['README.md', 'SPEC.md', 'docs/recipes.md'].map(f => path.join(ROOT, f))
+const DEFAULT_FILES = [
+  'README.md',
+  'SPEC.md',
+  'ARCHITECTURE.md',
+  'CONTRIBUTING.md',
+  'docs/recipes.md',
+].map(f => path.join(ROOT, f))
 
 const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/g
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]+)"|'([^']+)')/g
 
-function stripFencedCode (text) {
+function stripFencedCode(text) {
   let inFence = false
-  return text.split('\n').map(line => {
-    if (/^\s*```/.test(line)) { inFence = !inFence; return '' }
-    return inFence ? '' : line
-  }).join('\n')
+  return text
+    .split('\n')
+    .map(line => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence
+        return ''
+      }
+      return inFence ? '' : line
+    })
+    .join('\n')
 }
 
-function isInScope (target) {
+function isInScope(target) {
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target)) return false // scheme (http:, mailto:, …)
   if (target.startsWith('#')) return false // same-page fragment
   if (target.startsWith('/')) return false // root-absolute, not relative
   return true
 }
 
-function findLinks (text) {
+function findLinks(text) {
   const links = []
   const lines = stripFencedCode(text).split('\n')
   lines.forEach((line, i) => {
@@ -54,7 +66,7 @@ function findLinks (text) {
   return links
 }
 
-function checkFile (file) {
+function checkFile(file) {
   const text = fs.readFileSync(file, 'utf8')
   const unresolved = []
   for (const { line, target } of findLinks(text)) {
@@ -65,9 +77,11 @@ function checkFile (file) {
   return unresolved
 }
 
-function main () {
+function main() {
   const argFiles = process.argv.slice(2)
-  const files = (argFiles.length ? argFiles : DEFAULT_FILES).map(f => path.resolve(process.cwd(), f))
+  const files = (argFiles.length ? argFiles : DEFAULT_FILES).map(f =>
+    path.resolve(process.cwd(), f)
+  )
 
   const missing = files.filter(f => !fs.existsSync(f))
   if (missing.length) {
@@ -79,7 +93,9 @@ function main () {
 
   if (allUnresolved.length) {
     for (const u of allUnresolved) {
-      console.error(`${path.relative(process.cwd(), u.file)}:${u.line}: unresolved link "${u.target}" -> ${u.resolved}`)
+      console.error(
+        `${path.relative(process.cwd(), u.file)}:${u.line}: unresolved link "${u.target}" -> ${u.resolved}`
+      )
     }
     process.exit(1)
   }
