@@ -62,6 +62,8 @@ export declare class Story {
     private _io;
     private _onScroll;
     private _onKey;
+    /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
+    private _progressIds;
     constructor(root: HTMLElement, opts?: ScrollyOptions);
     private _engage;
     private _tick;

@@ -52,6 +52,12 @@ const snapshot = () =>
       gbc: (document.getElementById('gbc') as HTMLElement).classList.contains('is-shown'),
       stepProgress: parseFloat(root.style.getPropertyValue('--step-progress')),
       storyProgress: parseFloat(root.style.getPropertyValue('--story-progress')),
+      // §15.2
+      progress: {
+        a: parseFloat(root.style.getPropertyValue('--progress-a')),
+        b: parseFloat(root.style.getPropertyValue('--progress-b')),
+        c: parseFloat(root.style.getPropertyValue('--progress-c')),
+      },
       events: window.__events.slice(),
     }
   })
@@ -102,6 +108,10 @@ test('§5.1/§5.2 step a activates when its top crosses the trigger', async () =
   // story: first top 300 → last bottom 3800; (400-300)/3500
   expect(s.storyProgress).toBeCloseTo(0.0286, 2)
   expect(s.events).toEqual([['enter', 'a', 'down']])
+  // §15.2: --progress-a mirrors the active chapter's stepProgress; b/c are ahead, so 0
+  expect(s.progress.a).toBeCloseTo(0.1, 2)
+  expect(s.progress.b).toBe(0)
+  expect(s.progress.c).toBe(0)
 })
 
 test('§5.1/§5.2 step b: classes, data-show list membership, chapter progress over the gap', async () => {
@@ -119,6 +129,10 @@ test('§5.1/§5.2 step b: classes, data-show list membership, chapter progress o
     ['exit', 'a', 'down'],
     ['enter', 'b', 'down'],
   ])
+  // §15.2: a's chapter is fully passed (holds 1); b tracks --step-progress; c is ahead
+  expect(s.progress.a).toBe(1)
+  expect(s.progress.b).toBeCloseTo(0.0333, 2)
+  expect(s.progress.c).toBe(0)
 })
 
 test('§5.1 gap between steps: the earlier step stays active', async () => {
@@ -137,6 +151,10 @@ test('§5.1 last step activates; data-show carries across b→c', async () => {
   expect(s.gbc).toBe(true) // still shown: data-show="b c"
   // last chapter uses its own bottom: (400-300)/1000
   expect(s.stepProgress).toBeCloseTo(0.1, 2)
+  // §15.2: a and b are fully passed; c (active, last step) tracks --step-progress
+  expect(s.progress.a).toBe(1)
+  expect(s.progress.b).toBe(1)
+  expect(s.progress.c).toBeCloseTo(0.1, 2)
 })
 
 test('§5.1 reverse scroll: exact mirror, direction=up', async () => {
@@ -151,6 +169,21 @@ test('§5.1 reverse scroll: exact mirror, direction=up', async () => {
     ['exit', 'c', 'up'],
     ['enter', 'a', 'up'],
   ])
+  // §15.2: exact mirror of the forward pass through the same position — b/c
+  // are ahead of the active chapter again, so they drop back to 0, not 1.
+  expect(s.progress.a).toBeCloseTo(0.1, 2)
+  expect(s.progress.b).toBe(0)
+  expect(s.progress.c).toBe(0)
+})
+
+test('§5.1/§15.2 RED-TEAM: --progress-<id> is correct after the story is scrolled far past and re-enters the viewport', async () => {
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)) // well past c
+  await page.waitForTimeout(50) // let the IntersectionObserver disengage the scroll loop off-screen
+  await scrollToAndSettle(4200, 'c') // same position as the earlier "last step activates" assertion
+  const s = await snapshot()
+  expect(s.progress.a).toBe(1)
+  expect(s.progress.b).toBe(1)
+  expect(s.progress.c).toBeCloseTo(0.1, 2)
 })
 
 test('§7.2 init is idempotent per element', async () => {

@@ -40,3 +40,25 @@ export function storyProgress(firstTop: number, lastBottom: number, trigger: num
 export function stepProgress(top: number, end: number, trigger: number): number {
   return clamp((trigger - top) / Math.max(1, end - top))
 }
+
+/**
+ * Per-step chapter progress (§15.2): the active step's chapter is
+ * `stepProgress`; chapters already passed hold `1`; chapters not yet
+ * reached are `0`. Both `tops` and `ends` are indexed by step, `ends[i]`
+ * being the next step's top or (for the last step) its own bottom — the
+ * same span `stepProgress` already runs. Composing `activeIndex` and
+ * `stepProgress` means it inherits their exact-mirror-on-reverse property
+ * and is monotonic non-increasing across steps at any scroll position.
+ */
+export function chapterProgress(
+  tops: readonly number[],
+  ends: readonly number[],
+  trigger: number
+): number[] {
+  const active = activeIndex(tops, trigger)
+  return tops.map((top, i) => {
+    if (active < 0 || i > active) return 0
+    if (i < active) return 1
+    return stepProgress(top, ends[i] ?? top, trigger)
+  })
+}

@@ -5,12 +5,15 @@
  */
 
 import { emit, subscribe } from './events'
-import { activeIndex, stepProgress, storyProgress } from './geometry'
+import { activeIndex, chapterProgress, stepProgress, storyProgress } from './geometry'
 import { handleKeydown } from './keyboard'
 import type { ScrollyEventMap, ScrollyEventName, ScrollyOptions, StepDetail } from './types'
 
 const OFFSET = 0.5
 const stepId = (el: HTMLElement, i: number): string => el.id || String(i)
+// §15.2: --progress-<id> is only emitted for steps whose *own* id (not the
+// index fallback stepId() uses) is a valid custom-property ident.
+const VALID_IDENT = /^[A-Za-z0-9_-]+$/
 
 const instances = new WeakMap<HTMLElement, Story>()
 
@@ -33,6 +36,8 @@ export class Story {
   private _io: IntersectionObserver
   private _onScroll: () => void
   private _onKey: (e: KeyboardEvent) => void
+  /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
+  private _progressIds: Array<{ id: string; index: number }>
 
   constructor(root: HTMLElement, opts: ScrollyOptions = {}) {
     this.root = root
@@ -40,6 +45,9 @@ export class Story {
     this.graphic = root.querySelector(':scope > figure')
     this.steps = [...root.querySelectorAll<HTMLElement>(':scope > .step')]
     this.shown = this.graphic ? [...this.graphic.querySelectorAll<HTMLElement>('[data-show]')] : []
+    this._progressIds = this.steps
+      .map((s, index) => ({ id: s.id, index }))
+      .filter(({ id }) => VALID_IDENT.test(id))
     this._onScroll = () => this._tick()
     this._onKey = e => handleKeydown(e, this)
     instances.set(root, this)
@@ -89,11 +97,8 @@ export class Story {
     const active = activeIndex(tops, trigger)
     if (active !== this.active) this._activate(active)
 
-    const story = storyProgress(
-      first.getBoundingClientRect().top,
-      last.getBoundingClientRect().bottom,
-      trigger
-    )
+    const lastBottom = last.getBoundingClientRect().bottom
+    const story = storyProgress(first.getBoundingClientRect().top, lastBottom, trigger)
 
     let step = 0
     const current = this.steps[active]
@@ -106,6 +111,18 @@ export class Story {
 
     this.root.style.setProperty('--story-progress', story.toFixed(4))
     this.root.style.setProperty('--step-progress', step.toFixed(4))
+
+    if (this._progressIds.length > 0) {
+      // ends[i] is the next step's top, or (for the last step) its own
+      // bottom — reusing tops and lastBottom already read above, so this
+      // adds no getBoundingClientRect calls beyond the existing per-step read.
+      const ends = [...tops.slice(1), lastBottom]
+      const chapters = chapterProgress(tops, ends, trigger)
+      for (const { id, index } of this._progressIds) {
+        this.root.style.setProperty(`--progress-${id}`, (chapters[index] ?? 0).toFixed(4))
+      }
+    }
+
     if (active >= 0) {
       emit(this.root, 'progress', { ...this._detail(active), progress: step, storyProgress: story })
     }
@@ -164,6 +181,7 @@ export class Story {
     this.root.removeAttribute('data-active-step')
     this.root.style.removeProperty('--step-progress')
     this.root.style.removeProperty('--story-progress')
+    for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`)
     instances.delete(this.root)
   }
 }
