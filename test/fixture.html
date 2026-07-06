@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../src/scrolly.css">
+<style>
+  /* Known geometry so the spec's §5 math is exactly predictable:
+     viewport 1000×800 (set by the harness), trigger = 400.
+     Step tops (document): a=2000, b=3000, c=4500 (b has a 500px gap after). */
+  body { margin: 0; }
+  #spacer { height: 2000px; }
+  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  #b { margin-bottom: 500px; }
+</style>
+</head>
+<body>
+<div id="spacer"></div>
+
+<article id="story" class="scrolly" data-layout="side-right">
+  <figure>
+    <div data-show="a" id="ga">graphic A</div>
+    <div data-show="b c" id="gbc">graphic BC</div>
+    <div id="galways">always visible</div>
+  </figure>
+  <section class="step" id="a"><p>step a</p></section>
+  <section class="step" id="b"><p>step b</p></section>
+  <section class="step" id="c"><p>step c</p></section>
+</article>
+
+<div style="height: 1000px"></div>
+
+<script src="../src/scrolly.js"></script>
+<script>
+  window.__events = []
+  window.__story = Scrolly.init('#story')
+  window.__story.on('stepenter', d => window.__events.push(['enter', d.id, d.direction]))
+  window.__story.on('stepexit', d => window.__events.push(['exit', d.id, d.direction]))
+</script>
+</body>
+</html>
