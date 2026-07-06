@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scrolly — how a classifier learns (scroll-linked motion)</title>
+<style>
+/*!
+ * scrolly.css — structural layer only.
+ *
+ * Owns: sticky frame, layouts, mobile collapse, visibility mechanics.
+ * Does not own: your typography, colors, or graphic. Style those yourself,
+ * reacting to .is-active / [data-active-step] / --step-progress.
+ *
+ * Knobs (CSS custom properties, set them on .scrolly or :root):
+ *   --scrolly-card-bg   background of step cards in overlay/mobile modes
+ *   --scrolly-card-fg   text color of step cards in overlay/mobile modes
+ */
+
+.scrolly {
+  position: relative;
+}
+
+/* ---- the pinned graphic ------------------------------------------------- */
+
+.scrolly > figure {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* graphic children stack for crossfades */
+.scrolly > figure > * {
+  grid-area: 1 / 1;
+}
+
+/* step-driven visibility — hiding is scoped under .is-ready (stamped by the
+   runtime at init) so a page whose JS never ran stays fully readable */
+.scrolly.is-ready [data-show] {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.scrolly.is-ready [data-show].is-shown {
+  opacity: 1;
+}
+
+/* ---- steps --------------------------------------------------------------- */
+
+.scrolly > .step {
+  position: relative;
+  z-index: 1;
+  min-height: 90vh;
+  min-height: 90dvh;
+  display: grid;
+  align-content: center;
+}
+
+/* ---- side layouts -------------------------------------------------------- */
+
+.scrolly[data-layout="side-right"],
+.scrolly[data-layout="side-left"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2rem;
+}
+
+.scrolly[data-layout="side-right"] > figure,
+.scrolly[data-layout="side-left"] > figure {
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="side-right"] > figure { grid-column: 2; }
+.scrolly[data-layout="side-right"] > .step  { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > figure { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > .step  { grid-column: 2; }
+
+/* ---- overlay layout ------------------------------------------------------ */
+
+.scrolly[data-layout="overlay"] {
+  display: grid;
+}
+
+.scrolly[data-layout="overlay"] > figure {
+  grid-column: 1;
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="overlay"] > .step {
+  grid-column: 1;
+  justify-self: center;
+  width: min(34rem, calc(100% - 2rem));
+}
+
+/* A step's content reads as a card over the graphic. Keep each step's
+   content in a single block (wrap in a div if it's more than one). */
+.scrolly[data-layout="overlay"] > .step > * {
+  background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+  color: var(--scrolly-card-fg, inherit);
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+}
+
+/* ---- mobile: side layouts collapse to overlay ---------------------------- */
+
+@media (max-width: 720px) {
+  .scrolly[data-layout="side-right"],
+  .scrolly[data-layout="side-left"] {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .scrolly[data-layout="side-right"] > figure,
+  .scrolly[data-layout="side-left"] > figure,
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    grid-column: 1;
+  }
+
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    justify-self: center;
+    width: min(34rem, calc(100% - 2rem));
+  }
+
+  .scrolly[data-layout="side-right"] > .step > *,
+  .scrolly[data-layout="side-left"] > .step > * {
+    background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+    color: var(--scrolly-card-fg, inherit);
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ---- accessibility & print ----------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .scrolly.is-ready [data-show] {
+    transition: none;
+  }
+}
+
+@media print {
+  .scrolly > figure {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  .scrolly > figure > * {
+    grid-area: auto;
+  }
+
+  .scrolly.is-ready [data-show] {
+    opacity: 1;
+  }
+
+  .scrolly > .step {
+    min-height: 0;
+  }
+}
+</style>
+<style>
+  /* ---- page styling (not part of the lib) ---- */
+  :root {
+    --bg: #0b0f16;
+    --fg: #e7ecf5;
+    --muted: #93a0b8;
+    --cls-a: #6ea8fe;
+    --cls-b: #ffa657;
+    --scrolly-card-bg: rgba(10, 14, 22, 0.92);
+    --scrolly-card-fg: #f1f4fb;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 18px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  a { color: inherit; }
+
+  header, footer {
+    min-height: 60vh;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+  }
+
+  header h1 {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.02em;
+  }
+
+  header p, footer p { color: var(--muted); max-width: 34rem; margin: 0 auto; }
+
+  /* ---- the story ---- */
+
+  .scrolly > .step h2 {
+    font-size: 1.4rem;
+    margin: 0 0 0.6rem;
+    letter-spacing: -0.01em;
+  }
+
+  .scrolly > .step p {
+    margin: 0;
+    max-width: 28rem;
+  }
+
+  /* ---- the scene ---- */
+
+  .scrolly > figure svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .grid line {
+    stroke: #ffffff;
+    stroke-opacity: 0.06;
+    stroke-width: 1;
+  }
+
+  .cloud-points circle {
+    fill: #6b7688;
+  }
+
+  .cls-a circle {
+    fill: var(--cls-a);
+  }
+
+  .cls-b circle {
+    fill: var(--cls-b);
+  }
+
+  /* the two continuously-driven elements: different axes, different
+     coefficients, both pure functions of --step-progress, no steps() */
+  .points {
+    transform: translate(calc(var(--step-progress, 0) * 30px),
+                          calc(var(--step-progress, 0) * -20px));
+  }
+
+  .boundary {
+    transform-origin: 400px 300px;
+    transform: rotate(calc(-13deg + var(--step-progress, 0) * 24deg));
+  }
+
+  .boundary-line {
+    stroke: #f1f4fb;
+    stroke-width: 3;
+  }
+
+  .margin-line {
+    stroke: #f1f4fb;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 6;
+    stroke-opacity: 0.6;
+  }
+
+  .ring {
+    fill: none;
+    stroke: #ff5d7a;
+    stroke-width: 2.5;
+  }
+
+  .test-dot {
+    fill: var(--cls-b);
+    stroke: #f1f4fb;
+    stroke-width: 2;
+  }
+
+  .test-label {
+    fill: #f1f4fb;
+    font: 15px/1.2 ui-sans-serif, system-ui, sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>How a classifier learns</h1>
+  <p>Scroll to watch a straight line find the boundary between two classes —
+     one continuous adjustment at a time.</p>
+</header>
+
+<article class="scrolly" data-layout="overlay">
+
+  <figure aria-hidden="true">
+    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+
+      <g class="grid">
+        <line x1="100" y1="0" x2="100" y2="600"/>
+        <line x1="200" y1="0" x2="200" y2="600"/>
+        <line x1="300" y1="0" x2="300" y2="600"/>
+        <line x1="400" y1="0" x2="400" y2="600"/>
+        <line x1="500" y1="0" x2="500" y2="600"/>
+        <line x1="600" y1="0" x2="600" y2="600"/>
+        <line x1="700" y1="0" x2="700" y2="600"/>
+        <line x1="0" y1="100" x2="800" y2="100"/>
+        <line x1="0" y1="200" x2="800" y2="200"/>
+        <line x1="0" y1="300" x2="800" y2="300"/>
+        <line x1="0" y1="400" x2="800" y2="400"/>
+        <line x1="0" y1="500" x2="800" y2="500"/>
+      </g>
+
+      <g class="cloud-points" data-show="cloud">
+        <circle cx="140" cy="150" r="7"/>
+        <circle cx="200" cy="110" r="7"/>
+        <circle cx="110" cy="230" r="7"/>
+        <circle cx="230" cy="190" r="7"/>
+        <circle cx="170" cy="260" r="7"/>
+        <circle cx="260" cy="140" r="7"/>
+        <circle cx="90"  cy="320" r="7"/>
+        <circle cx="310" cy="230" r="7"/>
+        <circle cx="380" cy="220" r="7"/>
+        <circle cx="560" cy="420" r="7"/>
+        <circle cx="620" cy="360" r="7"/>
+        <circle cx="520" cy="480" r="7"/>
+        <circle cx="680" cy="300" r="7"/>
+        <circle cx="600" cy="500" r="7"/>
+        <circle cx="450" cy="420" r="7"/>
+        <circle cx="690" cy="460" r="7"/>
+        <circle cx="540" cy="350" r="7"/>
+        <circle cx="430" cy="340" r="7"/>
+      </g>
+
+      <g class="points" data-show="guess error refine converge generalize">
+        <g class="cls-a">
+          <circle cx="140" cy="150" r="7"/>
+          <circle cx="200" cy="110" r="7"/>
+          <circle cx="110" cy="230" r="7"/>
+          <circle cx="230" cy="190" r="7"/>
+          <circle cx="170" cy="260" r="7"/>
+          <circle cx="260" cy="140" r="7"/>
+          <circle cx="90"  cy="320" r="7"/>
+          <circle cx="310" cy="230" r="7"/>
+          <circle cx="380" cy="220" r="7"/>
+        </g>
+        <g class="cls-b">
+          <circle cx="560" cy="420" r="7"/>
+          <circle cx="620" cy="360" r="7"/>
+          <circle cx="520" cy="480" r="7"/>
+          <circle cx="680" cy="300" r="7"/>
+          <circle cx="600" cy="500" r="7"/>
+          <circle cx="450" cy="420" r="7"/>
+          <circle cx="690" cy="460" r="7"/>
+          <circle cx="540" cy="350" r="7"/>
+          <circle cx="430" cy="340" r="7"/>
+        </g>
+      </g>
+
+      <g class="err-rings" data-show="error">
+        <circle class="ring" cx="380" cy="220" r="14"/>
+        <circle class="ring" cx="430" cy="340" r="14"/>
+      </g>
+
+      <g class="boundary" data-show="guess error refine converge generalize">
+        <line class="boundary-line" x1="100" y1="460" x2="700" y2="140"/>
+        <g class="margins" data-show="refine converge generalize">
+          <line class="margin-line" x1="119" y1="495" x2="719" y2="175"/>
+          <line class="margin-line" x1="81"  y1="425" x2="681" y2="105"/>
+        </g>
+      </g>
+
+      <g class="test-point" data-show="generalize">
+        <circle class="test-dot" cx="250" cy="420" r="10"/>
+        <text class="test-label" x="264" y="416">unseen point</text>
+      </g>
+
+    </svg>
+  </figure>
+
+  <section class="step" id="cloud">
+    <div>
+      <h2>Start with a cloud of points.</h2>
+      <p>Before it learns anything, a classifier just sees points scattered
+         in space — no labels, no structure, only their coordinates. Feed it
+         enough examples like these, though, and a pattern usually starts to
+         emerge on its own, waiting for a boundary to reveal it.</p>
+    </div>
+  </section>
+
+  <section class="step" id="guess">
+    <div>
+      <h2>Label them, and take a first guess.</h2>
+      <p>Give each point a label — circle or diamond, spam or not spam —
+         and the model draws its very first boundary: a straight guess,
+         planted almost at random. It will be wrong for plenty of points,
+         and that is exactly how training begins.</p>
+    </div>
+  </section>
+
+  <section class="step" id="error">
+    <div>
+      <h2>Every mistake is a signal.</h2>
+      <p>Every point on the wrong side of that line contributes an error,
+         and the model measures precisely how far off each miss is. Those
+         errors become a signal: nudge the line a little, in the direction
+         that would have made more of them correct.</p>
+    </div>
+  </section>
+
+  <section class="step" id="refine">
+    <div>
+      <h2>The margin starts to widen.</h2>
+      <p>Nudge after nudge, the boundary rotates toward a cleaner split, and
+         the gap between the two classes — the margin — starts to widen. A
+         wider margin means the model is not just separating today's points,
+         but leaving room for ones it has never seen.</p>
+    </div>
+  </section>
+
+  <section class="step" id="converge">
+    <div>
+      <h2>The updates shrink to almost nothing.</h2>
+      <p>Eventually the updates shrink to almost nothing: the boundary has
+         settled where moving it further would only make things worse. This
+         resting point, not any single dramatic leap, is what training
+         actually optimizes for.</p>
+    </div>
+  </section>
+
+  <section class="step" id="generalize">
+    <div>
+      <h2>And it works on data it has never seen.</h2>
+      <p>Hand the finished boundary a point it never trained on, and it
+         still knows which side to put it on. That is the entire point of
+         learning a rule instead of memorizing examples — one line, one
+         continuous adjustment at a time, that generalizes.</p>
+    </div>
+  </section>
+
+</article>
+
+<footer>
+  <p>Two elements move on every scroll frame: the boundary rotates, the
+     points drift — both pure CSS, both driven by <code>--step-progress</code>.
+     Nothing here is scroll-jacked; the browser still owns the scroll.</p>
+</footer>
+
+<script>/*!
+ * scrolly — the scrollytelling framework
+ *
+ * You write the DOM, scrolly runs the state machine, effects live in your CSS.
+ *
+ * Document model:
+ *   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+ *     <figure> …graphic; children tagged data-show="step-id …"… </figure>
+ *     <section class="step" id="intro">…</section>
+ *     <section class="step" id="crash">…</section>
+ *   </article>
+ *
+ * State machine output (all effects belong in CSS):
+ *   steps            → .is-past / .is-active / .is-future
+ *   [data-show] els  → .is-shown while a listed step is active
+ *   root             → [data-active-step="…"], --step-progress, --story-progress
+ *
+ * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
+ *   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+ */
+(() => {
+  'use strict'
+
+  const OFFSET = 0.5
+  const clamp = v => Math.min(1, Math.max(0, v))
+  const stepId = (el, i) => el.id || String(i)
+  const instances = new WeakMap()
+
+  class Story {
+    constructor (root, opts = {}) {
+      this.root = root
+      this.offset = parseFloat(root.dataset.offset ?? opts.offset ?? OFFSET)
+      this.graphic = root.querySelector(':scope > figure')
+      this.steps = [...root.querySelectorAll(':scope > .step')]
+      this.shown = this.graphic ? [...this.graphic.querySelectorAll('[data-show]')] : []
+      this.active = -1
+      this._engaged = false
+      this._ticking = false
+      this._subs = []
+      this._onScroll = this._onScroll.bind(this)
+      this._onKey = this._onKey.bind(this)
+
+      // Observe the story itself; the scroll loop only runs while it's on screen.
+      this._io = new IntersectionObserver(entries => {
+        this._engage(entries.some(e => e.isIntersecting))
+      }, { rootMargin: '100px 0px' })
+      this._io.observe(root)
+
+      this.steps.forEach(s => s.classList.add('is-future'))
+      // stamped last: hiding CSS is scoped under it, so a JS failure
+      // leaves the page fully readable
+      root.classList.add('is-ready')
+      this._update()
+    }
+
+    _engage (on) {
+      if (on === this._engaged) return
+      this._engaged = on
+      const fn = on ? 'addEventListener' : 'removeEventListener'
+      window[fn]('scroll', this._onScroll, { passive: true })
+      window[fn]('resize', this._onScroll)
+      window[fn]('keydown', this._onKey)
+      if (on) this._update()
+    }
+
+    // ←/→ step between chapters while the story is on screen. Vertical
+    // scroll keys stay the browser's — stepping is an enhancement, never
+    // scroll-jacking.
+    _onKey (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      const next = this.active + (e.key === 'ArrowRight' ? 1 : -1)
+      if (next < 0 || next >= this.steps.length) return
+      e.preventDefault()
+      const trigger = window.innerHeight * this.offset
+      const top = this.steps[next].getBoundingClientRect().top + window.scrollY
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: top - trigger + 2, behavior: reduce ? 'auto' : 'smooth' })
+    }
+
+    _onScroll () {
+      if (this._ticking) return
+      this._ticking = true
+      requestAnimationFrame(() => {
+        this._ticking = false
+        this._update()
+      })
+    }
+
+    _update () {
+      if (!this.steps.length) return
+      const trigger = window.innerHeight * this.offset
+
+      // Active step = the last one whose top has crossed the trigger line.
+      let active = -1
+      for (const [i, step] of this.steps.entries()) {
+        if (step.getBoundingClientRect().top > trigger) break
+        active = i
+      }
+      if (active !== this.active) this._activate(active)
+
+      const first = this.steps[0].getBoundingClientRect()
+      const last = this.steps[this.steps.length - 1].getBoundingClientRect()
+      const story = clamp((trigger - first.top) / Math.max(1, last.bottom - first.top))
+
+      // Step progress runs over the chapter: this step's top → the next step's top.
+      let step = 0
+      if (active >= 0) {
+        const r = this.steps[active].getBoundingClientRect()
+        const next = this.steps[active + 1]
+        const end = next ? next.getBoundingClientRect().top : r.bottom
+        step = clamp((trigger - r.top) / Math.max(1, end - r.top))
+      }
+
+      this.root.style.setProperty('--story-progress', story.toFixed(4))
+      this.root.style.setProperty('--step-progress', step.toFixed(4))
+      if (active >= 0) {
+        this._emit('progress', { ...this._detail(active), progress: step, storyProgress: story })
+      }
+    }
+
+    _activate (next) {
+      const prev = this.active
+      const direction = next > prev ? 'down' : 'up'
+      this.active = next
+
+      this.steps.forEach((s, i) => {
+        s.classList.toggle('is-past', next > -1 && i < next)
+        s.classList.toggle('is-active', i === next)
+        s.classList.toggle('is-future', next < 0 || i > next)
+      })
+
+      const id = next >= 0 ? stepId(this.steps[next], next) : null
+      if (id === null) this.root.removeAttribute('data-active-step')
+      else this.root.setAttribute('data-active-step', id)
+
+      for (const el of this.shown) {
+        const ids = el.dataset.show.split(/\s+/)
+        el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      }
+
+      if (prev >= 0) this._emit('stepexit', { ...this._detail(prev), direction })
+      if (next >= 0) this._emit('stepenter', { ...this._detail(next), direction })
+    }
+
+    _detail (i) {
+      return { step: this.steps[i], id: stepId(this.steps[i], i), index: i }
+    }
+
+    _emit (name, detail) {
+      this.root.dispatchEvent(new CustomEvent(`scrolly:${name}`, { detail, bubbles: true }))
+    }
+
+    on (name, fn) {
+      const type = `scrolly:${name}`
+      const handler = e => fn(e.detail)
+      this.root.addEventListener(type, handler)
+      this._subs.push([type, handler])
+      return () => {
+        this.root.removeEventListener(type, handler)
+        const i = this._subs.findIndex(s => s[1] === handler)
+        if (i !== -1) this._subs.splice(i, 1)
+      }
+    }
+
+    destroy () {
+      this._io.disconnect()
+      this._engage(false)
+      this._subs.forEach(([type, handler]) => this.root.removeEventListener(type, handler))
+      this._subs = []
+      this.steps.forEach(s => s.classList.remove('is-past', 'is-active', 'is-future'))
+      this.shown.forEach(el => el.classList.remove('is-shown'))
+      this.root.classList.remove('is-ready')
+      this.root.removeAttribute('data-active-step')
+      this.root.style.removeProperty('--step-progress')
+      this.root.style.removeProperty('--story-progress')
+      instances.delete(this.root)
+    }
+  }
+
+  const Scrolly = {
+    version: '0.0.1',
+
+    /**
+     * Scrolly.init()          → Story[] for every .scrolly on the page
+     * Scrolly.init(target)    → Story for a selector or element
+     * Idempotent per element: re-init returns the existing Story.
+     */
+    init (target, opts) {
+      const get = el => {
+        if (!instances.has(el)) instances.set(el, new Story(el, opts))
+        return instances.get(el)
+      }
+      if (target === undefined) {
+        return [...document.querySelectorAll('.scrolly')].map(get)
+      }
+      const el = typeof target === 'string' ? document.querySelector(target) : target
+      if (!el) throw new Error(`scrolly: no element matches ${target}`)
+      return get(el)
+    }
+  }
+
+  if (typeof window !== 'undefined') window.Scrolly = Scrolly
+})()
+</script>
+<script>
+Scrolly.init()
+</script>
+
+</body>
+</html>
