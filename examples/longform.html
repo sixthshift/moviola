@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Weight of Snow — a scrolly longform example</title>
+<style>
+/*!
+ * scrolly.css — structural layer only.
+ *
+ * Owns: sticky frame, layouts, mobile collapse, visibility mechanics.
+ * Does not own: your typography, colors, or graphic. Style those yourself,
+ * reacting to .is-active / [data-active-step] / --step-progress.
+ *
+ * Knobs (CSS custom properties, set them on .scrolly or :root):
+ *   --scrolly-card-bg   background of step cards in overlay/mobile modes
+ *   --scrolly-card-fg   text color of step cards in overlay/mobile modes
+ */
+
+.scrolly {
+  position: relative;
+}
+
+/* ---- the pinned graphic ------------------------------------------------- */
+
+.scrolly > figure {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* graphic children stack for crossfades */
+.scrolly > figure > * {
+  grid-area: 1 / 1;
+}
+
+/* step-driven visibility — hiding is scoped under .is-ready (stamped by the
+   runtime at init) so a page whose JS never ran stays fully readable */
+.scrolly.is-ready [data-show] {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.scrolly.is-ready [data-show].is-shown {
+  opacity: 1;
+}
+
+/* ---- steps --------------------------------------------------------------- */
+
+.scrolly > .step {
+  position: relative;
+  z-index: 1;
+  min-height: 90vh;
+  min-height: 90dvh;
+  display: grid;
+  align-content: center;
+}
+
+/* ---- side layouts -------------------------------------------------------- */
+
+.scrolly[data-layout="side-right"],
+.scrolly[data-layout="side-left"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2rem;
+}
+
+.scrolly[data-layout="side-right"] > figure,
+.scrolly[data-layout="side-left"] > figure {
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="side-right"] > figure { grid-column: 2; }
+.scrolly[data-layout="side-right"] > .step  { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > figure { grid-column: 1; }
+.scrolly[data-layout="side-left"]  > .step  { grid-column: 2; }
+
+/* ---- overlay layout ------------------------------------------------------ */
+
+.scrolly[data-layout="overlay"] {
+  display: grid;
+}
+
+.scrolly[data-layout="overlay"] > figure {
+  grid-column: 1;
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="overlay"] > .step {
+  grid-column: 1;
+  justify-self: center;
+  width: min(34rem, calc(100% - 2rem));
+}
+
+/* A step's content reads as a card over the graphic. Keep each step's
+   content in a single block (wrap in a div if it's more than one). */
+.scrolly[data-layout="overlay"] > .step > * {
+  background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+  color: var(--scrolly-card-fg, inherit);
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+}
+
+/* ---- mobile: side layouts collapse to overlay ---------------------------- */
+
+@media (max-width: 720px) {
+  .scrolly[data-layout="side-right"],
+  .scrolly[data-layout="side-left"] {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .scrolly[data-layout="side-right"] > figure,
+  .scrolly[data-layout="side-left"] > figure,
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    grid-column: 1;
+  }
+
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    justify-self: center;
+    width: min(34rem, calc(100% - 2rem));
+  }
+
+  .scrolly[data-layout="side-right"] > .step > *,
+  .scrolly[data-layout="side-left"] > .step > * {
+    background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+    color: var(--scrolly-card-fg, inherit);
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ---- accessibility & print ----------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .scrolly.is-ready [data-show] {
+    transition: none;
+  }
+}
+
+@media print {
+  .scrolly > figure {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  .scrolly > figure > * {
+    grid-area: auto;
+  }
+
+  .scrolly.is-ready [data-show] {
+    opacity: 1;
+  }
+
+  .scrolly > .step {
+    min-height: 0;
+  }
+}
+
+</style>
+<style>
+  /* ---- editorial page styling (not part of the lib) ---- */
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: #faf6ee;
+    color: #201c16;
+    font: 19px/1.65 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  }
+
+  h1, h2 { font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif; }
+
+  a { color: inherit; }
+
+  .kicker {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #8a7a5c;
+    margin: 0 0 0.6rem;
+  }
+
+  /* ---- masthead ---- */
+
+  .masthead {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 4rem;
+    text-align: center;
+  }
+
+  .masthead h1 {
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0 0 1.2rem;
+  }
+
+  .masthead .dek {
+    font-size: 1.2rem;
+    color: #4b4436;
+    margin: 0 0 1.5rem;
+  }
+
+  .masthead .byline {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: #8a7a5c;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---- flowing prose sections between stories ---- */
+
+  .prose {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem;
+  }
+
+  .prose p {
+    font-size: 1.15rem;
+    color: #2c261c;
+  }
+
+  /* ---- story typography (structure is the lib's; this is aesthetics only) --- */
+
+  .scrolly {
+    --scrolly-card-bg: rgba(250, 246, 238, 0.94);
+    --scrolly-card-fg: #201c16;
+    padding: 0 clamp(1rem, 4vw, 3.5rem);
+  }
+
+  .scrolly .step .kicker { transition: color 0.4s ease; }
+
+  .scrolly .step h2 {
+    font-size: 1.7rem;
+    line-height: 1.2;
+    margin: 0 0 0.6rem;
+    letter-spacing: -0.01em;
+  }
+
+  .scrolly .step p:not(.kicker) {
+    color: #4b4436;
+    max-width: 26rem;
+  }
+
+  .scrolly .step > div { max-width: 28rem; }
+
+  /* Act I — The Approach: dawn accent warms as the route climbs. */
+  #story-approach[data-active-step="basecamp"]  .kicker { color: #5b6b8c; }
+  #story-approach[data-active-step="treeline"]  .kicker { color: #c96a3f; }
+  #story-approach[data-active-step="ridge"]     .kicker { color: #3f7fae; }
+  #story-approach[data-active-step="camp-two"]  .kicker { color: #6a4f9c; }
+
+  /* Act II — The Storm: overlay cards read light-on-dark throughout. */
+  #story-storm {
+    --scrolly-card-bg: rgba(10, 14, 21, 0.82);
+    --scrolly-card-fg: #f3efe4;
+  }
+  #story-storm .kicker { color: #cdd6df; }
+
+  /* Act III — The Descent: ice blue cools to hearth gold. */
+  #story-descent[data-active-step="crevasse"] .kicker { color: #2b6f8f; }
+  #story-descent[data-active-step="rope"]     .kicker { color: #2f6690; }
+  #story-descent[data-active-step="thaw"]     .kicker { color: #3f8a5c; }
+  #story-descent[data-active-step="home"]     .kicker { color: #b5722a; }
+
+  /* ---- the graphics: one SVG per story, full scenes crossfade on data-show -- */
+
+  .scrolly figure svg { width: 100%; height: 100%; max-width: 32rem; }
+  #story-storm figure svg { max-width: none; }
+
+  .scene-label {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 11px;
+    fill: currentColor;
+    opacity: 0.85;
+  }
+
+  /* ---- footer ---- */
+
+  footer {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    text-align: center;
+    color: #8a7a5c;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+  }
+
+  footer code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <p class="kicker">Field Dispatch · A Fictional Account</p>
+  <h1>The Weight of Snow</h1>
+  <p class="dek">Six climbers, one invented spire, and the three weeks
+     between a plan and whatever a mountain actually gives you.</p>
+  <p class="byline">A demonstration piece built with scrolly — not a real
+     expedition, not a real mountain.</p>
+</header>
+
+<main>
+
+<section class="prose">
+  <p>In the last week of April, a six-person team set out to place a route
+     on the north face of a mountain that, for the purposes of this
+     fictional account, we will call Kestrel Spire — a granite horn rising
+     just above eight thousand meters in a range that exists only in these
+     pages. None of the six had climbed together before. What they shared
+     was a belief, common to every expedition that has ever left a base
+     camp, that the mountain could be read: that its weather, its
+     snowpack, and its temperament could be anticipated closely enough to
+     survive a closer look. They were wrong about exactly how closely, and
+     this is the story of that gap.</p>
+</section>
+
+<article class="scrolly" id="story-approach" data-layout="side-right">
+  <figure aria-hidden="true">
+    <svg viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="approach-sky-basecamp" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#232f4a"/>
+          <stop offset="1" stop-color="#54628a"/>
+        </linearGradient>
+        <linearGradient id="approach-sky-treeline" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ff9a56"/>
+          <stop offset="1" stop-color="#ffd9ac"/>
+        </linearGradient>
+        <linearGradient id="approach-sky-ridge" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#bfe3ff"/>
+          <stop offset="1" stop-color="#eaf6ff"/>
+        </linearGradient>
+        <linearGradient id="approach-sky-camp-two" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#241a44"/>
+          <stop offset="1" stop-color="#4b3b73"/>
+        </linearGradient>
+      </defs>
+
+      <!-- basecamp: pre-dawn, dark blue, stars still out -->
+      <g data-show="basecamp">
+        <rect x="0" y="0" width="400" height="500" fill="url(#approach-sky-basecamp)"/>
+        <circle cx="70" cy="60" r="1.4" fill="#fff"/>
+        <circle cx="140" cy="40" r="1.1" fill="#fff"/>
+        <circle cx="310" cy="70" r="1.4" fill="#fff"/>
+        <circle cx="250" cy="30" r="1" fill="#fff"/>
+        <polygon points="40,430 190,120 340,430" fill="#161e33"/>
+        <polygon points="120,430 190,240 260,430" fill="#0f1524"/>
+        <polygon points="60,430 90,380 120,430" fill="#0d3320"/>
+        <polygon points="100,430 130,370 160,430" fill="#0d3320"/>
+        <polygon points="260,430 290,375 320,430" fill="#0d3320"/>
+        <rect x="150" y="440" width="26" height="16" rx="2" fill="#3a3226"/>
+        <rect x="190" y="440" width="26" height="16" rx="2" fill="#3a3226"/>
+        <circle cx="190" cy="420" r="5" fill="#ffb457"/>
+        <text x="200" y="480" text-anchor="middle" class="scene-label" fill="#dfe6f5">basecamp · 4,100m</text>
+      </g>
+
+      <!-- treeline: dawn breaking, warm sky, thinning trees -->
+      <g data-show="treeline">
+        <rect x="0" y="0" width="400" height="500" fill="url(#approach-sky-treeline)"/>
+        <circle cx="335" cy="415" r="26" fill="#fff3d6"/>
+        <polygon points="40,430 190,120 340,430" fill="#8a5a3f"/>
+        <polygon points="120,430 190,240 260,430" fill="#6b4530"/>
+        <polygon points="55,430 78,388 101,430" fill="#3d5c33"/>
+        <polygon points="90,430 113,378 136,430" fill="#3d5c33"/>
+        <polygon points="270,430 293,392 316,430" fill="#3d5c33"/>
+        <path d="M190,420 L185,300 L192,220" stroke="#c23b2c" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>
+        <circle cx="190" cy="420" r="5" fill="#c23b2c"/>
+        <text x="200" y="480" text-anchor="middle" class="scene-label" fill="#5b3a24">treeline · 4,600m</text>
+      </g>
+
+      <!-- ridge: full daylight, pale blue, exposed rock -->
+      <g data-show="ridge">
+        <rect x="0" y="0" width="400" height="500" fill="url(#approach-sky-ridge)"/>
+        <circle cx="330" cy="70" r="24" fill="#fff6cf"/>
+        <polygon points="40,430 190,120 340,430" fill="#7d8794"/>
+        <polygon points="120,430 190,240 260,430" fill="#5c6674"/>
+        <path d="M120,430 L150,340 L135,300 L175,255" stroke="#3b3f47" stroke-width="2" fill="none" opacity="0.6"/>
+        <path d="M260,430 L235,350 L255,300" stroke="#3b3f47" stroke-width="2" fill="none" opacity="0.6"/>
+        <path d="M190,420 L185,300 L192,220 L188,160 L194,128" stroke="#c23b2c" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>
+        <circle cx="194" cy="128" r="5" fill="#c23b2c"/>
+        <path d="M60,150 L90,140 M300,180 L330,168" stroke="#fff" stroke-width="2" opacity="0.5"/>
+        <text x="200" y="480" text-anchor="middle" class="scene-label" fill="#3d4652">ridge · 5,650m</text>
+      </g>
+
+      <!-- camp-two: dusk, deep indigo, tent glow, stars -->
+      <g data-show="camp-two">
+        <rect x="0" y="0" width="400" height="500" fill="url(#approach-sky-camp-two)"/>
+        <circle cx="60" cy="50" r="1.3" fill="#fff"/>
+        <circle cx="330" cy="60" r="1.2" fill="#fff"/>
+        <circle cx="280" cy="100" r="1" fill="#fff"/>
+        <circle cx="110" cy="90" r="1" fill="#fff"/>
+        <circle cx="200" cy="40" r="1.4" fill="#fff"/>
+        <polygon points="40,430 190,120 340,430" fill="#191231"/>
+        <polygon points="120,430 190,240 260,430" fill="#100b21"/>
+        <path d="M190,420 L185,300 L192,220 L188,160 L194,128" stroke="#7c6bb3" stroke-width="2.5" stroke-dasharray="6 5" fill="none" opacity="0.8"/>
+        <rect x="205" y="180" width="24" height="16" rx="2" fill="#2a2140"/>
+        <circle cx="217" cy="188" r="4" fill="#ffb457"/>
+        <text x="200" y="480" text-anchor="middle" class="scene-label" fill="#cfc6ea">high camp two · 7,050m</text>
+      </g>
+    </svg>
+  </figure>
+
+  <section class="step" id="basecamp">
+    <div>
+      <p class="kicker">Act I · The Approach</p>
+      <h2>Base camp, 4,100 meters</h2>
+      <p>The approach begins on a scree slope the guidebooks — all three of
+         them — describe as "moderate." The team's tents go up at dusk,
+         staked against a wind that has not yet decided to be a problem.</p>
+    </div>
+  </section>
+
+  <section class="step" id="treeline">
+    <div>
+      <p class="kicker">Act I · The Approach</p>
+      <h2>Above the treeline</h2>
+      <p>By the second day the last stunted pines give way to lichen and
+         rock. The route, marked here in red, climbs faster than the air
+         thins — which is to say, not fast enough.</p>
+    </div>
+  </section>
+
+  <section class="step" id="ridge">
+    <div>
+      <p class="kicker">Act I · The Approach</p>
+      <h2>The exposed ridge</h2>
+      <p>Four hours of front-pointing along a knife of rock and old snow.
+         Nobody talks much on a ridge like this; the wind takes the words
+         before they're finished anyway.</p>
+    </div>
+  </section>
+
+  <section class="step" id="camp-two">
+    <div>
+      <p class="kicker">Act I · The Approach</p>
+      <h2>High camp, two</h2>
+      <p>Tents anchored to ice screws, the six eat freeze-dried rice and
+         watch the sky harden into the kind of clear that mountain guides
+         trust the least.</p>
+    </div>
+  </section>
+</article>
+
+<section class="prose">
+  <p>By the fourth day the team had gained the ridge that the maps — such
+     as they were — promised would lead to a stable high camp. It did not
+     feel stable. Descriptions of mountain weather tend toward cliché
+     because the clichés are accurate: the sky can change in the time it
+     takes to tie a knot. What the barometer had been hinting at all
+     morning arrived at two in the afternoon as a wall of grey moving up
+     the valley faster than anyone had seen weather move before. There was
+     no argument about whether to turn back. There was only the argument
+     about whether it was already too late.</p>
+</section>
+
+<article class="scrolly" id="story-storm" data-layout="overlay">
+  <figure aria-hidden="true">
+    <svg viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
+      <!-- calm: pale grey-blue, faint peak, red tent -->
+      <g data-show="calm">
+        <rect x="0" y="0" width="900" height="500" fill="#c9d6df"/>
+        <polygon points="150,500 450,180 750,500" fill="#aebdc9" opacity="0.75"/>
+        <path d="M0,120 Q150,90 300,120 T600,110 T900,130" stroke="#e6edf2" stroke-width="10" fill="none" opacity="0.6"/>
+        <rect x="420" y="400" width="30" height="20" rx="2" fill="#b0402f"/>
+        <text x="450" y="460" text-anchor="middle" class="scene-label" fill="#3a4650">an hour before</text>
+      </g>
+
+      <!-- wind: darker grey, diagonal streaks, no visible peak -->
+      <g data-show="wind">
+        <rect x="0" y="0" width="900" height="500" fill="#8a97a3"/>
+        <g stroke="#eef2f5" stroke-width="3" opacity="0.75">
+          <line x1="0" y1="60" x2="120" y2="130"/>
+          <line x1="80" y1="20" x2="220" y2="100"/>
+          <line x1="300" y1="0" x2="440" y2="90"/>
+          <line x1="500" y1="40" x2="640" y2="130"/>
+          <line x1="700" y1="10" x2="840" y2="100"/>
+          <line x1="150" y1="200" x2="290" y2="290"/>
+          <line x1="450" y1="220" x2="590" y2="310"/>
+          <line x1="650" y1="240" x2="790" y2="330"/>
+        </g>
+        <rect x="418" y="404" width="34" height="20" rx="2" fill="#a83b2c" transform="rotate(8 435 414)"/>
+        <text x="450" y="460" text-anchor="middle" class="scene-label" fill="#eef2f5">the wall arrives</text>
+      </g>
+
+      <!-- whiteout: near-solid pale scene, only the flag reads -->
+      <g data-show="whiteout">
+        <rect x="0" y="0" width="900" height="500" fill="#eef1f3"/>
+        <rect x="0" y="0" width="900" height="500" fill="#f7f9fa" opacity="0.55"/>
+        <line x1="452" y1="330" x2="452" y2="410" stroke="#d8dce0" stroke-width="4"/>
+        <polygon points="452,330 486,342 452,354" fill="#b0402f"/>
+        <text x="450" y="460" text-anchor="middle" class="scene-label" fill="#9aa3a9">nineteen hours</text>
+      </g>
+
+      <!-- silence: night, stars, glowing tent -->
+      <g data-show="silence">
+        <rect x="0" y="0" width="900" height="500" fill="#0d1520"/>
+        <circle cx="80" cy="60" r="1.4" fill="#fff"/>
+        <circle cx="200" cy="40" r="1" fill="#fff"/>
+        <circle cx="340" cy="80" r="1.3" fill="#fff"/>
+        <circle cx="520" cy="30" r="1" fill="#fff"/>
+        <circle cx="680" cy="70" r="1.4" fill="#fff"/>
+        <circle cx="800" cy="50" r="1" fill="#fff"/>
+        <polygon points="150,500 450,200 750,500" fill="#182333" opacity="0.9"/>
+        <rect x="418" y="404" width="34" height="22" rx="2" fill="#221a15"/>
+        <circle cx="435" cy="414" r="6" fill="#ffb457"/>
+        <text x="450" y="460" text-anchor="middle" class="scene-label" fill="#aab6c4">what comes after</text>
+      </g>
+    </svg>
+  </figure>
+
+  <section class="step" id="calm">
+    <div>
+      <p class="kicker">Act II · The Storm</p>
+      <h2>An hour before</h2>
+      <p>The barometer has been dropping since noon, a fact recorded in
+         two of the four surviving journals and ignored, reasonably, in
+         the other two.</p>
+    </div>
+  </section>
+
+  <section class="step" id="wind">
+    <div>
+      <p class="kicker">Act II · The Storm</p>
+      <h2>The wall arrives</h2>
+      <p>Gusts documented afterward at speeds no one measured in the
+         moment — there was no time to read an instrument, only to grab
+         the tent poles.</p>
+    </div>
+  </section>
+
+  <section class="step" id="whiteout">
+    <div>
+      <p class="kicker">Act II · The Storm</p>
+      <h2>Whiteout</h2>
+      <p>For nineteen hours there is no ridge, no valley, no sky — only
+         the two meters of snow lit by a headlamp, and the sound of the
+         tent fabric deciding whether to hold.</p>
+    </div>
+  </section>
+
+  <section class="step" id="silence">
+    <div>
+      <p class="kicker">Act II · The Storm</p>
+      <h2>What comes after</h2>
+      <p>Storms end the way they start: without asking. The six wake to a
+         stillness so complete it takes several minutes to trust it.</p>
+    </div>
+  </section>
+</article>
+
+<section class="prose">
+  <p>The storm did not break so much as it thinned, the way a held breath
+     eventually has to be let go. What emerged the following morning was a
+     landscape none of the six recognized, though they had walked through
+     it two days earlier: a crevasse field newly exposed, its lips rounded
+     by wind-loaded snow, indifferent to whichever way the team needed to
+     travel. Getting down a mountain is, by every account from every era
+     of climbing, more dangerous than getting up it — tired legs, thinning
+     judgment, and gravity all pulling the same direction. The descent
+     that follows is reconstructed from four separate journals, which
+     agree on the facts and disagree, gently, on almost everything else.</p>
+</section>
+
+<article class="scrolly" id="story-descent" data-layout="side-left">
+  <figure aria-hidden="true">
+    <svg viewBox="0 0 400 500" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="descent-sky-thaw" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#dff3fb"/>
+          <stop offset="1" stop-color="#a9d8a6"/>
+        </linearGradient>
+        <linearGradient id="descent-sky-home" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f4d9a0"/>
+          <stop offset="1" stop-color="#f0a15a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- crevasse: icy blue-white, jagged crack -->
+      <g data-show="crevasse">
+        <rect x="0" y="0" width="400" height="500" fill="#dff3fb"/>
+        <polygon points="0,320 90,300 140,340 210,290 270,330 340,300 400,325 400,500 0,500" fill="#eaf7fb"/>
+        <polygon points="70,320 110,300 100,360 130,340 145,395 175,345 210,400 235,350 260,410" fill="none" stroke="#123a52" stroke-width="4" stroke-linejoin="round"/>
+        <polygon points="70,320 110,300 100,360 130,340 145,395 175,345 210,400 235,350 260,410 260,500 70,500" fill="#0d2c40"/>
+        <text x="200" y="470" text-anchor="middle" class="scene-label" fill="#123a52">a new crevasse field</text>
+      </g>
+
+      <!-- rope: same ice palette, three roped dot-pairs descending -->
+      <g data-show="rope">
+        <rect x="0" y="0" width="400" height="500" fill="#dff3fb"/>
+        <polygon points="0,320 90,300 140,340 210,290 270,330 340,300 400,325 400,500 0,500" fill="#eaf7fb"/>
+        <path d="M100,200 L150,260 L190,230 L235,290 L275,255 L320,310" stroke="#2f6690" stroke-width="3" stroke-dasharray="2 6" fill="none"/>
+        <circle cx="100" cy="200" r="7" fill="#b0402f"/>
+        <circle cx="150" cy="260" r="7" fill="#2f6690"/>
+        <circle cx="190" cy="230" r="7" fill="#b0402f"/>
+        <circle cx="235" cy="290" r="7" fill="#2f6690"/>
+        <circle cx="275" cy="255" r="7" fill="#b0402f"/>
+        <circle cx="320" cy="310" r="7" fill="#2f6690"/>
+        <text x="200" y="470" text-anchor="middle" class="scene-label" fill="#123a52">roping up, three teams</text>
+      </g>
+
+      <!-- thaw: green emerges at the base -->
+      <g data-show="thaw">
+        <rect x="0" y="0" width="400" height="500" fill="url(#descent-sky-thaw)"/>
+        <polygon points="0,300 100,270 200,300 300,265 400,290 400,500 0,500" fill="#cdeccb"/>
+        <polygon points="60,420 78,370 96,420" fill="#2f6b3f"/>
+        <polygon points="110,430 128,378 146,430" fill="#2f6b3f"/>
+        <polygon points="270,425 288,372 306,425" fill="#2f6b3f"/>
+        <path d="M40,300 L370,280" stroke="#7fb894" stroke-width="2" opacity="0.6"/>
+        <text x="200" y="470" text-anchor="middle" class="scene-label" fill="#2f6b3f">below the icefall</text>
+      </g>
+
+      <!-- home: warm hearth palette, glowing cabin -->
+      <g data-show="home">
+        <rect x="0" y="0" width="400" height="500" fill="url(#descent-sky-home)"/>
+        <circle cx="330" cy="90" r="30" fill="#fff3d0"/>
+        <polygon points="0,360 400,360 400,500 0,500" fill="#8a6a45"/>
+        <polygon points="140,300 200,240 260,300" fill="#5c3f28"/>
+        <rect x="150" y="300" width="100" height="70" fill="#6b4a30"/>
+        <rect x="185" y="325" width="20" height="20" fill="#ffdf8c"/>
+        <path d="M60,360 Q130,330 200,362 T340,355" stroke="#c99a5b" stroke-width="3" fill="none" opacity="0.8"/>
+        <text x="200" y="470" text-anchor="middle" class="scene-label" fill="#6b4a30">the valley floor</text>
+      </g>
+    </svg>
+  </figure>
+
+  <section class="step" id="crevasse">
+    <div>
+      <p class="kicker">Act III · The Descent</p>
+      <h2>A new crevasse field</h2>
+      <p>The storm has rearranged the glacier's surface entirely; a route
+         memorized on the way up is now, at best, a suggestion.</p>
+    </div>
+  </section>
+
+  <section class="step" id="rope">
+    <div>
+      <p class="kicker">Act III · The Descent</p>
+      <h2>Roping up</h2>
+      <p>Three two-person teams, thirty meters of rope between each pair —
+         the same protocol every glacier-travel course teaches, executed
+         now for real.</p>
+    </div>
+  </section>
+
+  <section class="step" id="thaw">
+    <div>
+      <p class="kicker">Act III · The Descent</p>
+      <h2>Below the icefall</h2>
+      <p>The first green the six have seen in eight days arrives as a
+         shock more than a comfort — proof the mountain has an edge, and
+         they've reached it.</p>
+    </div>
+  </section>
+
+  <section class="step" id="home">
+    <div>
+      <p class="kicker">Act III · The Descent</p>
+      <h2>The valley floor</h2>
+      <p>Six sets of boots, six intact sets of fingers and toes, and one
+         spire that looks, from here, exactly as unclimbed as it did three
+         weeks ago.</p>
+    </div>
+  </section>
+</article>
+
+<section class="prose">
+  <p>Six people left the valley floor that April; six people returned to
+     it, which is either the whole story or the least interesting part of
+     it, depending on who is asked. The spire is fictional, the storm is
+     fictional, the six climbers are fictional — but the shape of the
+     thing, the way a mountain converts a plan into a series of much
+     smaller decisions made with much less information than anyone would
+     like, is not invented at all. It is one of the oldest patterns in
+     mountaineering, told here only to test whether a page can hold it:
+     prose that scrolls, and a graphic that holds still until it doesn't.</p>
+</section>
+
+</main>
+
+<footer>
+  <p>Three independent scrolly stories on one page — side-right, overlay,
+     side-left — each with its own state machine, its own graphic, its own
+     scroll position. Built with <code>&lt;script src="scrolly.js"&gt;</code>
+     and one call: <code>Scrolly.init()</code>.</p>
+</footer>
+
+<script>/*!
+ * scrolly — the scrollytelling framework
+ *
+ * You write the DOM, scrolly runs the state machine, effects live in your CSS.
+ *
+ * Document model:
+ *   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+ *     <figure> …graphic; children tagged data-show="step-id …"… </figure>
+ *     <section class="step" id="intro">…</section>
+ *     <section class="step" id="crash">…</section>
+ *   </article>
+ *
+ * State machine output (all effects belong in CSS):
+ *   steps            → .is-past / .is-active / .is-future
+ *   [data-show] els  → .is-shown while a listed step is active
+ *   root             → [data-active-step="…"], --step-progress, --story-progress
+ *
+ * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
+ *   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+ */
+(() => {
+  'use strict'
+
+  const OFFSET = 0.5
+  const clamp = v => Math.min(1, Math.max(0, v))
+  const stepId = (el, i) => el.id || String(i)
+  const instances = new WeakMap()
+
+  class Story {
+    constructor (root, opts = {}) {
+      this.root = root
+      this.offset = parseFloat(root.dataset.offset ?? opts.offset ?? OFFSET)
+      this.graphic = root.querySelector(':scope > figure')
+      this.steps = [...root.querySelectorAll(':scope > .step')]
+      this.shown = this.graphic ? [...this.graphic.querySelectorAll('[data-show]')] : []
+      this.active = -1
+      this._engaged = false
+      this._ticking = false
+      this._subs = []
+      this._onScroll = this._onScroll.bind(this)
+      this._onKey = this._onKey.bind(this)
+
+      // Observe the story itself; the scroll loop only runs while it's on screen.
+      this._io = new IntersectionObserver(entries => {
+        this._engage(entries.some(e => e.isIntersecting))
+      }, { rootMargin: '100px 0px' })
+      this._io.observe(root)
+
+      this.steps.forEach(s => s.classList.add('is-future'))
+      // stamped last: hiding CSS is scoped under it, so a JS failure
+      // leaves the page fully readable
+      root.classList.add('is-ready')
+      this._update()
+    }
+
+    _engage (on) {
+      if (on === this._engaged) return
+      this._engaged = on
+      const fn = on ? 'addEventListener' : 'removeEventListener'
+      window[fn]('scroll', this._onScroll, { passive: true })
+      window[fn]('resize', this._onScroll)
+      window[fn]('keydown', this._onKey)
+      if (on) this._update()
+    }
+
+    // ←/→ step between chapters while the story is on screen. Vertical
+    // scroll keys stay the browser's — stepping is an enhancement, never
+    // scroll-jacking.
+    _onKey (e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      const next = this.active + (e.key === 'ArrowRight' ? 1 : -1)
+      if (next < 0 || next >= this.steps.length) return
+      e.preventDefault()
+      const trigger = window.innerHeight * this.offset
+      const top = this.steps[next].getBoundingClientRect().top + window.scrollY
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: top - trigger + 2, behavior: reduce ? 'auto' : 'smooth' })
+    }
+
+    _onScroll () {
+      if (this._ticking) return
+      this._ticking = true
+      requestAnimationFrame(() => {
+        this._ticking = false
+        this._update()
+      })
+    }
+
+    _update () {
+      if (!this.steps.length) return
+      const trigger = window.innerHeight * this.offset
+
+      // Active step = the last one whose top has crossed the trigger line.
+      let active = -1
+      for (const [i, step] of this.steps.entries()) {
+        if (step.getBoundingClientRect().top > trigger) break
+        active = i
+      }
+      if (active !== this.active) this._activate(active)
+
+      const first = this.steps[0].getBoundingClientRect()
+      const last = this.steps[this.steps.length - 1].getBoundingClientRect()
+      const story = clamp((trigger - first.top) / Math.max(1, last.bottom - first.top))
+
+      // Step progress runs over the chapter: this step's top → the next step's top.
+      let step = 0
+      if (active >= 0) {
+        const r = this.steps[active].getBoundingClientRect()
+        const next = this.steps[active + 1]
+        const end = next ? next.getBoundingClientRect().top : r.bottom
+        step = clamp((trigger - r.top) / Math.max(1, end - r.top))
+      }
+
+      this.root.style.setProperty('--story-progress', story.toFixed(4))
+      this.root.style.setProperty('--step-progress', step.toFixed(4))
+      if (active >= 0) {
+        this._emit('progress', { ...this._detail(active), progress: step, storyProgress: story })
+      }
+    }
+
+    _activate (next) {
+      const prev = this.active
+      const direction = next > prev ? 'down' : 'up'
+      this.active = next
+
+      this.steps.forEach((s, i) => {
+        s.classList.toggle('is-past', next > -1 && i < next)
+        s.classList.toggle('is-active', i === next)
+        s.classList.toggle('is-future', next < 0 || i > next)
+      })
+
+      const id = next >= 0 ? stepId(this.steps[next], next) : null
+      if (id === null) this.root.removeAttribute('data-active-step')
+      else this.root.setAttribute('data-active-step', id)
+
+      for (const el of this.shown) {
+        const ids = el.dataset.show.split(/\s+/)
+        el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      }
+
+      if (prev >= 0) this._emit('stepexit', { ...this._detail(prev), direction })
+      if (next >= 0) this._emit('stepenter', { ...this._detail(next), direction })
+    }
+
+    _detail (i) {
+      return { step: this.steps[i], id: stepId(this.steps[i], i), index: i }
+    }
+
+    _emit (name, detail) {
+      this.root.dispatchEvent(new CustomEvent(`scrolly:${name}`, { detail, bubbles: true }))
+    }
+
+    on (name, fn) {
+      const type = `scrolly:${name}`
+      const handler = e => fn(e.detail)
+      this.root.addEventListener(type, handler)
+      this._subs.push([type, handler])
+      return () => {
+        this.root.removeEventListener(type, handler)
+        const i = this._subs.findIndex(s => s[1] === handler)
+        if (i !== -1) this._subs.splice(i, 1)
+      }
+    }
+
+    destroy () {
+      this._io.disconnect()
+      this._engage(false)
+      this._subs.forEach(([type, handler]) => this.root.removeEventListener(type, handler))
+      this._subs = []
+      this.steps.forEach(s => s.classList.remove('is-past', 'is-active', 'is-future'))
+      this.shown.forEach(el => el.classList.remove('is-shown'))
+      this.root.classList.remove('is-ready')
+      this.root.removeAttribute('data-active-step')
+      this.root.style.removeProperty('--step-progress')
+      this.root.style.removeProperty('--story-progress')
+      instances.delete(this.root)
+    }
+  }
+
+  const Scrolly = {
+    version: '0.0.1',
+
+    /**
+     * Scrolly.init()          → Story[] for every .scrolly on the page
+     * Scrolly.init(target)    → Story for a selector or element
+     * Idempotent per element: re-init returns the existing Story.
+     */
+    init (target, opts) {
+      const get = el => {
+        if (!instances.has(el)) instances.set(el, new Story(el, opts))
+        return instances.get(el)
+      }
+      if (target === undefined) {
+        return [...document.querySelectorAll('.scrolly')].map(get)
+      }
+      const el = typeof target === 'string' ? document.querySelector(target) : target
+      if (!el) throw new Error(`scrolly: no element matches ${target}`)
+      return get(el)
+    }
+  }
+
+  if (typeof window !== 'undefined') window.Scrolly = Scrolly
+})()
+</script>
+<script>Scrolly.init()</script>
+
+</body>
+</html>
