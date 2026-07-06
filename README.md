@@ -79,11 +79,52 @@ framework can listen without the sugar.
 Keyboard: `←`/`→` step between chapters while a story is on screen (smooth,
 reduced-motion aware). Vertical scroll keys are never touched.
 
+## Gallery
+
+Each example is a self-contained `file://`-openable HTML page. Tier follows
+the parity suite (SPEC §14) — Tier 1 examples run zero author JS beyond
+rendering the graphic states, and are verified against
+`test/validate-story.mjs --tier1`.
+
+| Example | Tier | What it demonstrates |
+|---|---|---|
+| `examples/warming-world.html` | 1 | Stepped line-chart build — six illustrative warming factors added one at a time, `side-right` layout |
+| `examples/stepped-scatter.html` | 1 | Sticky 60-point scatter with stepped cohort highlighting and long prose gaps between steps, `side-left` layout |
+| `examples/dots-flow.html` | 2 | Bidirectional particle-flow SVG re-triggered per step via `stepenter`, `side-right` layout |
+| `examples/scroll-linked.html` | 2 | Continuous scroll-linked SVG transform driven by `--step-progress`, `overlay` layout |
+| `examples/longform.html` | 3 | Three independent stories on one page, mixing `side-right`, `overlay`, and `side-left` layouts |
+
+## Themes
+
+Typography/color presets, opt-in, loaded after `scrolly.css`:
+
+```html
+<link rel="stylesheet" href="scrolly.css">
+<link rel="stylesheet" href="themes/editorial.css">
+```
+
+- `themes/editorial.css` — warm serif (Georgia/Iowan Old Style).
+- `themes/system.css` — tight neutral `system-ui`.
+
+Themes only set typography, color, and the `--scrolly-card-bg` /
+`--scrolly-card-fg` knobs — never geometry. Write your own stylesheet if
+neither fits; the contract is the classes and custom properties, not these
+files.
+
+## dist/
+
+`bun run build` produces:
+
+- `dist/scrolly.iife.js` — classic `<script>`, same as `src/scrolly.js`.
+- `dist/scrolly.esm.js` — `import Scrolly from 'scrolly/dist/scrolly.esm.js'`.
+- `dist/scrolly.min.js` — minified classic build.
+
+`src/scrolly.js` stays the source of truth; `dist/` is generated, not hand-edited.
+
 ## Roadmap
 
-- Themes (typography/spacing presets)
 - `full` layout variant
-- npm publish + ESM build
+- npm publish (name TBD — see SPEC §9)
 
 ## License
 

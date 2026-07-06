@@ -238,7 +238,7 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
 ## 9. Packaging & distribution
 
 - v0: classic script exposing `window.Scrolly`; CSS file alongside. ✅
-- ⬜ v0.2: dual ESM/classic build (hand-maintained wrapper acceptable at
+- ✅ v0.2: dual ESM/classic build (hand-maintained wrapper acceptable at
   this size; no bundler in the repo).
 - ⬜ npm publish + CDN (jsdelivr/unpkg) once the name is settled.
 - ❓ **Name**: "scrolly" is used semi-generically in the community and the
@@ -256,7 +256,7 @@ reveal.js.** scrolly has zero training-data presence; the skill closes that
 gap because the entire authoring surface is ~5 conventions over HTML/CSS the
 models already write fluently.
 
-⬜ `SKILL.md` v1 must contain:
+✅ `SKILL.md` v1 must contain:
 1. When to use (scrollytelling / scroll-driven story / sticky-graphic
    explainer triggers).
 2. The document model + full CSS contract (the tables from §5.2/§7.1,
@@ -284,7 +284,7 @@ feasible) and feed the SKILL.md patterns section (§10 item 5) verbatim.
 evidence of a library gap — file it against the spec instead of publishing
 a long recipe.
 
-⬜ v0.2 recipe set:
+✅ v0.2 recipe set:
 
 | Recipe | Mechanism |
 |---|---|
