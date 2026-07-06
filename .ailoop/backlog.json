@@ -45,7 +45,7 @@
     {
       "id": "S102",
       "title": "Tier-1 example: stepped chart build (What's-Warming-the-World choreography)",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "S101"
       ],
@@ -56,12 +56,12 @@
       "context": "Read README.md, docs/recipes.md (stepped chart + chapter theming), index.html (lib-inlining reference), SPEC.md §14. Single self-contained page: inline-SVG line chart, 6 factor-series over a shared time axis (hand-written path data; each series must be visually distinct and non-degenerate — real curve shapes, not flat lines), side-right story, 6+ steps. Each step reveals/highlights exactly one more series via data-show on SVG groups + [data-active-step] CSS: past series visibly dimmed (opacity/stroke), active series emphasized, per-step annotation callouts. Chapter theming REQUIRED: a page-level --accent custom property changes per step and is consumed visibly (headings/annotations). ONLY author JS: Scrolly.init(). Lib JS+CSS inlined byte-identical from src/. Prose: real sentences, ≥25 words per step, no two steps sharing a sentence — gallery quality (final publish-worthiness is a human gate, but lorem/duplicate text fails mechanically).",
       "acceptance": "- `node test/validate-story.mjs examples/warming-world.html --tier1` → exit 0, stepCount>=6, distinctGraphicStates>=6\n- behavioral (in verify, puppeteer): at step 4, computed opacity of a step-1 series group is < 0.6× the active series group's opacity (past-dimming is real)\n- computed value of --accent on the story root differs across ≥3 different data-active-step values\n- every series path's bounding box has height > 5% of the chart height (no degenerate flat lines)\n- each step's visible prose ≥25 words; no sentence appears in two steps (mechanical text scan)\n- inlined lib block byte-identical to src/scrolly.js (extract+diff)\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Verify: verified=true clean. Gate (wf_9d57f68d-b17) + coordinator spot-check: validate-story --tier1 exit 0 (stepCount=6, distinctGraphicStates=6, tier1, bidirectional ok); opacity-dim 0.32<0.6; 6 distinct --accent values; series bboxes >5%; prose floors met; lib byte-identical. Merge a473293."
     },
     {
       "id": "S103",
       "title": "Tier-1 example: stepped scatter highlight with real inter-step gap (Colorism choreography)",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "S101"
       ],
@@ -72,12 +72,12 @@
       "context": "Read README.md, docs/recipes.md, SPEC.md §5.1 + §14. Single self-contained page: inline-SVG scatter of ~60 circles with HAND-WRITTEN deterministic coordinates (no Math.random anywhere in the file; coordinates must be spread — not clumped/coincident), side-left story, 5+ steps highlighting cohorts via [data-active-step] CSS plus data-show annotations. Include flowing prose OUTSIDE the story (≥120 words total before/after the article) and ONE large intra-story gap (CSS margin between two steps > 1.5 viewport heights) where the gap region still shows the held graphic state — the gap demonstrates §5.1, it is not a dead step: both steps flanking it must have real content (≥25 words each). ONLY author JS: Scrolly.init(). Lib inlined byte-identical.",
       "acceptance": "- `node test/validate-story.mjs examples/stepped-scatter.html --tier1` → exit 0, stepCount>=5, distinctGraphicStates>=5, bidirectionalConsistent\n- `grep -c 'Math.random' examples/stepped-scatter.html` → 0\n- circle spread: min pairwise center distance > 4px AND stddev of cx and of cy each > 8% of the SVG viewport dimension (from source, mechanical)\n- highlighted vs non-highlighted circles differ in computed fill or fill-opacity by ≥0.3 at each step (puppeteer)\n- validator report shows one adjacent-step trigger-position delta > 1.5 viewport heights; both flanking steps have ≥25 words\n- visible text outside .scrolly ≥120 words\n- inlined lib byte-identical to src/scrolly.js; `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Verify: verified=true clean. Gate + spot-check: --tier1 exit 0 (6 steps, gap delta 2480px>1.5vh, Halton coords no Math.random, spread thresholds met, fill-opacity delta 0.65, 347 words outside story). Merge 86988ac."
     },
     {
       "id": "S104",
       "title": "Tier-2 example: imperative dot re-draw per step, bidirectional + non-monotonic safe (Black-Boys choreography)",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "S101"
       ],
@@ -88,12 +88,12 @@
       "context": "Read README.md (JS API), docs/recipes.md (idempotent full-state draws), SPEC.md §14 Tier-2 budget. Single self-contained page: ~200 dots (SVG or canvas) regrouping/recoloring per step (e.g. flowing between outcome columns), positions from an inline seeded PRNG (mulberry32 with a FIXED literal seed — two page loads must render identically). Driven ONLY by story.on('stepenter') with PURE full-state draw functions: given a step id, draw everything from scratch — no accumulation, no direction branching. Movement may animate (CSS transitions/rAF tween) but END states must be deterministic per step. Author JS must contain no scroll/wheel/touch listeners, no IntersectionObserver, no getBoundingClientRect — the validator's runtime instrumentation enforces this; write clean code, not grep-dodging code. 5+ steps, visibly different groupings (screenshot-hash distinct). Real prose ≥25 words/step.",
       "acceptance": "- `node test/validate-story.mjs examples/dots-flow.html` → exit 0, glueTier=tier2, stepCount>=5, distinctGraphicStates>=5, bidirectionalConsistent (includes the validator's non-monotonic traversal — this catches accumulator cheats)\n- determinism: two fresh page loads, screenshot hash of the initial story state identical (in verify)\n- purity probe (in verify): navigate a→c→b vs reload-then-b; step-b screenshot hashes match\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Verify: verified=true clean. Gate + spot-check: exit 0 glueTier=tier2, 6 steps, bidirectional+non-monotonic ok; mulberry32 seed 1337 determinism + purity probe (a->c->b == reload->b) passed. Merge 10f925e."
     },
     {
       "id": "S105",
       "title": "Tier-2 example: continuous scroll-linked motion via --step-progress, overlay layout (R2D3 choreography)",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "S101"
       ],
@@ -104,12 +104,12 @@
       "context": "Read README.md (custom properties), docs/recipes.md (parallax/progress), SPEC.md §5.2. Single self-contained page, data-layout=\"overlay\": full-bleed inline-SVG scene with TWO INDEPENDENTLY-PARAMETERIZED elements moving continuously within chapters — pure CSS transforms via calc(var(--step-progress) * ...) with DIFFERENT coefficients/axes (e.g. a boundary line rotating while points translate). Smooth motion, no steps() easing. Discrete data-show swaps between chapters as well. Steps are overlay cards; set --scrolly-card-bg/-fg for readable contrast. Target ZERO author JS beyond Scrolly.init() (tier1) — all continuous motion must be pure CSS. 5+ steps, real prose ≥25 words/step.",
       "acceptance": "- `node test/validate-story.mjs examples/scroll-linked.html --tier1` → exit 0, stepCount>=5\n- continuous motion (in verify): sample computed transform of BOTH driven elements at 20/40/60/80% of one chapter — four distinct values each, consecutive deltas within 3× of each other (rules out steps()/threshold fakes), total travel ≥8px translate or ≥5deg rotate per element, and the two elements' transform sequences are not identical\n- determinism: direct-load at 60% vs scrolled-to 60% transforms differ <1px — checked at TWO viewport sizes (1000×800 and 500×700)\n- overlay cards: computed background-color of .step > * is non-transparent at widths 400, 600, and 719\n- data-layout=\"overlay\" present; `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Verify: verified=true clean. Gate + spot-check: --tier1 exit 0, overlay layout, two independently-parameterized pure-CSS progress transforms (4-point sampling, determinism at 2 viewports, cards opaque at 400/600/719). Merge e57d439."
     },
     {
       "id": "S106",
       "title": "Tier-3 example: multi-story longform, mixed layouts, per-story independence (Snow-Fall structure)",
-      "status": "todo",
+      "status": "done",
       "depends_on": [
         "S101"
       ],
@@ -120,7 +120,7 @@
       "context": "Read README.md, SPEC.md §4 + §14 Tier 3. Single self-contained longform article: headline, 3+ prose sections (≥60 words each), THREE independent .scrolly stories interleaved — one side-right, one overlay, one side-left — EACH with 4+ steps, 4+ screenshot-distinct graphic states, and a distinct graphic treatment (different SVG scenes/palettes — not copy-paste with recolor; the validator's screenshot hashing must show inter-story difference too). One Scrolly.init() call total (tier1 budget). The point is structural: prose flows between stories, layouts coexist, state machines are independent.",
       "acceptance": "- `node test/validate-story.mjs examples/longform.html --tier1` → exit 0 with PER-STORY reports: each of the three stories individually has stepCount>=4 and distinctGraphicStates>=4 (aggregate/first-story-only passes are a validator bug — S101 specifies per-story)\n- independence (in verify): scroll story 1 to its step 2, then story 2 fully; story 1's data-active-step still equals its actual last-left id (non-empty, asserted by value) and story 3 is all is-future\n- three distinct data-layout values present; each prose section ≥60 words\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Verify: verified=true clean. Gate + spot-check: --tier1 exit 0 with per-story reports, 3 stories x (>=4 steps, >=4 distinct states), 3 layouts, independence assertion by value. Merge d099986."
     },
     {
       "id": "S107",
@@ -159,7 +159,7 @@
     {
       "id": "S109",
       "title": "Docs closure: README gallery (tier-verified), SPEC status sync (gated), link checker with contrast proof",
-      "status": "todo",
+      "status": "in-progress",
       "depends_on": [
         "S102",
         "S103",

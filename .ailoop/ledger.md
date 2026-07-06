@@ -127,3 +127,24 @@ Append-only journal. How the loop got where it is. Newest entry at the bottom.
        layouts re-lay (documented in validator source).
   evidence: stored per-ticket in backlog.json; merged tree = d057805.
   phase state: Phase A CLOSED, Phase C CLOSED, S108 of Phase D done.
+
+[0008] batch S102–S106 — dispatched (build-phase workflow, attempt 1/3 each)
+  decision: continue
+  why: scheduler batch[0] after S101 done unblocked all five examples;
+       file-disjoint (one example file each). Chunk count 3+5=8 <= 10.
+       Worker briefs note the validator now EXISTS and enforces tier
+       budgets/byte-identical lib inlining; baseline updated to 45 tests.
+  evidence: run wf_9d57f68d-b17 (in flight)
+
+[0009] batch S102–S106 — all done, merged, gate GREEN (attempt 1/3 each)
+  decision: continue (close 5 tickets) — Phase B CLOSED
+  why: 5 builds done; 5 independent verifies verified=true (no regression,
+       no out-of-scope, no gaming); merge clean (no conflicts); workflow
+       gate agent ran Phase B oracle on merged tree: PASS, zero failing.
+       Coordinator spot-check re-ran validator on all 5 examples (exit 0
+       each) + full suite (45 pass) on merged main d099986. Notable builder
+       find (S102): example chrome CSS must not restyle the lib's <figure>
+       (specificity ties silently break sticky geometry) — wrap chrome in
+       an inner div; candidate docs/recipes note for S109 or later.
+  evidence: per-ticket in backlog.json; merged tree d099986.
+  phase state: A CLOSED, B CLOSED, C CLOSED, D remaining: S109.
