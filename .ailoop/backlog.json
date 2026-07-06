@@ -10,7 +10,8 @@
     "re-verify's output, not the builder's claim.",
     "BROWNFIELD NOTE: v0.1 core pre-exists this loop (ledger [0002]). Tickets",
     "S101+ build on it; none may alter src/ semantics (oracle: scope tripwire).",
-    "Acceptance sharpened by 2-agent red-team at intake (ledger [0004])."
+    "Acceptance sharpened by 2-agent red-team at intake (ledger [0004]).",
+    "V0.4 DRIVE NOTE (2026-07-06): oracle re-frozen for SPEC §15 (motion layer) on the migrated TS/Vite tree. src-touching tickets implicitly touch the generated embed chain (dist/*, marker blocks in examples/ and e2e/fixtures-*/, skill/assets/*) — allowlisted like package.json; 'files' lists only intentionally-edited sources. M201–M205 are serialized via depends_on because they share src/story.ts (file-contract conflict, not logical dependency)."
   ],
   "project": "scrolly",
   "caps": {
@@ -179,6 +180,149 @@
       "acceptance": "- `node scripts/check-links.mjs` → exit 0 on the real tree\n- contrast proof (in test or verify): run check-links against a temp copy of README containing a link to a nonexistent file → exit 1 naming that exact path\n- README gallery file-set equals `ls examples/*.html` exactly; no two gallery descriptions identical; every tier1-labelled entry passes `validate-story.mjs --tier1`\n- SPEC.md: §14 pass-bar lines still present (grep 'Both Tier 1 targets' and '≥ 2 of 3') with no ✅ on them; every ❓ line in SPEC.md byte-identical to pre-ticket state (diff against git)\n- §9 dist line ✅ iff dist/ non-empty; §11 recipes line ✅ iff docs/recipes.md exists\n- `bun test` green",
       "attempts": [],
       "evidence": "Coordinator independent re-verify on ticket/S109 (58af72e): scope exactly the 3 declared files; check-links exit 0 on real tree, exit 1 naming path on contrast copy (91-line real scanner); README gallery set == examples/ dir exactly, tiers verified; SPEC passbar lines present+unchecked, zero modified ❓ lines (diff-filtered); 45 tests green in verify worktree. Merged to main."
+    },
+    {
+      "id": "M201",
+      "title": "Chapter timelines: monotonic --progress-<id> variables (geometry + emission)",
+      "status": "todo",
+      "depends_on": [],
+      "files": [
+        "src/geometry.ts",
+        "src/story.ts",
+        "src/types.ts",
+        "test/unit/geometry.test.ts",
+        "test/unit/story.test.ts",
+        "e2e/semantics.spec.ts"
+      ],
+      "origin": "SPEC §15.2; oracle Phase M-A",
+      "context": "Read SPEC §15.2 + §5.2 and ARCHITECTURE.md dataflow. Add a pure function to geometry.ts: given step tops/ends and the trigger, the per-step value is 1 for chapters fully passed, stepProgress for the active chapter, 0 otherwise — the SPEC shape (0 before / 0→1 through / holds 1 after; exact mirror on reverse; monotonic non-increasing in step order at any scroll position). Unit-test the shape as pure numbers incl. the no-active-step and last-step cases. story.ts writes --progress-<id> on the root each frame for every step whose id is a valid custom-property ident ([A-Za-z0-9_-]+); steps without ids get no variable; destroy() removes them. Per-frame cost stays 2+N setProperty calls — no new rect reads. e2e (extend semantics.spec.ts, ADDITIVE only — existing assertions must not change): assert values at three scroll positions and after an up-traversal match the pure-math prediction. RED-TEAM: assert the vars also hold correct values when the story re-enters the viewport after being scrolled far past (state retention, §5.1)."
+    },
+    {
+      "id": "M202",
+      "title": "data-scrub mechanic: paused-animation scrubbing via structural CSS + init stamp",
+      "status": "todo",
+      "depends_on": [
+        "M201"
+      ],
+      "files": [
+        "src/story.ts",
+        "src/scrolly.css",
+        "test/unit/story.test.ts",
+        "e2e/motion.spec.ts"
+      ],
+      "origin": "SPEC §15.2; oracle Phase M-A",
+      "context": "At init, stamp each [data-scrub] element inside the story once with style --t: var(--progress-<id>) (valueless data-scrub → var(--story-progress)); dangling id → no stamp + one scrolly:-prefixed console.warn (fail-soft; M205 formalizes diagnostics — keep the warn minimal here). destroy() removes stamps. scrolly.css gains the mechanic under .scrolly.is-ready [data-scrub]: animation-duration 1s, play-state paused, fill-mode both, animation-delay calc(var(--t,0) * -1s); under prefers-reduced-motion the delay uses round(var(--t,0)) so scrubs become cuts at the chapter midpoint (SPEC §15.2). CSS stays structural (no typography/color; themes test must stay green). NEW e2e/motion.spec.ts: drive a keyframed element to 0%/~50%/100% of its chapter and assert computed progress advances AND rewinds; reduced-motion emulation yields the quantized value; a page whose lib script is removed still shows the element (no-JS readability §8.1). RED-TEAM: assert data-scrub composes with data-show on the same element (visibility × motion orthogonal), and that author override of animation-delay wins (mechanic is a default, variables are the contract)."
+    },
+    {
+      "id": "M203",
+      "title": "Declarative camera: data-camera/data-focus/data-zoom → --camera-transform",
+      "status": "todo",
+      "depends_on": [
+        "M202"
+      ],
+      "files": [
+        "src/geometry.ts",
+        "src/camera.ts",
+        "src/story.ts",
+        "src/types.ts",
+        "src/scrolly.css",
+        "test/unit/geometry.test.ts",
+        "test/unit/camera.test.ts",
+        "e2e/motion.spec.ts"
+      ],
+      "origin": "SPEC §15.3; oracle Phase M-A",
+      "context": "Read SPEC §15.3 fully. New src/camera.ts: resolve each focused step's shot — target box in the [data-camera] element's UNTRANSFORMED space (invert current matrix via DOMMatrix/getCTM), data-zoom number or default fit (~70% of stage); root-level data-focus is the establishing shot. Endpoints measured at init/step-change/resize — NEVER per frame. Interpolation in geometry.ts as pure math: pan linear, zoom log-space, across the earlier focused step's chapter progress; unit-test both incl. the k1=k2 and fit cases. story.ts emits one composed --camera-transform on the root; steps without data-focus hold the previous shot; dangling selector → hold + warn; reduced motion → snap to nearer shot (cut). scrolly.css: .scrolly.is-ready [data-camera] { transform: var(--camera-transform, none) } — geometry, so structural. HARD CONSTRAINTS: no scrollTop/scrollTo/scrollBy anywhere (validator instrumentation must stay clean); size bars unchanged — if dist JS would exceed 4KB gz, STOP and escalate (oracle: camera splits to an opt-in file before the bar moves). e2e: mid-chapter screenshot differs from BOTH endpoint screenshots (flight, not cut — anti-gaming: this cannot be satisfied by transition tuning because captures are settle-independent), reverse lands identically, resize re-measures (change viewport, assert new endpoint transform)."
+    },
+    {
+      "id": "M204",
+      "title": "data-morph: wrap the atomic step-change writes in View Transitions",
+      "status": "todo",
+      "depends_on": [
+        "M203"
+      ],
+      "files": [
+        "src/story.ts",
+        "test/unit/story.test.ts",
+        "e2e/motion.spec.ts",
+        "e2e/fixtures-clean/morph-regroup.html"
+      ],
+      "origin": "SPEC §15.4; oracle Phase M-A",
+      "context": "With data-morph on the root and document.startViewTransition available, _activate()'s class/attr/is-shown batch runs inside the transition callback. GUARANTEES (each gets an explicit test): stepexit/stepenter fire synchronously in the existing order, never inside/after the transition's promises (semantics.spec.ts event-order assertions must pass UNMODIFIED with data-morph enabled); a new step-change mid-morph calls skipTransition() — latest wins, no queue; progress variables are written outside the wrap every frame; no API / reduced-motion → exact current code path (feature-detect, zero behavior delta). New validator fixture e2e/fixtures-clean/morph-regroup.html: ≥4 steps re-sorting named elements (view-transition-name), must PASS the validator incl. bidirectionalConsistent under its non-monotonic traversal — this is the rapid-scroll consistency proof. RED-TEAM: assert destroy() during an in-flight morph leaves a clean DOM."
+    },
+    {
+      "id": "M205",
+      "title": "Runtime diagnostics: fail-soft console warnings for dangling references",
+      "status": "todo",
+      "depends_on": [
+        "M204"
+      ],
+      "files": [
+        "src/story.ts",
+        "test/unit/story.test.ts",
+        "e2e/motion.spec.ts"
+      ],
+      "origin": "SPEC §15.6.1; oracle Phase M-A",
+      "context": "Consolidate + formalize: at init (once, not per frame) warn with prefix 'scrolly:' for every data-show / data-scrub token naming no step, data-focus selector matching nothing, and data-camera present with zero focused steps and no root data-focus. Behavior never changes (fail-soft: state holds — assert identical DOM state with and without the bad token). Dedupe: one warning per distinct problem. Zero warnings across index.html and every examples/*.html (e2e sweep — this doubles as a referential-integrity check on the gallery). Decide min-build stripping MECHANICALLY: keep warnings in scrolly.min.js if size bars hold (they should; measure and record in the ticket evidence), else strip via the existing _-prefix mangling and document in ARCHITECTURE.md — do not touch the bars."
+    },
+    {
+      "id": "M206",
+      "title": "Validator --report: self-contained HTML contact sheet",
+      "status": "todo",
+      "depends_on": [],
+      "files": [
+        "scripts/validate-story.mjs",
+        "e2e/validator.spec.ts"
+      ],
+      "origin": "SPEC §15.6.3; oracle Phase M-B",
+      "context": "Add --report <out.html> to validate-story.mjs: emit the per-step forward and reverse screenshots it already captures as one self-contained storyboard page (PNGs as data URIs, inline CSS, zero external refs — the validator's own external-URL scan run on its own report must find nothing). Layout: one row per step: id, forward shot, reverse shot, match/mismatch badge from statesMatch, the story's JSON summary at top. WITHOUT the flag, stdout/exit behavior is byte-identical (e2e asserts existing fixture runs unchanged). e2e: run with --report on a clean fixture, assert the file exists, contains one <img> per step per direction, and no (https?:)?// references."
+    },
+    {
+      "id": "M207",
+      "title": "scrolly-director.js: authoring overlay (trigger line, chapter rail, state chip)",
+      "status": "todo",
+      "depends_on": [
+        "M201"
+      ],
+      "files": [
+        "scrolly-director.js",
+        "e2e/director.spec.ts"
+      ],
+      "origin": "SPEC §15.6.2; oracle Phase M-B",
+      "context": "New root-level opt-in file (like themes/ — ZERO core diffs; classic script, file://-safe, self-contained). On load: draws the trigger line at viewportHeight × offset for the nearest on-screen story with the offset value labelled (recomputes on resize and per story); a chapter rail listing step ids — click scrolls that step to its trigger (reuse the same math as keyboard.ts; smooth unless reduced-motion); a state chip showing data-active-step, --step-progress/--story-progress and per-chapter --progress-<id> live, plus current is-shown count. Key 'd' toggles everything; input/textarea/contenteditable guarded like keyboard.ts. e2e/director.spec.ts: trigger line's computed position equals innerHeight*offset ±1px for offset 0.5 AND a custom data-offset; rail click activates the right step; toggling off removes every injected node (clean page). RED-TEAM: loading director on a page with zero stories must be a no-op without errors."
+    },
+    {
+      "id": "M208",
+      "title": "Gallery re-cuts on the motion layer (virus flight, scroll-linked scrub, dots-flow morph)",
+      "status": "todo",
+      "depends_on": [
+        "M202",
+        "M203",
+        "M204"
+      ],
+      "files": [
+        "examples/virus-got-out.html",
+        "examples/scroll-linked.html",
+        "examples/dots-flow.html"
+      ],
+      "origin": "SPEC §15.7; oracle Phase M-C",
+      "context": "The acceptance test for the whole drive — choreography, not artwork (§14). (1) virus-got-out: replace the hand-rolled [data-active-step] camera transforms with data-camera + per-step data-focus/data-zoom (add invisible anchor elements as shot targets) and move at least the train/flight particles to data-scrub + offset-path keyframes; validator --tier1 PASS; mid-chapter screenshot differs from both endpoints (true scrubbed flight). (2) scroll-linked: delete its progress-event JS; same visual behavior via data-scrub; --tier1 PASS (author JS becomes exactly Scrolly.init). (3) dots-flow: keep the per-step bucket layout in author JS (that is graphic rendering) but delete any positional transition logic; give dots view-transition-name and data-morph on the root; validator PASS at tier2 or better; grep floor: author script contains no 'transition' / manual interpolation. ALL THREE: distinctGraphicStates ≥ the pre-re-cut count (record before/after in evidence); prose and art direction otherwise unchanged — these are re-cuts, not redesigns. Narrative/visual quality remains Jason's gate."
+    },
+    {
+      "id": "M209",
+      "title": "Docs closure: contract tables, motion recipes, SKILL update, SPEC status flips",
+      "status": "todo",
+      "depends_on": [
+        "M205",
+        "M208"
+      ],
+      "files": [
+        "README.md",
+        "docs/recipes.md",
+        "skill/SKILL.md",
+        "SPEC.md"
+      ],
+      "origin": "SPEC §15.7, §10, §11; oracle Phase M-D",
+      "context": "README: extend the contract tables with --progress-<id>, --camera-transform and the five new attributes; update the gallery tier notes for the re-cuts. docs/recipes.md: three new recipes — camera rig, scrubbed particles (offset-path), morph regroup — each ≤ 15 lines of code in its fenced block (SPEC §11 rule; if one cannot fit, that is a lib defect: STOP and escalate, do not publish a long recipe). skill/SKILL.md: add the motion-layer conventions + the recipes verbatim (§10 item 5 discipline). SPEC §15: flip ⬜ to ✅ only for phases the ledger shows closed; zero ❓ lines modified (diff-checked, same rule as S109). check-links green; every claim in README tier notes verified by re-running the validator and recording output in evidence."
     }
   ]
 }

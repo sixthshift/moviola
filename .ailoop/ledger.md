@@ -164,3 +164,27 @@ Append-only journal. How the loop got where it is. Newest entry at the bottom.
        oracles green. Remaining work is entirely human-gated (oracle §Scope):
        name, feel-pass, §14 parity judgment, gallery publish-worthiness,
        SKILL cold-test, full-layout + a11y-inert decisions.
+
+[0011] v0.4 intake — oracle re-frozen, backlog seeded M201–M209
+  decision: open the motion-layer drive (SPEC §15, committed 580ade3)
+  why: previous drive drained ([0010]); tree since migrated to the v0.3
+       toolchain (TS/Vite/Vitest/Playwright/Biome, committed 6ffdab6) which
+       made the v1 oracle's toolchain + "contract frozen" clauses stale for
+       §15 work. Re-freeze is a SEMANTIC oracle change, authorized by Jason
+       in-session ("spec this" → SPEC §15; "do i run ailoop now?" →
+       pre-flight). Key re-freeze deltas: contract additions allowlisted
+       exactly as specced (additive only; semantics.spec.ts unmodified is
+       the tripwire); generated embed chain allowlisted per src ticket;
+       gates = bun run check; size bars unchanged with escalate-first rule;
+       ❓ items implementation-banned. M201–M205 serialized on src/story.ts
+       (file contract, not logic). Acceptance red-teamed inline at intake
+       (anti-gaming: mid-chapter flight screenshots, event-order under
+       data-morph, settle-independent captures); 2-agent red-team pass at
+       dispatch remains available to the coordinator if it wants a second
+       opinion before batch 1.
+  evidence: intake baseline gate green on 580ade3 (tsc, biome, 74 unit,
+       36 e2e, check-links); schedule.mjs: 9 todo, 0 problems/cycles,
+       batch[0] = [M201, M206].
+  human gates carried forward: DX cold-test quality, feel-pass on flights/
+       morphs (<720px + reduced-motion), §14 parity judgment on re-cuts,
+       name/npm, §15 ❓ decisions.
