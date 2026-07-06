@@ -159,7 +159,7 @@
     {
       "id": "S109",
       "title": "Docs closure: README gallery (tier-verified), SPEC status sync (gated), link checker with contrast proof",
-      "status": "in-progress",
+      "status": "done",
       "depends_on": [
         "S102",
         "S103",
@@ -178,7 +178,7 @@
       "context": "Read README.md, SPEC.md, docs/recipes.md, and the merged tree. README: add Gallery section listing EVERY examples/*.html with a one-line specific description (no two entries sharing text) and its tier — the claimed tier must match reality (tier1 claims must pass `validate-story.mjs --tier1`). Add Themes and dist/ usage sections; keep the terse contract-first voice. SPEC.md: flip §9 dist item and §12 completed milestone items to ✅ ONLY where the artifact exists on disk; do NOT touch §14 pass-bar lines (human-gated) and do NOT modify any ❓-marked line anywhere — human gates must survive byte-identical. scripts/check-links.mjs: scans README.md, SPEC.md, docs/recipes.md for relative links/hrefs, exits 1 listing each unresolved path; must be provably non-vacuous (see acceptance).",
       "acceptance": "- `node scripts/check-links.mjs` → exit 0 on the real tree\n- contrast proof (in test or verify): run check-links against a temp copy of README containing a link to a nonexistent file → exit 1 naming that exact path\n- README gallery file-set equals `ls examples/*.html` exactly; no two gallery descriptions identical; every tier1-labelled entry passes `validate-story.mjs --tier1`\n- SPEC.md: §14 pass-bar lines still present (grep 'Both Tier 1 targets' and '≥ 2 of 3') with no ✅ on them; every ❓ line in SPEC.md byte-identical to pre-ticket state (diff against git)\n- §9 dist line ✅ iff dist/ non-empty; §11 recipes line ✅ iff docs/recipes.md exists\n- `bun test` green",
       "attempts": [],
-      "evidence": null
+      "evidence": "Coordinator independent re-verify on ticket/S109 (58af72e): scope exactly the 3 declared files; check-links exit 0 on real tree, exit 1 naming path on contrast copy (91-line real scanner); README gallery set == examples/ dir exactly, tiers verified; SPEC passbar lines present+unchecked, zero modified ❓ lines (diff-filtered); 45 tests green in verify worktree. Merged to main."
     }
   ]
 }
