@@ -15,10 +15,10 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 
 // Each test spawns a full Chromium via the CLI; running them all in parallel
-// workers can crash the browsers on memory-constrained machines. 'default'
-// mode keeps this file's tests sequential in one worker (without serial
-// mode's skip-on-failure coupling); other spec files still run alongside.
-test.describe.configure({ mode: 'default' })
+// workers can crash the browsers on memory-constrained machines. This file
+// is pinned to its own single-worker Playwright project (see
+// playwright.config.ts's "chromium-validator" project) so its tests never
+// run concurrently with each other, while the rest of e2e keeps parallelism.
 
 const ROOT = path.join(import.meta.dirname, '..')
 const VALIDATOR = path.join(ROOT, 'scripts/validate-story.mjs')
