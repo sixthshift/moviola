@@ -39,6 +39,34 @@ const setRect = (el: HTMLElement, top: number, bottom: number) => {
     ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 0 }) as DOMRect
 }
 
+/**
+ * §15.4 test double for `document.startViewTransition`. Unlike a microtask
+ * shim, the update callback is captured but never auto-invoked — the test
+ * decides when (or whether) the "browser" gets around to running it. That
+ * makes "events fire before the write lands" and "a stale write never
+ * resurrects state" assertable without racing real scheduler timing.
+ */
+class FakeTransition {
+  skipTransition = vi.fn()
+}
+
+const stubViewTransition = () => {
+  const pending: Array<() => void> = []
+  const transitions: FakeTransition[] = []
+  const fn = vi.fn((cb: () => void) => {
+    pending.push(cb)
+    const t = new FakeTransition()
+    transitions.push(t)
+    return t as unknown as ViewTransition
+  })
+  document.startViewTransition = fn as unknown as Document['startViewTransition']
+  return { pending, transitions, calls: fn }
+}
+
+const unstubViewTransition = () => {
+  delete (document as { startViewTransition?: unknown }).startViewTransition
+}
+
 /* ---- fixture ------------------------------------------------------------- */
 // Viewport 800 high, offset 0.5 → trigger line at 400.
 
@@ -311,6 +339,141 @@ describe('data-scrub (§15.2)', () => {
     expect((document.getElementById('chapter') as HTMLElement).style.getPropertyValue('--t')).toBe(
       ''
     )
+  })
+})
+
+/* ---- §15.4 data-morph ------------------------------------------------------ */
+
+describe('data-morph (§15.4)', () => {
+  afterEach(unstubViewTransition)
+
+  test('stepexit/stepenter fire synchronously; the morph write lands independently, later', async () => {
+    scrollToStep(0)
+    root.dataset.morph = ''
+    const story = Scrolly.init(root)
+    const { pending } = stubViewTransition()
+
+    const order: string[] = []
+    story.on('stepenter', d => order.push(`enter:${d.id}`))
+    story.on('stepexit', d => order.push(`exit:${d.id}`))
+
+    IOStub.instances[0]?.fire(true)
+    scrollToStep(1)
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    // Events already fired even though the transition's write is still
+    // sitting unflushed — they never waited on it.
+    expect(order).toEqual(['exit:a', 'enter:b'])
+    expect(root.getAttribute('data-active-step')).toBe('a')
+    expect(pending).toHaveLength(1)
+
+    pending[0]?.() // the "browser" finally runs the deferred write
+    expect(root.getAttribute('data-active-step')).toBe('b')
+    expect(order).toEqual(['exit:a', 'enter:b']) // unchanged — write never re-fires events
+  })
+
+  test('a step-change mid-morph skips the running transition; latest wins, no queue', async () => {
+    scrollToStep(0)
+    root.dataset.morph = ''
+    Scrolly.init(root)
+    const { pending, transitions } = stubViewTransition()
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1)
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+    expect(transitions).toHaveLength(1)
+    const first = transitions[0]
+
+    scrollToStep(2)
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    expect(first?.skipTransition).toHaveBeenCalledTimes(1)
+    expect(transitions).toHaveLength(2) // a fresh transition, not a reused/queued one
+    expect(transitions[1]?.skipTransition).not.toHaveBeenCalled()
+    for (const fn of pending) fn()
+    expect(root.getAttribute('data-active-step')).toBe('2') // third step has no id (§4)
+  })
+
+  test('progress variables keep updating every frame while a morph write is still pending', async () => {
+    scrollToStep(0)
+    root.dataset.morph = ''
+    Scrolly.init(root)
+    stubViewTransition()
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1) // triggers _activate -> queues a write that is never flushed below
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+    expect(root.getAttribute('data-active-step')).toBe('a') // write still pending
+
+    setRect(steps[1] as HTMLElement, 350, 1250) // nudge further into the same chapter
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    // §5.2/§15.2 progress vars are never routed through the transition: they
+    // moved even though the class/attribute batch is still unapplied.
+    expect(root.style.getPropertyValue('--step-progress')).not.toBe('0.0000')
+    expect(root.getAttribute('data-active-step')).toBe('a')
+  })
+
+  test('no View Transitions API: data-morph is inert, the batch lands exactly as before', async () => {
+    scrollToStep(0)
+    root.dataset.morph = ''
+    Scrolly.init(root) // no stub installed — happy-dom has no startViewTransition
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1)
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    expect(root.getAttribute('data-active-step')).toBe('b') // synchronous, zero delta
+  })
+
+  test('prefers-reduced-motion: data-morph is inert even when the API exists', async () => {
+    const { calls } = stubViewTransition()
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
+    scrollToStep(0)
+    root.dataset.morph = ''
+    Scrolly.init(root)
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1)
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+
+    expect(calls).not.toHaveBeenCalled()
+    expect(root.getAttribute('data-active-step')).toBe('b') // synchronous, zero delta
+  })
+
+  test('RED-TEAM: destroy() during an in-flight morph leaves a clean DOM', async () => {
+    scrollToStep(0)
+    root.dataset.morph = ''
+    const story = Scrolly.init(root)
+    const { pending, transitions } = stubViewTransition()
+    IOStub.instances[0]?.fire(true)
+
+    scrollToStep(1) // queues a write that will never get to run before destroy
+    window.dispatchEvent(new Event('scroll'))
+    await new Promise(r => requestAnimationFrame(() => r(null)))
+    expect(pending).toHaveLength(1)
+
+    story.destroy()
+
+    expect(transitions[0]?.skipTransition).toHaveBeenCalledTimes(1)
+    expect(root.classList.contains('is-ready')).toBe(false)
+    for (const s of steps) expect(s.className).toBe('step')
+    expect(root.hasAttribute('data-active-step')).toBe(false)
+
+    // Simulate the browser eventually running the stale queued write anyway
+    // (skipTransition only skips the animation, not the callback) — it must
+    // not resurrect any state onto the torn-down story.
+    pending[0]?.()
+    expect(root.classList.contains('is-ready')).toBe(false)
+    for (const s of steps) expect(s.className).toBe('step')
+    expect(root.hasAttribute('data-active-step')).toBe(false)
   })
 })
 

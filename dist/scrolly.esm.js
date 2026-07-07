@@ -265,6 +265,7 @@ function handleKeydown(e, host) {
 var OFFSET = .5;
 var stepId = (el, i) => el.id || String(i);
 var VALID_IDENT = /^[A-Za-z0-9_-]+$/;
+var reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var instances = /* @__PURE__ */ new WeakMap();
 /** `Scrolly.init()` is idempotent per element: re-init returns the existing Story. */
 function getOrCreateStory(el, opts) {
@@ -280,6 +281,8 @@ var Story = class {
 		this._subs = [];
 		this._scrubs = [];
 		this._shots = null;
+		this._transition = null;
+		this._destroyed = false;
 		this.root = root;
 		this.offset = parseFloat((_root$dataset$offset = root.dataset.offset) !== null && _root$dataset$offset !== void 0 ? _root$dataset$offset : String((_opts$offset = opts.offset) !== null && _opts$offset !== void 0 ? _opts$offset : OFFSET));
 		this.graphic = root.querySelector(":scope > figure");
@@ -370,8 +373,7 @@ var Story = class {
 		const from = this._shots.held[active];
 		const to = this._shots.next[active];
 		if (!from || !to) return null;
-		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		return interpolateShot(from, to, reduced ? Math.round(step) : step);
+		return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step);
 	}
 	_measureCamera() {
 		if (this._rig) this._shots = measureShots(this._rig, this.root, this.steps);
@@ -381,20 +383,28 @@ var Story = class {
 		const direction = next > prev ? "down" : "up";
 		this.active = next;
 		this._measureCamera();
-		this.steps.forEach((s, i) => {
-			s.classList.toggle("is-past", next > -1 && i < next);
-			s.classList.toggle("is-active", i === next);
-			s.classList.toggle("is-future", next < 0 || i > next);
-		});
-		const activeStep = this.steps[next];
-		const id = activeStep ? stepId(activeStep, next) : null;
-		if (id === null) this.root.removeAttribute("data-active-step");
-		else this.root.setAttribute("data-active-step", id);
-		for (const el of this.shown) {
-			var _el$dataset$show;
-			const ids = ((_el$dataset$show = el.dataset.show) !== null && _el$dataset$show !== void 0 ? _el$dataset$show : "").split(/\s+/);
-			el.classList.toggle("is-shown", id !== null && ids.includes(id));
-		}
+		const write = () => {
+			if (this._destroyed) return;
+			this.steps.forEach((s, i) => {
+				s.classList.toggle("is-past", next > -1 && i < next);
+				s.classList.toggle("is-active", i === next);
+				s.classList.toggle("is-future", next < 0 || i > next);
+			});
+			const activeStep = this.steps[next];
+			const id = activeStep ? stepId(activeStep, next) : null;
+			if (id === null) this.root.removeAttribute("data-active-step");
+			else this.root.setAttribute("data-active-step", id);
+			for (const el of this.shown) {
+				var _el$dataset$show;
+				const ids = ((_el$dataset$show = el.dataset.show) !== null && _el$dataset$show !== void 0 ? _el$dataset$show : "").split(/\s+/);
+				el.classList.toggle("is-shown", id !== null && ids.includes(id));
+			}
+		};
+		if (this.root.dataset.morph !== void 0 && !reducedMotion() && typeof document.startViewTransition === "function") {
+			var _this$_transition;
+			(_this$_transition = this._transition) === null || _this$_transition === void 0 || _this$_transition.skipTransition();
+			this._transition = document.startViewTransition(write);
+		} else write();
 		if (prev >= 0) emit(this.root, "stepexit", {
 			...this._detail(prev),
 			direction
@@ -436,6 +446,9 @@ var Story = class {
 		return off;
 	}
 	destroy() {
+		var _this$_transition2;
+		this._destroyed = true;
+		(_this$_transition2 = this._transition) === null || _this$_transition2 === void 0 || _this$_transition2.skipTransition();
 		this._io.disconnect();
 		this._engage(false);
 		for (const off of [...this._subs]) off();

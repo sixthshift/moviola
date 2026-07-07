@@ -13,6 +13,7 @@
  * overrides `animation-delay` to a fixed `-0.5s`, pinning it to the
  * keyframe midpoint regardless of scroll — the author-override red-team.
  */
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
@@ -20,6 +21,7 @@ import { expect, type Page, test } from '@playwright/test'
 declare global {
   interface Window {
     __warnings: string[]
+    __events: Array<[string, string, string]>
   }
 }
 
@@ -515,5 +517,211 @@ test.describe('§15.3 camera continuity: reduced motion mid-hold', () => {
     expect(Buffer.compare(midHold, endOfOne)).toBe(0)
 
     await ctx.close()
+  })
+})
+
+/*
+ * §15.4 data-morph — proven against real Chromium View Transitions, not just
+ * the stubbed unit tests (test/unit/story.test.ts owns the deterministic,
+ * scheduler-independent guarantees). Fixture: three named squares whose flex
+ * `order` is driven purely by `[data-active-step]` — the exact §5.2 write
+ * data-morph wraps. Three sequential 1000px steps directly after a 2000px
+ * spacer (no leading buffer, same geometry recipe as this file's §15.2
+ * fixture): tops 2000/3000/4000, trigger 400, so
+ *
+ *   scrollY(step, t) = 1600 + step*1000 + t*1000
+ */
+const MORPH_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/dist/scrolly.css">
+<style>
+  body { margin: 0; }
+  #spacer { height: 2000px; }
+  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  .rack { display: flex; gap: 12px; }
+  .dot { width: 60px; height: 60px; }
+  .dot-a { background: #e33333; view-transition-name: dot-a; order: var(--order-a, 1); }
+  .dot-b { background: #33aa77; view-transition-name: dot-b; order: var(--order-b, 2); }
+  .dot-c { background: #3377ee; view-transition-name: dot-c; order: var(--order-c, 3); }
+  .scrolly[data-active-step="one"] .rack { --order-a: 1; --order-b: 2; --order-c: 3; }
+  .scrolly[data-active-step="two"] .rack { --order-a: 3; --order-b: 1; --order-c: 2; }
+  .scrolly[data-active-step="three"] .rack { --order-a: 2; --order-b: 3; --order-c: 1; }
+</style>
+</head>
+<body>
+<script>window.__events = []</script>
+<div id="spacer"></div>
+<article id="story" class="scrolly" data-layout="side-right" data-morph>
+  <figure>
+    <div class="rack">
+      <div class="dot dot-a"></div>
+      <div class="dot dot-b"></div>
+      <div class="dot dot-c"></div>
+    </div>
+  </figure>
+  <section class="step" id="one"><p>one</p></section>
+  <section class="step" id="two"><p>two</p></section>
+  <section class="step" id="three"><p>three</p></section>
+</article>
+<div style="height: 1000px"></div>
+<script src="/dist/scrolly.min.js"></script>
+<script>
+  window.__story = Scrolly.init('#story')
+  window.__story.on('stepenter', d => window.__events.push(['enter', d.id, d.direction]))
+  window.__story.on('stepexit', d => window.__events.push(['exit', d.id, d.direction]))
+</script>
+</body>
+</html>
+`
+
+const morphScrollYFor = (step: number, t = 0) => 1600 + step * 1000 + t * 1000
+
+const settleMorphAt = async (page: Page, step: number, expectActive: string) => {
+  await page.evaluate(y => window.scrollTo(0, y), morphScrollYFor(step))
+  await page.waitForFunction(
+    id => document.querySelector('#story')?.getAttribute('data-active-step') === id,
+    expectActive,
+    { timeout: 3000 }
+  )
+}
+
+const rackShot = (page: Page) => page.locator('#story .rack').screenshot()
+
+test.describe('§15.4 data-morph (real View Transitions)', () => {
+  test('stepexit/stepenter fire in the existing order without waiting on the transition', async ({
+    browser,
+  }) => {
+    const p = await (await browser.newContext()).newPage()
+    await serve(p, MORPH_HTML)
+    await settleMorphAt(p, 0, 'one')
+    await p.evaluate(() => {
+      window.__events.length = 0
+    })
+
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(1))
+    // Polls fast; if events were gated behind the transition's `finished`
+    // promise (default ~250ms animation) this would not resolve this quickly.
+    await p.waitForFunction(() => window.__events.length >= 2, undefined, { timeout: 1000 })
+    const events = await p.evaluate(() => window.__events)
+    expect(events).toEqual([
+      ['exit', 'one', 'down'],
+      ['enter', 'two', 'down'],
+    ])
+
+    // The write itself still lands correctly once the transition runs.
+    await p.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'two',
+      undefined,
+      { timeout: 3000 }
+    )
+  })
+
+  test('a mid-flight frame differs from both endpoints — a real flight, not a cut', async ({
+    browser,
+  }) => {
+    const p = await (await browser.newContext()).newPage()
+    await serve(p, MORPH_HTML)
+    await settleMorphAt(p, 0, 'one')
+    await p.waitForTimeout(300) // let step "one"'s own arrival settle first
+    const start = await rackShot(p)
+
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(1))
+    await p.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'two',
+      undefined,
+      { timeout: 3000 }
+    )
+    await p.waitForTimeout(50) // sample mid-animation (default transition ~250ms)
+    const mid = await rackShot(p)
+
+    await p.waitForTimeout(500) // let the transition fully finish
+    const end = await rackShot(p)
+
+    expect(Buffer.compare(mid, start)).not.toBe(0)
+    expect(Buffer.compare(mid, end)).not.toBe(0)
+  })
+
+  test('a step-change mid-flight skips the running transition: latest step wins, never a stale one', async ({
+    browser,
+  }) => {
+    const p = await (await browser.newContext()).newPage()
+    await serve(p, MORPH_HTML)
+    await settleMorphAt(p, 0, 'one')
+
+    // Fire both step-changes before either transition has had time to finish.
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(1))
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(2))
+    await p.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'three',
+      undefined,
+      { timeout: 3000 }
+    )
+    await p.waitForTimeout(500) // let it fully settle
+    const rushed = await rackShot(p)
+
+    // Compare against a fresh page driven straight to "three" the slow way.
+    const p2 = await (await browser.newContext()).newPage()
+    await serve(p2, MORPH_HTML)
+    await settleMorphAt(p2, 2, 'three')
+    await p2.waitForTimeout(500)
+    const direct = await rackShot(p2)
+
+    expect(Buffer.compare(rushed, direct)).toBe(0)
+  })
+
+  test('API-absent stub: with document.startViewTransition removed, the batch lands exactly as before', async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext()
+    await ctx.addInitScript(() => {
+      delete (window.document as { startViewTransition?: unknown }).startViewTransition
+    })
+    const p = await ctx.newPage()
+    await serve(p, MORPH_HTML)
+
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(0))
+    await p.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'one',
+      undefined,
+      { timeout: 1000 } // no transition to wait on: settles immediately
+    )
+    await ctx.close()
+  })
+
+  test('reduced motion: data-morph is inert even though the API exists', async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce' })
+    const p = await ctx.newPage()
+    await serve(p, MORPH_HTML)
+
+    await p.evaluate(y => window.scrollTo(0, y), morphScrollYFor(0))
+    await p.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'one',
+      undefined,
+      { timeout: 1000 } // no transition to wait on: settles immediately
+    )
+    await ctx.close()
+  })
+})
+
+test.describe('§15.4 morph-regroup fixture — the §14 validator', () => {
+  test('validator: 4 distinct graphic states, bidirectionally consistent under non-monotonic traversal', () => {
+    const fixture = path.join(import.meta.dirname, 'fixtures-clean/morph-regroup.html')
+    const result = spawnSync(
+      'node',
+      [path.join(root, 'scripts/validate-story.mjs'), fixture, '--tier1'],
+      { encoding: 'utf8' }
+    )
+    const report = JSON.parse(result.stdout)
+    expect(result.status).toBe(0)
+    expect(report.pass).toBe(true)
+    const story = report.stories[0]
+    expect(story.stepCount).toBeGreaterThanOrEqual(4)
+    expect(story.distinctGraphicStates).toBeGreaterThanOrEqual(4)
+    expect(story.bidirectionalConsistent).toBe(true)
+    expect(story.glueTier).toBe('tier1')
+    expect(story.externalUrls).toEqual([])
+    expect(story.consoleErrors).toEqual([])
   })
 })

@@ -70,6 +70,9 @@ export declare class Story {
     /** §15.3: null when the graphic has no `[data-camera]` (feature is opt-in). */
     private _rig;
     private _shots;
+    /** §15.4: the in-flight morph, tracked so the next step-change can skip it (latest wins, no queue). */
+    private _transition;
+    private _destroyed;
     constructor(root: HTMLElement, opts?: ScrollyOptions);
     private _engage;
     private _tick;
