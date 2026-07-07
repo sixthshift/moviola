@@ -132,6 +132,7 @@ var Story = class {
 		this._engaged = false;
 		this._ticking = false;
 		this._subs = [];
+		this._scrubs = [];
 		this.root = root;
 		this.offset = parseFloat((_root$dataset$offset = root.dataset.offset) !== null && _root$dataset$offset !== void 0 ? _root$dataset$offset : String((_opts$offset = opts.offset) !== null && _opts$offset !== void 0 ? _opts$offset : OFFSET));
 		this.graphic = root.querySelector(":scope > figure");
@@ -149,6 +150,7 @@ var Story = class {
 		}, { rootMargin: "100px 0px" });
 		this._io.observe(root);
 		for (const s of this.steps) s.classList.add("is-future");
+		this._stampScrubs();
 		root.classList.add("is-ready");
 		this._update();
 	}
@@ -229,6 +231,19 @@ var Story = class {
 			direction
 		});
 	}
+	_stampScrubs() {
+		const chapters = new Set(this._progressIds.map((p) => p.id));
+		for (const el of this.root.querySelectorAll("[data-scrub]")) {
+			const id = el.dataset.scrub;
+			if (!id) el.style.setProperty("--t", "var(--story-progress)");
+			else if (chapters.has(id)) el.style.setProperty("--t", `var(--progress-${id})`);
+			else {
+				console.warn(`scrolly: data-scrub="${id}" matches no chapter`);
+				continue;
+			}
+			this._scrubs.push(el);
+		}
+	}
 	_detail(i) {
 		const step = this.steps[i];
 		return {
@@ -259,6 +274,8 @@ var Story = class {
 		this.root.style.removeProperty("--step-progress");
 		this.root.style.removeProperty("--story-progress");
 		for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`);
+		for (const el of this._scrubs) el.style.removeProperty("--t");
+		this._scrubs = [];
 		instances.delete(this.root);
 	}
 };
