@@ -18,21 +18,6 @@
 * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
 *   scrolly:stepenter · scrolly:stepexit · scrolly:progress
 */
-//#region src/events.ts
-function emit(root, name, detail) {
-	root.dispatchEvent(new CustomEvent(`scrolly:${name}`, {
-		detail,
-		bubbles: true
-	}));
-}
-/** Listen on the story root; returns an unsubscribe function. */
-function subscribe(root, name, fn) {
-	const type = `scrolly:${name}`;
-	const handler = (e) => fn(e.detail);
-	root.addEventListener(type, handler);
-	return () => root.removeEventListener(type, handler);
-}
-//#endregion
 //#region src/geometry.ts
 /**
 * Pure scroll geometry — no DOM, just numbers. The state machine's math
@@ -90,6 +75,167 @@ function chapterProgress(tops, ends, trigger) {
 		return stepProgress(top, (_ends$i = ends[i]) !== null && _ends$i !== void 0 ? _ends$i : top, trigger);
 	});
 }
+var lerp = (a, b, t) => a + (b - a) * t;
+/**
+* Interpolate two shots (§15.3): pan is linear, zoom is log-space (equal
+* ratios per unit of progress, not equal pixels — linear zoom reads as
+* lurching). `from.k === to.k` degrades to a constant zoom with no special
+* case: log(k) is the same value throughout, so `lerp` never moves it.
+*/
+function interpolateShot(from, to, t) {
+	return {
+		cx: lerp(from.cx, to.cx, t),
+		cy: lerp(from.cy, to.cy, t),
+		k: Math.exp(lerp(Math.log(from.k), Math.log(to.k), t))
+	};
+}
+/**
+* Default framing (§15.3): no `data-zoom` means "fit" — frame the target's
+* box at ~70% of the stage, whichever axis is tighter. Degenerate
+* zero-size boxes guard with max(1, …) rather than dividing by zero.
+*/
+function fitZoom(targetW, targetH, stageW, stageH) {
+	return .7 * Math.min(stageW / Math.max(1, targetW), stageH / Math.max(1, targetH));
+}
+/**
+* Compose a shot into the CSS transform applied to `[data-camera]`: move the
+* shot's target center to the stage's center, then scale around it. Values
+* are in the camera element's own local units (SVG's `transform` interprets
+* unitless `px` there as user units, so this composes correctly whether the
+* camera element renders at 1:1 or is scaled by an ancestor viewBox).
+*/
+function cameraTransform(shot, stageCenter) {
+	return `translate(${stageCenter.x}px, ${stageCenter.y}px) scale(${shot.k}) translate(${-shot.cx}px, ${-shot.cy}px)`;
+}
+//#endregion
+//#region src/camera.ts
+/**
+* §15.3 the declarative camera — DOM measurement only. Shots are resolved
+* here at init/step-change/resize (never per frame, §5.3); story.ts caches
+* the result and does the per-frame interpolation with geometry.ts's pure
+* math, so no rect is read on a scroll tick.
+*
+* The camera element (`[data-camera]`) must be an SVG graphics element: its
+* children's authored coordinates (what `data-focus` targets measure in) are
+* only a stable, transform-independent space for SVG content, and
+* `getScreenCTM` is what lets a shot be resolved from the CURRENT rendered
+* layout without writing scroll position or temporarily clearing styles.
+*/
+/** `[data-camera]` opts in only when it can resolve shots (SVG content). */
+function resolveRig(graphic) {
+	var _graphic$querySelecto;
+	const camera = (_graphic$querySelecto = graphic === null || graphic === void 0 ? void 0 : graphic.querySelector("[data-camera]")) !== null && _graphic$querySelecto !== void 0 ? _graphic$querySelecto : null;
+	if (!camera || !graphic || !("getScreenCTM" in camera)) return null;
+	return {
+		camera,
+		stage: graphic
+	};
+}
+var boxOf = (p1, p2) => ({
+	x: Math.min(p1.x, p2.x),
+	y: Math.min(p1.y, p2.y),
+	w: Math.abs(p2.x - p1.x),
+	h: Math.abs(p2.y - p1.y)
+});
+/**
+* The stage's box in the camera's own untransformed coordinate space. The
+* stage (the sticky `<figure>`) isn't SVG content, so this goes through its
+* real rendered screen rect — which is also what makes it resize-sensitive
+* (a `data-zoom`-less shot reframes if the stage's own aspect ratio does).
+* `camera.parentNode`'s screen matrix excludes the camera's own transform by
+* construction (a transform maps an element's children into its PARENT's
+* space), so this is stable regardless of the shot the camera currently
+* happens to be showing.
+*/
+function stageRect(rig) {
+	const parent = rig.camera.parentNode;
+	const ctm = parent && "getScreenCTM" in parent ? parent.getScreenCTM() : null;
+	if (!ctm) return null;
+	const inv = ctm.inverse();
+	const r = rig.stage.getBoundingClientRect();
+	return boxOf(new DOMPoint(r.left, r.top).matrixTransform(inv), new DOMPoint(r.right, r.bottom).matrixTransform(inv));
+}
+/**
+* `target`'s box in the camera's own untransformed coordinate space.
+* `target.getScreenCTM()` already includes whatever the camera's CURRENT
+* transform is (target is its descendant); dividing it by the camera's own
+* screen matrix cancels that transform out algebraically, so this is
+* self-correcting mid-flight rather than needing to read `target`'s
+* rendered box (which the camera's own live transform would distort).
+*/
+function targetRect(rig, target) {
+	if (!("getBBox" in target && "getScreenCTM" in target)) return null;
+	const el = target;
+	const camCTM = rig.camera.getScreenCTM();
+	const targetCTM = el.getScreenCTM();
+	if (!camCTM || !targetCTM) return null;
+	const toCamera = camCTM.inverse().multiply(targetCTM);
+	const box = el.getBBox();
+	return boxOf(new DOMPoint(box.x, box.y).matrixTransform(toCamera), new DOMPoint(box.x + box.width, box.y + box.height).matrixTransform(toCamera));
+}
+/**
+* Resolve every focused step's shot. A `data-focus` selector matching
+* nothing warns once and is treated as absent (hold, never a throw or a
+* jump to identity — §15.3).
+*/
+function measureShots(rig, root, steps) {
+	const stage = stageRect(rig);
+	const resolve = (el) => {
+		var _el$dataset$zoom;
+		const selector = el.dataset.focus;
+		if (!selector) return null;
+		const target = document.querySelector(selector);
+		if (!target) {
+			console.warn(`scrolly: data-focus="${selector}" matches no element`);
+			return null;
+		}
+		const t = targetRect(rig, target);
+		if (!t || !stage) return null;
+		const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
+		return {
+			cx: t.x + t.w / 2,
+			cy: t.y + t.h / 2,
+			k: Number.isFinite(zoom) ? zoom : fitZoom(t.w, t.h, stage.w, stage.h)
+		};
+	};
+	const establishing = resolve(root);
+	const own = steps.map(resolve);
+	const held = [];
+	const next = [];
+	let arrived = establishing;
+	own.forEach((shot, i) => {
+		const from = shot !== null && shot !== void 0 ? shot : arrived;
+		held.push(from);
+		const later = own.slice(i + 1).find((s) => s !== null);
+		const to = shot ? later !== null && later !== void 0 ? later : shot : from;
+		next.push(to);
+		arrived = to;
+	});
+	return {
+		establishing,
+		held,
+		next,
+		center: stage ? {
+			x: stage.x + stage.w / 2,
+			y: stage.y + stage.h / 2
+		} : null
+	};
+}
+//#endregion
+//#region src/events.ts
+function emit(root, name, detail) {
+	root.dispatchEvent(new CustomEvent(`scrolly:${name}`, {
+		detail,
+		bubbles: true
+	}));
+}
+/** Listen on the story root; returns an unsubscribe function. */
+function subscribe(root, name, fn) {
+	const type = `scrolly:${name}`;
+	const handler = (e) => fn(e.detail);
+	root.addEventListener(type, handler);
+	return () => root.removeEventListener(type, handler);
+}
 //#endregion
 //#region src/keyboard.ts
 function handleKeydown(e, host) {
@@ -133,6 +279,7 @@ var Story = class {
 		this._ticking = false;
 		this._subs = [];
 		this._scrubs = [];
+		this._shots = null;
 		this.root = root;
 		this.offset = parseFloat((_root$dataset$offset = root.dataset.offset) !== null && _root$dataset$offset !== void 0 ? _root$dataset$offset : String((_opts$offset = opts.offset) !== null && _opts$offset !== void 0 ? _opts$offset : OFFSET));
 		this.graphic = root.querySelector(":scope > figure");
@@ -142,7 +289,12 @@ var Story = class {
 			id: s.id,
 			index
 		})).filter(({ id }) => VALID_IDENT.test(id));
+		this._rig = resolveRig(this.graphic);
 		this._onScroll = () => this._tick();
+		this._onResize = () => {
+			this._measureCamera();
+			this._tick();
+		};
 		this._onKey = (e) => handleKeydown(e, this);
 		instances.set(root, this);
 		this._io = new IntersectionObserver((entries) => {
@@ -151,6 +303,7 @@ var Story = class {
 		this._io.observe(root);
 		for (const s of this.steps) s.classList.add("is-future");
 		this._stampScrubs();
+		this._measureCamera();
 		root.classList.add("is-ready");
 		this._update();
 	}
@@ -159,7 +312,7 @@ var Story = class {
 		this._engaged = on;
 		const fn = on ? "addEventListener" : "removeEventListener";
 		window[fn]("scroll", this._onScroll, { passive: true });
-		window[fn]("resize", this._onScroll);
+		window[fn]("resize", this._onResize);
 		window[fn]("keydown", this._onKey);
 		if (on) this._update();
 	}
@@ -172,6 +325,7 @@ var Story = class {
 		});
 	}
 	_update() {
+		var _this$_shots$center, _this$_shots;
 		const first = this.steps[0];
 		const last = this.steps[this.steps.length - 1];
 		if (!first || !last) return;
@@ -198,16 +352,35 @@ var Story = class {
 				this.root.style.setProperty(`--progress-${id}`, ((_chapters$index = chapters[index]) !== null && _chapters$index !== void 0 ? _chapters$index : 0).toFixed(4));
 			}
 		}
+		const shot = this._cameraShot(active, step);
+		if (shot) this.root.style.setProperty("--camera-transform", cameraTransform(shot, (_this$_shots$center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center) !== null && _this$_shots$center !== void 0 ? _this$_shots$center : {
+			x: 0,
+			y: 0
+		}));
 		if (active >= 0) emit(this.root, "progress", {
 			...this._detail(active),
 			progress: step,
 			storyProgress: story
 		});
 	}
+	_cameraShot(active, step) {
+		var _this$_shots2;
+		if (!((_this$_shots2 = this._shots) === null || _this$_shots2 === void 0 ? void 0 : _this$_shots2.center)) return null;
+		if (active < 0) return this._shots.establishing;
+		const from = this._shots.held[active];
+		const to = this._shots.next[active];
+		if (!from || !to) return null;
+		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		return interpolateShot(from, to, reduced ? Math.round(step) : step);
+	}
+	_measureCamera() {
+		if (this._rig) this._shots = measureShots(this._rig, this.root, this.steps);
+	}
 	_activate(next) {
 		const prev = this.active;
 		const direction = next > prev ? "down" : "up";
 		this.active = next;
+		this._measureCamera();
 		this.steps.forEach((s, i) => {
 			s.classList.toggle("is-past", next > -1 && i < next);
 			s.classList.toggle("is-active", i === next);
@@ -276,6 +449,8 @@ var Story = class {
 		for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`);
 		for (const el of this._scrubs) el.style.removeProperty("--t");
 		this._scrubs = [];
+		this.root.style.removeProperty("--camera-transform");
+		this._shots = null;
 		instances.delete(this.root);
 	}
 };

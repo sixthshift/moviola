@@ -61,15 +61,21 @@ export declare class Story {
     private _subs;
     private _io;
     private _onScroll;
+    private _onResize;
     private _onKey;
     /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
     private _progressIds;
     /** `[data-scrub]` elements stamped with `--t` at init (§15.2), for teardown. */
     private _scrubs;
+    /** §15.3: null when the graphic has no `[data-camera]` (feature is opt-in). */
+    private _rig;
+    private _shots;
     constructor(root: HTMLElement, opts?: ScrollyOptions);
     private _engage;
     private _tick;
     private _update;
+    private _cameraShot;
+    private _measureCamera;
     private _activate;
     private _stampScrubs;
     private _detail;

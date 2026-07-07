@@ -32,6 +32,13 @@
   grid-area: 1 / 1;
 }
 
+/* §15.3: the camera is geometry, not presentation — no transition here.
+   The value is already scroll-scrubbed (recomputed every frame from cached
+   endpoints), so animating it too would fight the reader's own scroll. */
+.scrolly.is-ready [data-camera] {
+  transform: var(--camera-transform, none);
+}
+
 /* step-driven visibility — hiding is scoped under .is-ready (stamped by the
    runtime at init) so a page whose JS never ran stays fully readable */
 .scrolly.is-ready [data-show] {

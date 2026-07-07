@@ -6,8 +6,11 @@
 import { describe, expect, test } from 'vitest'
 import {
   activeIndex,
+  cameraTransform,
   chapterProgress,
   clamp,
+  fitZoom,
+  interpolateShot,
   stepProgress,
   storyProgress,
 } from '../../src/geometry'
@@ -146,5 +149,68 @@ describe('chapterProgress (§15.2: 1 passed / stepProgress active / 0 future)', 
     // … the value at the original position is unchanged.
     const after = chapterProgress(tops, ends, trigger)
     expect(after).toEqual(before)
+  })
+})
+
+describe('interpolateShot (§15.3: pan linear, zoom log-space)', () => {
+  test('pan is linear in cx/cy', () => {
+    const from = { cx: 0, cy: 0, k: 1 }
+    const to = { cx: 100, cy: 200, k: 1 }
+    expect(interpolateShot(from, to, 0)).toEqual({ cx: 0, cy: 0, k: 1 })
+    expect(interpolateShot(from, to, 0.25)).toEqual({ cx: 25, cy: 50, k: 1 })
+    expect(interpolateShot(from, to, 1)).toEqual({ cx: 100, cy: 200, k: 1 })
+  })
+
+  test('zoom is log-space: equal ratios per unit t, not equal pixels', () => {
+    const from = { cx: 0, cy: 0, k: 1 }
+    const to = { cx: 0, cy: 0, k: 4 }
+    // halfway in log-space between 1 and 4 is sqrt(1*4) = 2, not the linear
+    // midpoint 2.5 — log-space is exactly a geometric mean.
+    expect(interpolateShot(from, to, 0.5).k).toBeCloseTo(2, 10)
+    // a quarter of the way: 1 * (4/1)^0.25 = sqrt(2)
+    expect(interpolateShot(from, to, 0.25).k).toBeCloseTo(Math.SQRT2, 10)
+  })
+
+  test('k1 === k2 holds a constant zoom throughout, no NaN/drift from log(1)', () => {
+    const from = { cx: 0, cy: 0, k: 3 }
+    const to = { cx: 10, cy: 10, k: 3 }
+    for (const t of [0, 0.3, 0.5, 0.9, 1]) {
+      expect(interpolateShot(from, to, t).k).toBeCloseTo(3, 10)
+    }
+  })
+
+  test('endpoints are exact', () => {
+    const from = { cx: 12, cy: -4, k: 0.5 }
+    const to = { cx: -8, cy: 40, k: 6 }
+    expect(interpolateShot(from, to, 0)).toEqual(from)
+    expect(interpolateShot(from, to, 1)).toEqual(to)
+  })
+})
+
+describe('fitZoom (§15.3: default framing — target box at ~70% of the stage)', () => {
+  test('scales up a small target to fill 70% of the stage on its tighter axis', () => {
+    // target 100x50 in a 1000x1000 stage: width is the tighter axis
+    // (1000/100=10 vs 1000/50=20), so k = 0.7 * 10 = 7
+    expect(fitZoom(100, 50, 1000, 1000)).toBeCloseTo(7, 10)
+  })
+
+  test('non-square target picks whichever axis is tighter', () => {
+    // height is tighter here: 1000/200=5 vs 1000/50=20
+    expect(fitZoom(50, 200, 1000, 1000)).toBeCloseTo(0.7 * 5, 10)
+  })
+
+  test('a target already the size of the stage still frames at 70%, not 100%', () => {
+    expect(fitZoom(1000, 1000, 1000, 1000)).toBeCloseTo(0.7, 10)
+  })
+
+  test('degenerate zero-size target never divides by zero', () => {
+    expect(Number.isFinite(fitZoom(0, 0, 1000, 1000))).toBe(true)
+  })
+})
+
+describe('cameraTransform (§15.3: compose a shot into a CSS transform)', () => {
+  test('centers the shot on the stage center, scaled by k', () => {
+    const css = cameraTransform({ cx: 50, cy: 25, k: 2 }, { x: 400, y: 300 })
+    expect(css).toBe('translate(400px, 300px) scale(2) translate(-50px, -25px)')
   })
 })

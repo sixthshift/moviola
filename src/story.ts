@@ -4,8 +4,17 @@
  * it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts.
  */
 
+import { type CameraRig, measureShots, resolveRig, type Shots } from './camera'
 import { emit, subscribe } from './events'
-import { activeIndex, chapterProgress, stepProgress, storyProgress } from './geometry'
+import {
+  activeIndex,
+  cameraTransform,
+  chapterProgress,
+  interpolateShot,
+  type Shot,
+  stepProgress,
+  storyProgress,
+} from './geometry'
 import { handleKeydown } from './keyboard'
 import type { ScrollyEventMap, ScrollyEventName, ScrollyOptions, StepDetail } from './types'
 
@@ -35,11 +44,15 @@ export class Story {
   private _subs: Array<() => void> = []
   private _io: IntersectionObserver
   private _onScroll: () => void
+  private _onResize: () => void
   private _onKey: (e: KeyboardEvent) => void
   /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
   private _progressIds: Array<{ id: string; index: number }>
   /** `[data-scrub]` elements stamped with `--t` at init (§15.2), for teardown. */
   private _scrubs: HTMLElement[] = []
+  /** §15.3: null when the graphic has no `[data-camera]` (feature is opt-in). */
+  private _rig: CameraRig | null
+  private _shots: Shots | null = null
 
   constructor(root: HTMLElement, opts: ScrollyOptions = {}) {
     this.root = root
@@ -50,7 +63,12 @@ export class Story {
     this._progressIds = this.steps
       .map((s, index) => ({ id: s.id, index }))
       .filter(({ id }) => VALID_IDENT.test(id))
+    this._rig = resolveRig(this.graphic)
     this._onScroll = () => this._tick()
+    this._onResize = () => {
+      this._measureCamera()
+      this._tick()
+    }
     this._onKey = e => handleKeydown(e, this)
     instances.set(root, this)
 
@@ -65,6 +83,7 @@ export class Story {
 
     for (const s of this.steps) s.classList.add('is-future')
     this._stampScrubs()
+    this._measureCamera()
     // stamped last: hiding CSS is scoped under it, so a JS failure
     // leaves the page fully readable
     root.classList.add('is-ready')
@@ -76,7 +95,7 @@ export class Story {
     this._engaged = on
     const fn = on ? 'addEventListener' : 'removeEventListener'
     window[fn]('scroll', this._onScroll, { passive: true } as AddEventListenerOptions)
-    window[fn]('resize', this._onScroll)
+    window[fn]('resize', this._onResize)
     window[fn]('keydown', this._onKey as EventListener)
     if (on) this._update()
   }
@@ -126,15 +145,44 @@ export class Story {
       }
     }
 
+    const shot = this._cameraShot(active, step)
+    if (shot)
+      this.root.style.setProperty(
+        '--camera-transform',
+        cameraTransform(shot, this._shots?.center ?? { x: 0, y: 0 })
+      )
+
     if (active >= 0) {
       emit(this.root, 'progress', { ...this._detail(active), progress: step, storyProgress: story })
     }
+  }
+
+  // §15.3: the shot at the current scroll position. Steps without their own
+  // `data-focus` hold the previous shot; between two focused steps the
+  // flight plays out across the EARLIER one's own chapter progress (so the
+  // camera has already arrived by the time the later step's prose appears).
+  // Reduced motion snaps to the nearer shot — a cut, never a flight.
+  private _cameraShot(active: number, step: number): Shot | null {
+    if (!this._shots?.center) return null
+    if (active < 0) return this._shots.establishing
+    const from = this._shots.held[active]
+    const to = this._shots.next[active]
+    if (!from || !to) return null
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    return interpolateShot(from, to, reduced ? Math.round(step) : step)
+  }
+
+  // §15.3: shots are measured at init, step-change, and resize only — never
+  // per frame. No-op when the graphic has no `[data-camera]`.
+  private _measureCamera(): void {
+    if (this._rig) this._shots = measureShots(this._rig, this.root, this.steps)
   }
 
   private _activate(next: number): void {
     const prev = this.active
     const direction = next > prev ? 'down' : 'up'
     this.active = next
+    this._measureCamera()
 
     this.steps.forEach((s, i) => {
       s.classList.toggle('is-past', next > -1 && i < next)
@@ -204,6 +252,8 @@ export class Story {
     for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`)
     for (const el of this._scrubs) el.style.removeProperty('--t')
     this._scrubs = []
+    this.root.style.removeProperty('--camera-transform')
+    this._shots = null
     instances.delete(this.root)
   }
 }
