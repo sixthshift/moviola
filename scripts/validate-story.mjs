@@ -7,7 +7,7 @@
  * runtime instrumentation rather than any text/name matching.
  *
  * "The lib" inside a page is identified by byte-equality with the canonical
- * build artifact, dist/scrolly.iife.js (kept in sync with every embed by
+ * build artifact, dist/scrolly.min.js (kept in sync with every embed by
  * scripts/sync-embeds.mjs).
  *
  * Usage: node scripts/validate-story.mjs <file.html> [--tier1] [--report <out.html>]
@@ -551,7 +551,7 @@ async function main() {
     process.exit(1)
   }
   const html = fs.readFileSync(file, 'utf8')
-  const libSource = fs.readFileSync(path.join(REPO_ROOT, 'dist/scrolly.iife.js'), 'utf8')
+  const libSource = fs.readFileSync(path.join(REPO_ROOT, 'dist/scrolly.min.js'), 'utf8')
   const scriptSources = findScriptSources(html, file, libSource)
   const sourceExternalRefs = scanSourceForExternalRefs(html)
 

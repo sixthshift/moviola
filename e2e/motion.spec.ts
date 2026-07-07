@@ -49,14 +49,14 @@ const HTML = `<!doctype html>
   <section class="step" id="scene"><p>scene</p></section>
 </article>
 <div style="height: 1000px"></div>
-<script src="/dist/scrolly.iife.js"></script>
+<script src="/dist/scrolly.min.js"></script>
 <script>window.__story = Scrolly.init('#story')</script>
 </body>
 </html>
 `
 
 const NOJS_HTML = HTML.replace(
-  `<script src="/dist/scrolly.iife.js"></script>
+  `<script src="/dist/scrolly.min.js"></script>
 <script>window.__story = Scrolly.init('#story')</script>
 `,
   ''

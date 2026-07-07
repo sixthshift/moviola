@@ -62,7 +62,7 @@ The consumer contract is a classic script from `file://`, so `dist/` is
 generated **and committed**, and several places embed the library outright:
 
 ```
-src/*.ts ──bun run build──▶ dist/scrolly.iife.js   (canonical artifact)
+src/*.ts ──bun run build──▶ dist/scrolly.min.js   (canonical artifact)
                                   │
                  scripts/sync-embeds.mjs (runs inside the build)
                                   │
@@ -76,20 +76,22 @@ examples/*.html          e2e/fixtures-*/*.html       skill/assets/
 dist, and `bun run check` ends with `git diff --exit-code dist examples
 skill/assets` so a stale build can't slip through. The §14 validator
 (`scripts/validate-story.mjs`) identifies "the lib" inside any page by
-byte-equality with `dist/scrolly.iife.js` — that is what makes its glue-tier
+byte-equality with `dist/scrolly.min.js` — that is what makes its glue-tier
 classification (author JS vs library JS) trustworthy without any name
 matching. Author glue must stay **outside** the markers.
 
 ## Build pipeline
 
-The build is exactly `vite build`. `vite.config.ts` declares lib mode (the
-readable iife + esm + bundled `scrolly.d.ts` via `vite-plugin-dts`) plus a
-small `scrolly:artifacts` plugin that emits the rest: `scrolly.min.js` (an
-esbuild pass mangling only `_`-prefixed internals — never the public
-contract), `scrolly.css` (copied verbatim; the CSS is deliberately not
-JS-imported), and — in `closeBundle` — the embed re-sync via
-`scripts/sync-embeds.mjs`. The build is deterministic — no dates, no
-hashes — because embeds are compared byte-for-byte.
+The build is exactly `vite build`. `vite.config.ts` declares lib mode (esm +
+bundled `scrolly.d.ts` via `vite-plugin-dts`, plus an iife format built only
+as an in-memory intermediate — never written to `dist`) plus a small
+`scrolly:artifacts` plugin that emits the rest: `scrolly.min.js` (an esbuild
+pass over that iife intermediate, mangling only `_`-prefixed internals —
+never the public contract; this is the canonical runtime artifact, and the
+readable implementation reference is `src/`), `scrolly.css` (copied verbatim;
+the CSS is deliberately not JS-imported), and — in `closeBundle` — the embed
+re-sync via `scripts/sync-embeds.mjs`. The build is deterministic — no
+dates, no hashes — because embeds are compared byte-for-byte.
 
 ## Test tiers
 
@@ -99,9 +101,8 @@ hashes — because embeds are compared byte-for-byte.
   manifest).
 - **`e2e/` (Playwright, real Chromium)** — the SPEC driven by real scrolling
   against hand-tuned fixture geometry (`e2e/fixture.html`, trigger math is
-  exact); keyboard smooth-scroll; theme swaps over `index.html`; all three
-  dist builds; and the story validator exercised against every broken
-  fixture.
+  exact); keyboard smooth-scroll; theme swaps over `index.html`; both dist
+  builds; and the story validator exercised against every broken fixture.
 - **`scripts/validate-story.mjs` (SPEC §14 as a CLI)** — drives any scrolly
   page forward/reverse/out-of-order in a real browser with runtime
   instrumentation and network interception, screenshots each step, and

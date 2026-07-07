@@ -1,9 +1,10 @@
 // Re-inject the built library into every place that embeds a copy of it:
 //   - examples/*.html and e2e fixtures   between  <!-- scrolly:css/js -->  markers
 //   - skill/assets/                      plain file copies
-// dist/ is the canonical artifact; embedded copies must stay byte-identical
-// (asserted by test/unit/embeds.test.ts). Author glue stays outside the
-// markers — the §14 validator classifies anything inside them as "the lib".
+// dist/scrolly.min.js is the canonical artifact; embedded copies must stay
+// byte-identical (asserted by test/unit/embeds.test.ts). Author glue stays
+// outside the markers — the §14 validator classifies anything inside them
+// as "the lib".
 //
 // Runs as the last build step (vite.config.ts `scrolly:artifacts` plugin);
 // also directly runnable: node scripts/sync-embeds.mjs
@@ -17,7 +18,7 @@ export const EMBED_DIRS = ['examples', 'e2e/fixtures-broken', 'e2e/fixtures-clea
 
 export function syncEmbeds(root = ROOT) {
   const css = readFileSync(path.join(root, 'dist/scrolly.css'), 'utf8')
-  const js = readFileSync(path.join(root, 'dist/scrolly.iife.js'), 'utf8')
+  const js = readFileSync(path.join(root, 'dist/scrolly.min.js'), 'utf8')
 
   const blocks = [
     { open: '<!-- scrolly:css -->', close: '<!-- /scrolly:css -->', body: `<style>${css}</style>` },
@@ -43,7 +44,7 @@ export function syncEmbeds(root = ROOT) {
     }
   }
 
-  cpSync(path.join(root, 'dist/scrolly.iife.js'), path.join(root, 'skill/assets/scrolly.js'))
+  cpSync(path.join(root, 'dist/scrolly.min.js'), path.join(root, 'skill/assets/scrolly.js'))
   cpSync(path.join(root, 'dist/scrolly.css'), path.join(root, 'skill/assets/scrolly.css'))
 }
 

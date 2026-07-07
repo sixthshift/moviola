@@ -1,12 +1,12 @@
 /*
- * S107 — dist/ packaging: behavioral parity for all three builds against the
+ * S107 — dist/ packaging: behavioral parity for both builds against the
  * same fixture geometry as e2e/semantics.spec.ts (viewport 1000×800, trigger
  * at 400, step a top = 2000 → viewport-top 300 at scrollY=1700).
  *
  * Chrome refuses to fetch ES-module scripts from file://, so the esm build's
  * own contract forces an http origin. Instead of a real server, every request
  * to the fake origin is fulfilled from repo files / in-memory fixtures via
- * page.route — no port, no temp dir. iife/min ride along on the same path.
+ * page.route — no port, no temp dir. min rides along on the same path.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -48,8 +48,6 @@ ${scriptTag}
 `
 
 const builds = {
-  iife: `<script src="/dist/scrolly.iife.js"></script>
-    <script>window.__story = Scrolly.init('#story')</script>`,
   min: `<script src="/dist/scrolly.min.js"></script>
     <script>window.__story = Scrolly.init('#story')</script>`,
   esm: `<script type="module">
@@ -102,14 +100,12 @@ for (const [name, scriptTag] of Object.entries(builds)) {
   })
 }
 
-test('min.js is not byte-identical to the iife, is smaller, and drops internal names', () => {
-  const iife = readFileSync(path.join(root, 'dist/scrolly.iife.js'), 'utf8')
+test('min.js mangles internal names, never the public contract', () => {
   const min = readFileSync(path.join(root, 'dist/scrolly.min.js'), 'utf8')
-  expect(min).not.toBe(iife)
-  expect(min.length).toBeLessThan(iife.length)
   for (const name of ['_engaged', '_onScroll', '_ticking']) {
     expect(min).not.toContain(name)
   }
+  expect(min).toContain('Scrolly')
 })
 
 test('esm build exposes a working default export outside a DOM', async () => {
