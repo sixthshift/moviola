@@ -38,6 +38,8 @@ export class Story {
   private _onKey: (e: KeyboardEvent) => void
   /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
   private _progressIds: Array<{ id: string; index: number }>
+  /** `[data-scrub]` elements stamped with `--t` at init (§15.2), for teardown. */
+  private _scrubs: HTMLElement[] = []
 
   constructor(root: HTMLElement, opts: ScrollyOptions = {}) {
     this.root = root
@@ -62,6 +64,7 @@ export class Story {
     this._io.observe(root)
 
     for (const s of this.steps) s.classList.add('is-future')
+    this._stampScrubs()
     // stamped last: hiding CSS is scoped under it, so a JS failure
     // leaves the page fully readable
     root.classList.add('is-ready')
@@ -154,6 +157,23 @@ export class Story {
     if (next >= 0) emit(this.root, 'stepenter', { ...this._detail(next), direction })
   }
 
+  // §15.2: one-time --t stamp per [data-scrub] element — valueless scrubs the
+  // whole story, an id scrubs that chapter, a dangling id fails soft (no
+  // stamp, console.warn) rather than breaking the page.
+  private _stampScrubs(): void {
+    const chapters = new Set(this._progressIds.map(p => p.id))
+    for (const el of this.root.querySelectorAll<HTMLElement>('[data-scrub]')) {
+      const id = el.dataset.scrub
+      if (!id) el.style.setProperty('--t', 'var(--story-progress)')
+      else if (chapters.has(id)) el.style.setProperty('--t', `var(--progress-${id})`)
+      else {
+        console.warn(`scrolly: data-scrub="${id}" matches no chapter`)
+        continue
+      }
+      this._scrubs.push(el)
+    }
+  }
+
   private _detail(i: number): StepDetail {
     const step = this.steps[i] as HTMLElement
     return { step, id: stepId(step, i), index: i }
@@ -182,6 +202,8 @@ export class Story {
     this.root.style.removeProperty('--step-progress')
     this.root.style.removeProperty('--story-progress')
     for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`)
+    for (const el of this._scrubs) el.style.removeProperty('--t')
+    this._scrubs = []
     instances.delete(this.root)
   }
 }

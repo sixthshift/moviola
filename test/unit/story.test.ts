@@ -258,6 +258,62 @@ describe('--progress-<id> (§15.2)', () => {
   })
 })
 
+/* ---- §15.2 data-scrub ------------------------------------------------------ */
+
+describe('data-scrub (§15.2)', () => {
+  const buildScrubStory = () => {
+    document.body.innerHTML = `
+      <article class="scrolly">
+        <figure>
+          <div id="whole" data-scrub></div>
+          <div id="chapter" data-scrub="intro"></div>
+          <div id="dangling" data-scrub="nope"></div>
+        </figure>
+        <section class="step" id="intro"></section>
+        <section class="step"></section>
+      </article>`
+    root = document.querySelector('.scrolly') as HTMLElement
+    steps = [...document.querySelectorAll<HTMLElement>('.step')]
+  }
+
+  beforeEach(buildScrubStory)
+
+  test('a valueless data-scrub stamps --t from --story-progress', () => {
+    scrollToStep(0)
+    Scrolly.init(root)
+    const el = document.getElementById('whole') as HTMLElement
+    expect(el.style.getPropertyValue('--t')).toBe('var(--story-progress)')
+  })
+
+  test('an id-bound data-scrub stamps --t from the matching --progress-<id>', () => {
+    scrollToStep(0)
+    Scrolly.init(root)
+    const el = document.getElementById('chapter') as HTMLElement
+    expect(el.style.getPropertyValue('--t')).toBe('var(--progress-intro)')
+  })
+
+  test('a dangling id gets no stamp and warns once, prefixed "scrolly:"', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    scrollToStep(0)
+    Scrolly.init(root)
+    const el = document.getElementById('dangling') as HTMLElement
+    expect(el.style.getPropertyValue('--t')).toBe('')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0]?.[0]).toMatch(/^scrolly:/)
+    warn.mockRestore()
+  })
+
+  test('destroy removes every --t stamp', () => {
+    scrollToStep(0)
+    const story = Scrolly.init(root)
+    story.destroy()
+    expect((document.getElementById('whole') as HTMLElement).style.getPropertyValue('--t')).toBe('')
+    expect((document.getElementById('chapter') as HTMLElement).style.getPropertyValue('--t')).toBe(
+      ''
+    )
+  })
+})
+
 /* ---- teardown ------------------------------------------------------------ */
 
 describe('destroy (§7.2/§7.3)', () => {

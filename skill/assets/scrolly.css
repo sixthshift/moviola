@@ -43,6 +43,16 @@
   opacity: 1;
 }
 
+/* §15.2: scrub any element's own @keyframes against its stamped --t
+   (0..1, one-time set by the runtime). Duration is normalized — the
+   keyframes are the timeline; the author owns animation-name only. */
+.scrolly.is-ready [data-scrub] {
+  animation-duration: 1s;
+  animation-play-state: paused;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--t, 0) * -1s);
+}
+
 /* ---- steps --------------------------------------------------------------- */
 
 .scrolly > .step {
@@ -143,6 +153,11 @@
 @media (prefers-reduced-motion: reduce) {
   .scrolly.is-ready [data-show] {
     transition: none;
+  }
+
+  /* every scrub becomes a cut at the chapter midpoint (§15.2) */
+  .scrolly.is-ready [data-scrub] {
+    animation-delay: calc(round(var(--t, 0)) * -1s);
   }
 }
 

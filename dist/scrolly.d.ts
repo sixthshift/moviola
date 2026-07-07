@@ -64,11 +64,14 @@ export declare class Story {
     private _onKey;
     /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
     private _progressIds;
+    /** `[data-scrub]` elements stamped with `--t` at init (§15.2), for teardown. */
+    private _scrubs;
     constructor(root: HTMLElement, opts?: ScrollyOptions);
     private _engage;
     private _tick;
     private _update;
     private _activate;
+    private _stampScrubs;
     private _detail;
     on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;
     destroy(): void;
