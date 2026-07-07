@@ -23,6 +23,7 @@ const stepId = (el: HTMLElement, i: number): string => el.id || String(i)
 // §15.2: --progress-<id> is only emitted for steps whose *own* id (not the
 // index fallback stepId() uses) is a valid custom-property ident.
 const VALID_IDENT = /^[A-Za-z0-9_-]+$/
+const reducedMotion = (): boolean => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const instances = new WeakMap<HTMLElement, Story>()
 
@@ -53,6 +54,9 @@ export class Story {
   /** §15.3: null when the graphic has no `[data-camera]` (feature is opt-in). */
   private _rig: CameraRig | null
   private _shots: Shots | null = null
+  /** §15.4: the in-flight morph, tracked so the next step-change can skip it (latest wins, no queue). */
+  private _transition: ViewTransition | null = null
+  private _destroyed = false
 
   constructor(root: HTMLElement, opts: ScrollyOptions = {}) {
     this.root = root
@@ -168,8 +172,7 @@ export class Story {
     const from = this._shots.held[active]
     const to = this._shots.next[active]
     if (!from || !to) return null
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    return interpolateShot(from, to, reduced ? Math.round(step) : step)
+    return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step)
   }
 
   // §15.3: shots are measured at init, step-change, and resize only — never
@@ -184,23 +187,43 @@ export class Story {
     this.active = next
     this._measureCamera()
 
-    this.steps.forEach((s, i) => {
-      s.classList.toggle('is-past', next > -1 && i < next)
-      s.classList.toggle('is-active', i === next)
-      s.classList.toggle('is-future', next < 0 || i > next)
-    })
+    // §5.2's atomic write batch — the ONLY thing §15.4 data-morph wraps.
+    // Progress variables (--step-progress etc.) live in _update(), never here.
+    const write = () => {
+      if (this._destroyed) return
+      this.steps.forEach((s, i) => {
+        s.classList.toggle('is-past', next > -1 && i < next)
+        s.classList.toggle('is-active', i === next)
+        s.classList.toggle('is-future', next < 0 || i > next)
+      })
 
-    const activeStep = this.steps[next]
-    const id = activeStep ? stepId(activeStep, next) : null
-    if (id === null) this.root.removeAttribute('data-active-step')
-    else this.root.setAttribute('data-active-step', id)
+      const activeStep = this.steps[next]
+      const id = activeStep ? stepId(activeStep, next) : null
+      if (id === null) this.root.removeAttribute('data-active-step')
+      else this.root.setAttribute('data-active-step', id)
 
-    for (const el of this.shown) {
-      const ids = (el.dataset.show ?? '').split(/\s+/)
-      el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      for (const el of this.shown) {
+        const ids = (el.dataset.show ?? '').split(/\s+/)
+        el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      }
     }
 
-    // Exit fires before enter (§7.1).
+    // §15.4: feature-detect + reduced-motion both fall through to the exact
+    // pre-morph path. A new step-change mid-flight skips the running
+    // transition itself (latest wins, never a queue).
+    if (
+      this.root.dataset.morph !== undefined &&
+      !reducedMotion() &&
+      typeof document.startViewTransition === 'function'
+    ) {
+      this._transition?.skipTransition()
+      this._transition = document.startViewTransition(write)
+    } else {
+      write()
+    }
+
+    // Exit fires before enter (§7.1) — synchronous either way: the transition
+    // above is fire-and-forget and never delays or reorders these.
     if (prev >= 0) emit(this.root, 'stepexit', { ...this._detail(prev), direction })
     if (next >= 0) emit(this.root, 'stepenter', { ...this._detail(next), direction })
   }
@@ -239,6 +262,11 @@ export class Story {
   }
 
   destroy(): void {
+    // §15.4 RED-TEAM: an in-flight morph's write() is still queued by the
+    // browser even after skipTransition() — the flag stops it from
+    // resurrecting classes/attributes onto a torn-down story.
+    this._destroyed = true
+    this._transition?.skipTransition()
     this._io.disconnect()
     this._engage(false)
     for (const off of [...this._subs]) off()

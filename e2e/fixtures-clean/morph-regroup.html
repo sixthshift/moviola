@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>morph-regroup</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,31 +196,47 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §15.4 data-morph fixture: four named squares re-sort into a different
+   * left-to-right order every step. Each keeps a stable view-transition-name
+   * across the whole story, so the runtime's atomic data-active-step write
+   * (§5.2) — wrapped in a View Transition because the root carries
+   * data-morph — makes the browser fly each square to its new slot instead
+   * of a plain cut. The order itself is plain CSS driven off
+   * [data-active-step]; scrolly never touches layout math.
+   */
+  .rack { display: flex; gap: 12px; }
+  .dot { width: 60px; height: 60px; border-radius: 8px; }
+  .dot-a { background: #e33333; view-transition-name: dot-a; order: var(--order-a, 1); }
+  .dot-b { background: #33aa77; view-transition-name: dot-b; order: var(--order-b, 2); }
+  .dot-c { background: #3377ee; view-transition-name: dot-c; order: var(--order-c, 3); }
+  .dot-d { background: #eeaa33; view-transition-name: dot-d; order: var(--order-d, 4); }
+
+  .scrolly[data-active-step="s1"] .rack { --order-a: 1; --order-b: 2; --order-c: 3; --order-d: 4; }
+  .scrolly[data-active-step="s2"] .rack { --order-a: 4; --order-b: 3; --order-c: 2; --order-d: 1; }
+  .scrolly[data-active-step="s3"] .rack { --order-a: 2; --order-b: 4; --order-c: 1; --order-d: 3; }
+  .scrolly[data-active-step="s4"] .rack { --order-a: 3; --order-b: 1; --order-c: 4; --order-d: 2; }
 </style>
 </head>
 <body>
-<div style="position:absolute;left:-9999px;top:-9999px">
-  <img src="https://example.invalid/pixel.png" alt="">
-  <img src="//cdn.example.invalid/pixel2.png" alt="">
-</div>
-<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
+
+<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right" data-morph>
   <figure>
-    <div class="panel"></div>
+    <div class="rack">
+      <div class="dot dot-a"></div>
+      <div class="dot dot-b"></div>
+      <div class="dot dot-c"></div>
+      <div class="dot dot-d"></div>
+    </div>
   </figure>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <section class="step" id="s1"><p>one — a, b, c, d</p></section>
+  <section class="step" id="s2"><p>two — d, c, b, a</p></section>
+  <section class="step" id="s3"><p>three — c, a, d, b</p></section>
+  <section class="step" id="s4"><p>four — b, d, a, c</p></section>
 
 </article>
 <!-- scrolly:js -->
@@ -265,7 +282,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
+  Scrolly.init()
 </script>
 </body>
 </html>
