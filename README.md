@@ -120,8 +120,7 @@ files.
 stays `file://`-openable. Never hand-edit `dist/` or the examples' inlined
 lib blocks; the build re-syncs them.
 
-- `dist/scrolly.iife.js` — classic `<script>`, readable; the canonical artifact.
-- `dist/scrolly.min.js` — minified classic build.
+- `dist/scrolly.min.js` — classic `<script>`, minified; the canonical artifact.
 - `dist/scrolly.esm.js` — `import Scrolly from 'scrolly'` (no global side effect).
 - `dist/scrolly.d.ts` / `dist/scrolly.css` — types and the structural stylesheet.
 
