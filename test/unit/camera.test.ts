@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { measureShots, resolveRig } from '../../src/camera'
+import { interpolateShot, type Shot } from '../../src/geometry'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
@@ -114,19 +115,38 @@ describe('measureShots', () => {
 
     // fit: 0.7 * min(1000/200, 1000/50) = 0.7 * 5 = 3.5
     expect(shots.held[0]).toEqual({ cx: 500, cy: 500, k: 3.5 })
-    // dangling data-focus holds the previous shot, not null
-    expect(shots.held[1]).toEqual(shots.held[0])
+    // "a" (focused) flies toward the nearest later own shot — c's — across
+    // its OWN chapter, so it has already ARRIVED at c's shot by the chapter
+    // boundary. "b" is dangling (no resolvable focus): it holds that
+    // ARRIVED shot, not "a"'s own (defective-old-behavior) shot — a
+    // dangling/unfocused step never replays a flight that already landed.
+    expect(shots.next[0]).toEqual({ cx: 500, cy: 500, k: 3 })
+    expect(shots.held[1]).toEqual(shots.next[0])
     // explicit data-zoom wins over fit
     expect(shots.held[2]).toEqual({ cx: 500, cy: 500, k: 3 })
-    // no data-focus at all: still holds forward
+    // no data-focus at all: still holds the arrived shot forward
     expect(shots.held[3]).toEqual(shots.held[2])
 
-    // "next" looks ahead to the nearest step with its OWN declared focus —
-    // steps a and b both fly toward c's shot; c and d (nothing further) hold.
-    expect(shots.next[0]).toEqual(shots.held[2])
-    expect(shots.next[1]).toEqual(shots.held[2])
+    // "next" is each step's own flight target. "a" flies to c's shot; c is
+    // the last focused step (nothing further to fly toward) so it holds at
+    // its own shot; "b" and "d" are unfocused/dangling, so `next` is
+    // identical to `held` at their index — a hold, never a fly.
+    expect(shots.next[1]).toEqual(shots.held[1])
     expect(shots.next[2]).toEqual(shots.held[2])
-    expect(shots.next[3]).toEqual(shots.held[2])
+    expect(shots.next[3]).toEqual(shots.held[3])
+
+    // The hold invariant made explicit: interpolating a held/dangling
+    // step's own held->next pair is a constant at every progress value —
+    // never a re-flown flight across its own chapter. (Compared against a
+    // t=0 baseline rather than the raw shot, since log/exp round-tripping
+    // through interpolateShot isn't bit-identical to the un-interpolated
+    // value — it IS identical across every t, which is what's under test.)
+    const heldB = interpolateShot(shots.held[1] as Shot, shots.next[1] as Shot, 0)
+    const heldD = interpolateShot(shots.held[3] as Shot, shots.next[3] as Shot, 0)
+    for (const t of [0.25, 0.5, 0.75, 1]) {
+      expect(interpolateShot(shots.held[1] as Shot, shots.next[1] as Shot, t)).toEqual(heldB)
+      expect(interpolateShot(shots.held[3] as Shot, shots.next[3] as Shot, t)).toEqual(heldD)
+    }
 
     expect(shots.center).toEqual({ x: 500, y: 500 })
     expect(shots.establishing).toBeNull()
@@ -134,6 +154,48 @@ describe('measureShots', () => {
     expect(console.warn).toHaveBeenCalledTimes(1)
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('scrolly:'))
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('data-focus="#missing"'))
+  })
+
+  // Regression: an unfocused step sandwiched between two focused steps used
+  // to interpolate from the EARLIER step's own shot toward the LATER step's
+  // shot across its OWN chapter too — replaying a flight that had already
+  // completed during the earlier step's chapter. Its transform must instead
+  // be a constant equal to that flight's arrival endpoint (§15.3: "steps
+  // without data-focus hold the previous shot").
+  test('an unfocused step between two focused steps holds a constant transform at the previous flight’s arrival endpoint, never re-flying', () => {
+    const { root, figure, wuhan, york } = build()
+    setRect(figure, 0, 0, 1000, 1000)
+    setBBox(wuhan, 450, 450, 100, 100) // #a: center (500, 500)
+    setBBox(york, 150, 150, 100, 100) // #b: center (200, 200) — far from #a
+
+    const one = mkStep(root, 'one', '#wuhan')
+    const hold = mkStep(root, 'hold') // no data-focus: must hold
+    const two = mkStep(root, 'two', '#york')
+
+    const rig = resolveRig(figure)
+    if (!rig) throw new Error('expected a resolvable rig')
+    const shots = measureShots(rig, root, [one, hold, two])
+
+    const shotA = shots.held[0] // "one"'s own shot
+    const shotB = shots.held[2] // "two"'s own shot
+    expect(shotA).not.toEqual(shotB) // the two shots really do differ
+
+    // "one" flies A -> B across its own chapter, arriving at B by its end.
+    expect(shots.next[0]).toEqual(shotB)
+
+    // "hold" starts already arrived at B, and stays there — held and next
+    // both equal B, so there is nothing left to interpolate.
+    expect(shots.held[1]).toEqual(shotB)
+    expect(shots.next[1]).toEqual(shotB)
+
+    // Constant at every progress value through "hold"'s own chapter —
+    // never a re-flown A -> B flight.
+    for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+      const shot = interpolateShot(shots.held[1] as Shot, shots.next[1] as Shot, t)
+      expect(shot.cx).toBeCloseTo((shotB as Shot).cx, 10)
+      expect(shot.cy).toBeCloseTo((shotB as Shot).cy, 10)
+      expect(shot.k).toBeCloseTo((shotB as Shot).k, 10)
+    }
   })
 
   test('root data-focus resolves the establishing shot', () => {

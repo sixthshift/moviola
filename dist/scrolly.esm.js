@@ -201,15 +201,20 @@ function measureShots(rig, root, steps) {
 	const establishing = resolve(root);
 	const own = steps.map(resolve);
 	const held = [];
-	let last = establishing;
-	for (const shot of own) held.push(last = shot !== null && shot !== void 0 ? shot : last);
+	const next = [];
+	let arrived = establishing;
+	own.forEach((shot, i) => {
+		const from = shot !== null && shot !== void 0 ? shot : arrived;
+		held.push(from);
+		const later = own.slice(i + 1).find((s) => s !== null);
+		const to = shot ? later !== null && later !== void 0 ? later : shot : from;
+		next.push(to);
+		arrived = to;
+	});
 	return {
 		establishing,
 		held,
-		next: held.map((h, i) => {
-			var _own$slice$find;
-			return (_own$slice$find = own.slice(i + 1).find((s) => s !== null)) !== null && _own$slice$find !== void 0 ? _own$slice$find : h;
-		}),
+		next,
 		center: stage ? {
 			x: stage.x + stage.w / 2,
 			y: stage.y + stage.h / 2

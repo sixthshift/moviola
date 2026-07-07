@@ -83,9 +83,21 @@ function targetRect(rig: CameraRig, target: Element): Rect | null {
 export interface Shots {
   /** The root's own shot (§15.3: the establishing shot while no step is active). */
   establishing: Shot | null
-  /** Per step: its own shot, or the nearest earlier step's (holds forward). */
+  /**
+   * Per step: the shot at the START of its own chapter — its own shot when
+   * it has one, else wherever the story has already ARRIVED (the previous
+   * focused step's flight target, chained through any holds in between).
+   */
   held: (Shot | null)[]
-  /** Per step: the nearest *later* step's own shot, target of that step's flight. */
+  /**
+   * Per step: the shot its own chapter progress is measured toward. For a
+   * focused step this is the nearest *later* step's own shot (the flight
+   * target — §15.3: "interpolates across the earlier step's chapter"); for
+   * an unfocused or dangling step this is identical to `held` at that
+   * index, so interpolating between them is a no-op constant rather than a
+   * replayed flight (§15.3: "steps without data-focus hold the previous
+   * shot" — the shot already ARRIVED at, never the flight that landed it).
+   */
   next: (Shot | null)[]
   /** The stage's own center, in camera-local units — the flight's destination. */
   center: { x: number; y: number } | null
@@ -120,11 +132,25 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
   const establishing = resolve(root)
   const own = steps.map(resolve)
 
+  // One forward pass tracking `arrived` — the shot the story has actually
+  // reached by the end of the previous chapter. A focused step starts its
+  // own chapter at its own shot (which by construction already equals
+  // `arrived`: every earlier flight's target is exactly the next own shot,
+  // i.e. this one) and flies toward the next own shot ahead, if any. An
+  // unfocused/dangling step never flies: it starts AND ends its chapter at
+  // `arrived`, holding the shot already reached rather than replaying
+  // whatever flight most recently landed there.
   const held: (Shot | null)[] = []
-  let last = establishing
-  for (const shot of own) held.push((last = shot ?? last))
-
-  const next = held.map((h, i) => own.slice(i + 1).find((s): s is Shot => s !== null) ?? h)
+  const next: (Shot | null)[] = []
+  let arrived = establishing
+  own.forEach((shot, i) => {
+    const from = shot ?? arrived
+    held.push(from)
+    const later = own.slice(i + 1).find((s): s is Shot => s !== null)
+    const to = shot ? (later ?? shot) : from
+    next.push(to)
+    arrived = to
+  })
 
   const center = stage ? { x: stage.x + stage.w / 2, y: stage.y + stage.h / 2 } : null
 

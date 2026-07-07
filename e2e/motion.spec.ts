@@ -377,3 +377,143 @@ test.describe('§15.3 the declarative camera', () => {
     await ctx.close()
   })
 })
+
+/*
+ * §15.3 regression — SPEC "steps without data-focus hold the previous
+ * shot" / "never a jump": an unfocused (or dangling) step wedged between
+ * two focused steps must show the shot the A -> B flight already ARRIVED
+ * at, constant, across its own chapter — never replay that flight. Same
+ * anchors and stage geometry as CAMERA_HTML above (see its header for the
+ * "zero" buffer step's role), with one extra step inserted between "one"
+ * and "two": either bare (no `data-focus`) or carrying a dangling selector.
+ */
+const holdFixture = (middleStep: string) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/dist/scrolly.css">
+<style>
+  body { margin: 0; }
+  #spacer { height: 2000px; }
+  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<script>
+  window.__warnings = []
+  const warn = console.warn.bind(console)
+  console.warn = (...args) => { window.__warnings.push(args.join(' ')); warn(...args) }
+</script>
+<div id="spacer"></div>
+<article id="story" class="scrolly" data-layout="side-right">
+  <figure>
+    <svg viewBox="0 0 1000 1000">
+      <g data-camera>
+        <rect id="a" x="150" y="150" width="50" height="100" fill="red"/>
+        <rect id="b" x="200" y="700" width="50" height="100" fill="blue"/>
+      </g>
+    </svg>
+  </figure>
+  <section class="step" id="zero"><p>zero</p></section>
+  <section class="step" id="one" data-focus="#a"><p>one</p></section>
+  ${middleStep}
+  <section class="step" id="two" data-focus="#b"><p>two</p></section>
+</article>
+<div style="height: 1000px"></div>
+<script src="/dist/scrolly.min.js"></script>
+<script>window.__story = Scrolly.init('#story')</script>
+</body>
+</html>
+`
+
+const HOLD_HTML = holdFixture('<section class="step" id="hold"><p>hold</p></section>')
+const DANGLING_HTML = holdFixture(
+  '<section class="step" id="hold" data-focus="#missing"><p>hold</p></section>'
+)
+
+// Steps, in document order: zero(top 2000) one(3000) hold(4000) two(5000);
+// each chapter spans 1000px, trigger at innerHeight*0.5 = 400 (see
+// CAMERA_HTML's header for the derivation) — chapter N's scrollY(t) =
+// 1600 + N*1000 + t*1000. "one" is chapter 1, "hold" is chapter 2.
+const holdScrollYFor = (chapter: number, t: number) => 1600 + chapter * 1000 + t * 1000
+
+const settleHoldAt = async (page: Page, chapter: number, t: number, expectActive: string) => {
+  await page.evaluate(y => window.scrollTo(0, y), holdScrollYFor(chapter, t))
+  await page.waitForFunction(
+    id => document.querySelector('#story')?.getAttribute('data-active-step') === id,
+    expectActive,
+    { timeout: 3000 }
+  )
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+}
+
+for (const [label, html] of [
+  ['a plain unfocused step', HOLD_HTML],
+  ['a step with a dangling data-focus selector', DANGLING_HTML],
+] as const) {
+  test.describe(`§15.3 camera continuity: ${label} between two focused steps`, () => {
+    test.describe.configure({ mode: 'serial' })
+
+    let p: Page
+
+    test.beforeAll(async ({ browser }) => {
+      p = await browser.newPage()
+      await serve(p, html)
+    })
+
+    test.afterAll(async () => {
+      await p.close()
+    })
+
+    test('holds the arrived shot constant across the whole chapter — no jump, no re-fly', async () => {
+      // The trigger crossing a step's top is what activates it (§5.1), so
+      // "end of one"/"start of hold" is the SAME instant — chapter 1 at
+      // t=1 and chapter 2 at t=0 land on an identical scrollY and both
+      // already report "hold" active. Likewise chapter 2's own t=1
+      // coincides with "two" activating (its own shot is B too, so the
+      // value doesn't change even though the id does).
+      await settleHoldAt(p, 1, 1, 'hold') // end of "one": the A -> B flight has landed on B
+      const endOfOne = await shotOf(p)
+
+      await settleHoldAt(p, 2, 0, 'hold') // start of "hold"
+      const startOfHold = await shotOf(p)
+      await settleHoldAt(p, 2, 0.5, 'hold') // middle of "hold"
+      const midHold = await shotOf(p)
+      await settleHoldAt(p, 2, 1, 'two') // end of "hold"
+      const endOfHold = await shotOf(p)
+
+      expect(Buffer.compare(startOfHold, endOfOne)).toBe(0)
+      expect(Buffer.compare(midHold, endOfOne)).toBe(0)
+      expect(Buffer.compare(endOfHold, endOfOne)).toBe(0)
+
+      // Denser sampling across the interior of the chapter: never a moment
+      // of re-flown motion, not just agreement at the three checkpoints
+      // above.
+      for (const t of [0.1, 0.2, 0.3, 0.4, 0.6, 0.7, 0.8, 0.9]) {
+        await settleHoldAt(p, 2, t, 'hold')
+        expect(Buffer.compare(await shotOf(p), endOfOne)).toBe(0)
+      }
+    })
+  })
+}
+
+test.describe('§15.3 camera continuity: reduced motion mid-hold', () => {
+  test('reduced motion at the middle of a hold step shows the shot the earlier flight already arrived at', async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce' })
+    const p = await ctx.newPage()
+    await serve(p, HOLD_HTML)
+
+    await settleHoldAt(p, 1, 1, 'hold') // end of "one" (== start of "hold"): arrived at B
+    const endOfOne = await shotOf(p)
+
+    await settleHoldAt(p, 2, 0.5, 'hold') // middle of "hold"
+    const midHold = await shotOf(p)
+
+    expect(Buffer.compare(midHold, endOfOne)).toBe(0)
+
+    await ctx.close()
+  })
+})
