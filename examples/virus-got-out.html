@@ -240,17 +240,6 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
 .scrolly > figure { background: var(--ocean); transition: background .3s ease; }
 .scrolly svg { width: 100%; height: 100%; display: block; }
 
-/* camera fly-to per chapter — pure CSS, keyed off data-active-step */
-#camera { transform: translate(1000px, 500px) scale(6.5) translate(-1560px, -430px); transition: transform .32s ease; }
-.scrolly[data-active-step="wuhan"] #camera { transform: translate(1000px, 500px) scale(6.5) translate(-1560px, -430px); }
-.scrolly[data-active-step="city"] #camera { transform: translate(1000px, 500px) scale(5) translate(-1562px, -436px); }
-.scrolly[data-active-step="trains"] #camera { transform: translate(1000px, 500px) scale(2.4) translate(-1540px, -420px); }
-.scrolly[data-active-step="flights"] #camera { transform: translate(1000px, 500px) scale(1.8) translate(-1555px, -465px); }
-.scrolly[data-active-step="lockdown"] #camera { transform: translate(1000px, 500px) scale(2.4) translate(-1545px, -425px); }
-.scrolly[data-active-step="world"] #camera { transform: translate(1000px, 500px) scale(0.72) translate(-1000px, -500px); }
-.scrolly[data-active-step="spread"] #camera { transform: translate(1000px, 500px) scale(0.72) translate(-1000px, -500px); }
-.scrolly[data-active-step="now"] #camera { transform: translate(1000px, 500px) scale(0.82) translate(-1060px, -490px); }
-
 #ocean { fill: var(--ocean); transition: fill .3s ease; }
 .land { fill: #16203a; stroke: #26355c; stroke-width: 1.5; }
 #graticule line { stroke: #223052; stroke-width: 1; opacity: .45; vector-effect: non-scaling-stroke; }
@@ -270,6 +259,17 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
   opacity: .85;
 }
 [data-show].is-shown .trail { stroke-dashoffset: 0; }
+
+/* §15.2: motes ride their route as the reader scrolls the route's own
+   chapter — scrolling back rewinds them, they stay arrived afterwards. */
+.mote[data-scrub] {
+  animation-name: ride;
+  animation-timing-function: linear;
+}
+@keyframes ride {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
 
 /* under lockdown, movement out of Wuhan dims; the seeded cities stay lit */
 .scrolly[data-active-step="lockdown"] #g-trains,
@@ -307,7 +307,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
 .scrolly .step h2 { margin-top: 0; font-size: 1.15rem; }
 
 @media (prefers-reduced-motion: reduce) {
-  #camera, .trail, .rail i, .scrolly > figure, #ocean { transition: none; }
+  .trail, .rail i, .scrolly > figure, #ocean { transition: none; }
 }
 </style>
 </head>
@@ -326,12 +326,21 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
      Scroll ↓ (or use ←/→)</p>
 </header>
 
-<article class="scrolly" data-layout="overlay" data-offset="0.5" id="story">
+<article class="scrolly" data-layout="overlay" data-offset="0.5" id="story" data-focus="#focus-wuhan" data-zoom="6.5">
 
   <figure aria-hidden="true">
     <svg viewBox="0 0 2000 1000" preserveAspectRatio="xMidYMid slice">
       <rect id="ocean" x="-2000" y="-1500" width="6000" height="4000"/>
-      <g id="camera">
+      <g id="camera" data-camera>
+        <g id="camera-anchors" aria-hidden="true">
+          <circle id="focus-wuhan" cx="1560" cy="430" r="1" opacity="0"/>
+          <circle id="focus-city" cx="1562" cy="436" r="1" opacity="0"/>
+          <circle id="focus-trains" cx="1540" cy="420" r="1" opacity="0"/>
+          <circle id="focus-flights" cx="1555" cy="465" r="1" opacity="0"/>
+          <circle id="focus-lockdown" cx="1545" cy="425" r="1" opacity="0"/>
+          <circle id="focus-world" cx="1000" cy="500" r="1" opacity="0"/>
+          <circle id="focus-now" cx="1060" cy="490" r="1" opacity="0"/>
+        </g>
         <g id="graticule">
       <line x1="125" y1="0" x2="125" y2="1000"/>
       <line x1="250" y1="0" x2="250" y2="1000"/>
@@ -369,42 +378,12 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
       <path id="p-trains-chengdu" class="trail" pathLength="1" d="M1560,430 Q1490,390 1420,430"/>
       <path id="p-trains-xian" class="trail" pathLength="1" d="M1560,430 Q1525,355 1490,360"/>
       <path id="p-trains-hongkong" class="trail" pathLength="1" d="M1560,430 Q1580,447.5 1600,545"/>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="0.0s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-beijing"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-1.5s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-beijing"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-0.7s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-shanghai"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-2.2s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-shanghai"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-1.4s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-guangzhou"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-2.9s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-guangzhou"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-2.1s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-chengdu"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-3.6s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-chengdu"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-2.8s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-xian"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-4.3s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-xian"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-3.5s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-hongkong"/></animateMotion>
-      </circle>
-      <circle class="mote" r="1.6" fill="#ff8f5c">
-        <animateMotion dur="3s" begin="-5.0s" repeatCount="indefinite" rotate="none"><mpath href="#p-trains-hongkong"/></animateMotion>
-      </circle>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-beijing)"/>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-shanghai)"/>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-guangzhou)"/>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-chengdu)"/>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-xian)"/>
+      <circle class="mote" data-scrub="trains" r="1.6" fill="#ff8f5c" style="offset-path:url(#p-trains-hongkong)"/>
     </g>
     <g id="g-asia" data-show="flights lockdown" style="--trail:#9d7bff;--trailw:1.2">
       <path id="p-asia-tokyo" class="trail" pathLength="1" d="M1560,430 Q1677.5,302.5 1795,355"/>
@@ -412,36 +391,11 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
       <path id="p-asia-bangkok" class="trail" pathLength="1" d="M1560,430 Q1515,420 1470,590"/>
       <path id="p-asia-singapore" class="trail" pathLength="1" d="M1560,430 Q1530,460 1500,670"/>
       <path id="p-asia-dubai" class="trail" pathLength="1" d="M1560,430 Q1385,360 1210,470"/>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="0.0s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-tokyo"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-1.8s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-tokyo"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-0.7s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-seoul"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-2.5s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-seoul"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-1.4s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-bangkok"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-3.2s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-bangkok"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-2.1s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-singapore"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-3.9s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-singapore"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-2.8s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-dubai"/></animateMotion>
-      </circle>
-      <circle class="mote" r="2.2" fill="#9d7bff">
-        <animateMotion dur="3.6s" begin="-4.6s" repeatCount="indefinite" rotate="none"><mpath href="#p-asia-dubai"/></animateMotion>
-      </circle>
+      <circle class="mote" data-scrub="flights" r="2.2" fill="#9d7bff" style="offset-path:url(#p-asia-tokyo)"/>
+      <circle class="mote" data-scrub="flights" r="2.2" fill="#9d7bff" style="offset-path:url(#p-asia-seoul)"/>
+      <circle class="mote" data-scrub="flights" r="2.2" fill="#9d7bff" style="offset-path:url(#p-asia-bangkok)"/>
+      <circle class="mote" data-scrub="flights" r="2.2" fill="#9d7bff" style="offset-path:url(#p-asia-singapore)"/>
+      <circle class="mote" data-scrub="flights" r="2.2" fill="#9d7bff" style="offset-path:url(#p-asia-dubai)"/>
     </g>
     <g id="g-world" data-show="world spread now" style="--trail:#4fa3ff;--trailw:2">
       <path id="p-world-paris" class="trail" pathLength="1" d="M1560,430 Q1270,165 980,300"/>
@@ -715,7 +669,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     <div class="rail"><i></i></div>
   </figure>
 
-  <section class="step" id="wuhan">
+  <section class="step" id="wuhan" data-focus="#focus-wuhan" data-zoom="6.5">
     <div>
       <h2>A cluster of pneumonia cases</h2>
       <p>In December 2019, doctors in Wuhan began seeing patients with an
@@ -725,7 +679,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="city">
+  <section class="step" id="city" data-focus="#focus-city" data-zoom="5">
     <div>
       <h2>The city keeps moving</h2>
       <p>For weeks there were no restrictions of any kind. Commuters looped
@@ -735,7 +689,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="trains">
+  <section class="step" id="trains" data-focus="#focus-trains" data-zoom="2.4">
     <div>
       <h2>Then everyone travels at once</h2>
       <p>The outbreak collided with the Lunar New Year rush — the largest
@@ -745,7 +699,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="flights">
+  <section class="step" id="flights" data-focus="#focus-flights" data-zoom="1.8">
     <div>
       <h2>The hubs light up</h2>
       <p>Flights did the same job at longer range. Seoul, Tokyo, Bangkok,
@@ -755,7 +709,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="lockdown">
+  <section class="step" id="lockdown" data-focus="#focus-lockdown" data-zoom="2.4">
     <div>
       <h2>The cordon closes — too late</h2>
       <p>On January 23 China sealed Wuhan: rail, road and air, all shut. It
@@ -765,7 +719,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="world">
+  <section class="step" id="world" data-focus="#focus-world" data-zoom="0.72">
     <div>
       <h2>Already everywhere</h2>
       <p>Through February the map quietly filled in. Milan, Paris, London,
@@ -775,7 +729,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="spread">
+  <section class="step" id="spread" data-focus="#focus-world" data-zoom="0.72">
     <div>
       <h2>The bloom</h2>
       <p>Then the case counts stopped being a foreign-news story. Watch the
@@ -785,7 +739,7 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="now">
+  <section class="step" id="now" data-focus="#focus-now" data-zoom="0.82">
     <div>
       <h2>How it got out</h2>
       <p>By March 22, 2020, the question was no longer whether the virus
@@ -798,12 +752,14 @@ code { background: #141d38; padding: .1em .35em; border-radius: .25em; }
 </article>
 
 <footer>
-  <p>Every behavior above — eight camera fly-tos, flow trails drawing in and
+  <p>Every behavior above — eight camera flights, flow trails drawing in and
      dimming under lockdown, the scroll-linked case bloom, the date HUD, the
      progress rail, per-chapter theming — is CSS reacting to
+     <code>data-camera</code>/<code>data-focus</code>,
      <code>data-active-step</code>, <code>is-shown</code> and
-     <code>--story-progress</code>. The particles are SMIL. The only author
-     script on this page is <code>Scrolly.init()</code>.</p>
+     <code>--story-progress</code>. The train and flight particles ride their
+     routes on <code>data-scrub</code> + <code>offset-path</code>. The only
+     author script on this page is <code>Scrolly.init()</code>.</p>
 </footer>
 
 <!-- scrolly:js -->

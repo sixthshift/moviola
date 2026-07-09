@@ -275,15 +275,23 @@
   }
 
   /* the two continuously-driven elements: different axes, different
-     coefficients, both pure functions of --step-progress, no steps() */
+     coefficients, both scrubbed against the story's own scroll position
+     (§15.2 data-scrub) — no steps(), no JS. */
   .points {
-    transform: translate(calc(var(--step-progress, 0) * 30px),
-                          calc(var(--step-progress, 0) * -20px));
+    animation-name: drift;
+  }
+  @keyframes drift {
+    from { transform: translate(0, 0); }
+    to { transform: translate(30px, -20px); }
   }
 
   .boundary {
     transform-origin: 400px 300px;
-    transform: rotate(calc(-13deg + var(--step-progress, 0) * 24deg));
+    animation-name: sweep;
+  }
+  @keyframes sweep {
+    from { transform: rotate(-13deg); }
+    to { transform: rotate(11deg); }
   }
 
   .boundary-line {
@@ -365,7 +373,7 @@
         <circle cx="430" cy="340" r="7"/>
       </g>
 
-      <g class="points" data-show="guess error refine converge generalize">
+      <g class="points" data-show="guess error refine converge generalize" data-scrub>
         <g class="cls-a">
           <circle cx="140" cy="150" r="7"/>
           <circle cx="200" cy="110" r="7"/>
@@ -395,7 +403,7 @@
         <circle class="ring" cx="430" cy="340" r="14"/>
       </g>
 
-      <g class="boundary" data-show="guess error refine converge generalize">
+      <g class="boundary" data-show="guess error refine converge generalize" data-scrub>
         <line class="boundary-line" x1="100" y1="460" x2="700" y2="140"/>
         <g class="margins" data-show="refine converge generalize">
           <line class="margin-line" x1="119" y1="495" x2="719" y2="175"/>
@@ -475,8 +483,9 @@
 
 <footer>
   <p>Two elements move on every scroll frame: the boundary rotates, the
-     points drift — both pure CSS, both driven by <code>--step-progress</code>.
-     Nothing here is scroll-jacked; the browser still owns the scroll.</p>
+     points drift — both pure CSS keyframes, scrubbed against the scroll
+     position via <code>data-scrub</code>. Nothing here is scroll-jacked;
+     the browser still owns the scroll.</p>
 </footer>
 
 <!-- scrolly:js -->

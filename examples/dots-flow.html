@@ -209,7 +209,7 @@
   <div class="hint">scroll ↓</div>
 </header>
 
-<article class="scrolly" data-layout="side-right" data-offset="0.5" id="story">
+<article class="scrolly" data-layout="side-right" data-offset="0.5" id="story" data-morph>
 
   <figure aria-hidden="true">
     <svg id="art" viewBox="0 0 600 440" preserveAspectRatio="xMidYMid meet">
@@ -286,7 +286,10 @@
 <footer>
   <p>Every regrouping above is a full redraw driven by
      <code>story.on('stepenter', …)</code> — scroll up, jump around, the
-     dots always land in the same place for the same step.</p>
+     dots always land in the same place for the same step. The redraw itself
+     is instant; <code>data-morph</code> is what makes each dot travel
+     between its old and new spot instead of snapping, via the browser's own
+     View Transitions.</p>
 </footer>
 
 <!-- scrolly:js -->
@@ -384,6 +387,7 @@
     el.setAttribute('cx', '300')
     el.setAttribute('cy', '220')
     el.setAttribute('fill', '#98a2b3')
+    el.style.viewTransitionName = `dot-${d.i}`
     dotsGroup.appendChild(el)
     return el
   })
