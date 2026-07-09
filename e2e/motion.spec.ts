@@ -14,7 +14,7 @@
  * keyframe midpoint regardless of scroll — the author-override red-team.
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 
@@ -341,6 +341,36 @@ test.describe('§15.3 the declarative camera', () => {
     const dangling = warnings.filter((w: string) => w.includes('data-focus="#missing"'))
     expect(dangling.length).toBeGreaterThan(0)
     expect(dangling.every((w: string) => w.startsWith('scrolly:'))).toBe(true)
+  })
+
+  // §15.6: measureShots re-runs on every resize (§5.3) — the warning must not
+  // re-fire each time. Re-visits "three" (already visited once above) twice
+  // more and resizes, on the SAME page (serial mode, cumulative __warnings),
+  // then asserts the total dangling-selector warning count is still exactly 1.
+  test('the dangling data-focus warning never duplicates across repeated scrolls or a resize', async () => {
+    await settleCameraAt(camPage, 1, 'two')
+    await camPage.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await camPage.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'three'
+    )
+    await camPage.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+
+    await settleCameraAt(camPage, 1, 'two')
+    await camPage.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await camPage.waitForFunction(
+      () => document.querySelector('#story')?.getAttribute('data-active-step') === 'three'
+    )
+
+    await camPage.setViewportSize({ width: 900, height: 700 })
+    await camPage.waitForFunction(() => window.innerWidth === 900)
+    await camPage.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+    await camPage.setViewportSize({ width: 1280, height: 800 })
+    await camPage.waitForFunction(() => window.innerWidth === 1280)
+    await camPage.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+
+    const warnings = await camPage.evaluate(() => window.__warnings)
+    const dangling = warnings.filter((w: string) => w.includes('data-focus="#missing"'))
+    expect(dangling).toHaveLength(1)
   })
 
   test('reduced motion snaps to the nearer shot instead of flying', async ({ browser }) => {
@@ -724,4 +754,51 @@ test.describe('§15.4 morph-regroup fixture — the §14 validator', () => {
     expect(story.externalUrls).toEqual([])
     expect(story.consoleErrors).toEqual([])
   })
+})
+
+/*
+ * §15.6 gallery sweep — every shipped page, loaded for real and scrolled
+ * top to bottom (plus a resize), must never print a `scrolly:` diagnostic.
+ * This doubles as a referential-integrity check on the gallery itself: a
+ * real dangling data-show/data-scrub/data-focus token or an unused
+ * data-camera rig in an example is a genuine authoring bug this sweep would
+ * catch — fixing any such example is out of scope for M205 (report only).
+ */
+const galleryPages = [
+  'index.html',
+  ...readdirSync(path.join(root, 'examples'))
+    .filter(f => f.endsWith('.html'))
+    .sort()
+    .map(f => `examples/${f}`),
+]
+
+test.describe('§15.6 gallery sweep: zero scrolly: warnings', () => {
+  for (const rel of galleryPages) {
+    test(`${rel} produces zero scrolly: warnings while scrolling through`, async ({ browser }) => {
+      const p = await (await browser.newContext()).newPage()
+      const warnings: string[] = []
+      p.on('console', msg => {
+        if (msg.type() === 'warning' && msg.text().startsWith('scrolly:')) warnings.push(msg.text())
+      })
+
+      await p.goto(`file://${path.join(root, rel)}`)
+
+      const height = await p.evaluate(() => document.documentElement.scrollHeight)
+      const samples = 24
+      for (let i = 0; i <= samples; i++) {
+        await p.evaluate(y => window.scrollTo(0, y), Math.round((height * i) / samples))
+        await p.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+      }
+
+      // A resize re-measures the camera (§5.3) — must not duplicate any
+      // warning already fired during the scroll above (§15.6 idempotency).
+      await p.setViewportSize({ width: 900, height: 700 })
+      await p.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+      await p.setViewportSize({ width: 1280, height: 800 })
+      await p.evaluate(() => new Promise(r => requestAnimationFrame(r)))
+
+      expect(warnings).toEqual([])
+      await p.close()
+    })
+  }
 })
