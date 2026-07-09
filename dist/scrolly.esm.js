@@ -121,6 +121,12 @@ function cameraTransform(shot, stageCenter) {
 * `getScreenCTM` is what lets a shot be resolved from the CURRENT rendered
 * layout without writing scroll position or temporarily clearing styles.
 */
+var warned = /* @__PURE__ */ new Set();
+function warnOnce(message) {
+	if (warned.has(message)) return;
+	warned.add(message);
+	console.warn(message);
+}
 /** `[data-camera]` opts in only when it can resolve shots (SVG content). */
 function resolveRig(graphic) {
 	var _graphic$querySelecto;
@@ -179,6 +185,7 @@ function targetRect(rig, target) {
 * jump to identity — §15.3).
 */
 function measureShots(rig, root, steps) {
+	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("scrolly: data-camera has no data-focus anywhere — the camera never moves");
 	const stage = stageRect(rig);
 	const resolve = (el) => {
 		var _el$dataset$zoom;
@@ -186,7 +193,7 @@ function measureShots(rig, root, steps) {
 		if (!selector) return null;
 		const target = document.querySelector(selector);
 		if (!target) {
-			console.warn(`scrolly: data-focus="${selector}" matches no element`);
+			warnOnce(`scrolly: data-focus="${selector}" matches no element`);
 			return null;
 		}
 		const t = targetRect(rig, target);
@@ -305,6 +312,7 @@ var Story = class {
 		}, { rootMargin: "100px 0px" });
 		this._io.observe(root);
 		for (const s of this.steps) s.classList.add("is-future");
+		this._warnDanglingShows();
 		this._stampScrubs();
 		this._measureCamera();
 		root.classList.add("is-ready");
@@ -414,6 +422,13 @@ var Story = class {
 			direction
 		});
 	}
+	_warnDanglingShows() {
+		const ids = new Set(this.steps.map((s, i) => stepId(s, i)));
+		for (const el of this.shown) {
+			var _el$dataset$show2;
+			for (const token of ((_el$dataset$show2 = el.dataset.show) !== null && _el$dataset$show2 !== void 0 ? _el$dataset$show2 : "").split(/\s+/).filter(Boolean)) if (!ids.has(token)) warnOnce(`scrolly: data-show="${token}" matches no step id`);
+		}
+	}
 	_stampScrubs() {
 		const chapters = new Set(this._progressIds.map((p) => p.id));
 		for (const el of this.root.querySelectorAll("[data-scrub]")) {
@@ -421,7 +436,7 @@ var Story = class {
 			if (!id) el.style.setProperty("--t", "var(--story-progress)");
 			else if (chapters.has(id)) el.style.setProperty("--t", `var(--progress-${id})`);
 			else {
-				console.warn(`scrolly: data-scrub="${id}" matches no chapter`);
+				warnOnce(`scrolly: data-scrub="${id}" matches no chapter`);
 				continue;
 			}
 			this._scrubs.push(el);

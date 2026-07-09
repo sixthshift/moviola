@@ -4,7 +4,7 @@
  * it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts.
  */
 
-import { type CameraRig, measureShots, resolveRig, type Shots } from './camera'
+import { type CameraRig, measureShots, resolveRig, type Shots, warnOnce } from './camera'
 import { emit, subscribe } from './events'
 import {
   activeIndex,
@@ -86,6 +86,7 @@ export class Story {
     this._io.observe(root)
 
     for (const s of this.steps) s.classList.add('is-future')
+    this._warnDanglingShows()
     this._stampScrubs()
     this._measureCamera()
     // stamped last: hiding CSS is scoped under it, so a JS failure
@@ -228,6 +229,18 @@ export class Story {
     if (next >= 0) emit(this.root, 'stepenter', { ...this._detail(next), direction })
   }
 
+  // §15.6(a): a data-show token is addressed by the SAME id a step is
+  // addressed by everywhere else (stepId — real id, or index fallback), so
+  // an index-fallback id is never mistaken for a dangling reference.
+  private _warnDanglingShows(): void {
+    const ids = new Set(this.steps.map((s, i) => stepId(s, i)))
+    for (const el of this.shown) {
+      for (const token of (el.dataset.show ?? '').split(/\s+/).filter(Boolean)) {
+        if (!ids.has(token)) warnOnce(`scrolly: data-show="${token}" matches no step id`)
+      }
+    }
+  }
+
   // §15.2: one-time --t stamp per [data-scrub] element — valueless scrubs the
   // whole story, an id scrubs that chapter, a dangling id fails soft (no
   // stamp, console.warn) rather than breaking the page.
@@ -238,7 +251,7 @@ export class Story {
       if (!id) el.style.setProperty('--t', 'var(--story-progress)')
       else if (chapters.has(id)) el.style.setProperty('--t', `var(--progress-${id})`)
       else {
-        console.warn(`scrolly: data-scrub="${id}" matches no chapter`)
+        warnOnce(`scrolly: data-scrub="${id}" matches no chapter`)
         continue
       }
       this._scrubs.push(el)

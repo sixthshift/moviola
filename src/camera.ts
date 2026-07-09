@@ -13,6 +13,17 @@
 
 import { fitZoom, type Shot } from './geometry'
 
+// §15.6: shared by camera.ts and story.ts so a referential mistake — dangling
+// data-scrub/data-focus/data-show, or an unused data-camera rig — warns
+// exactly once no matter how many times the offending measure/stamp re-runs
+// (camera shots re-measure on every resize, §5.3).
+const warned = new Set<string>()
+export function warnOnce(message: string): void {
+  if (warned.has(message)) return
+  warned.add(message)
+  console.warn(message)
+}
+
 export interface CameraRig {
   camera: SVGGraphicsElement
   /** The visible pinned frame shots are composed against (the `<figure>`). */
@@ -109,6 +120,13 @@ export interface Shots {
  * jump to identity — §15.3).
  */
 export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLElement[]): Shots {
+  // §15.6(d): a rig with no data-focus anywhere is a graphic that will
+  // never move — almost always a forgotten attribute, not an intentional
+  // static shot (a static shot is better served by never adding data-camera).
+  if (!root.hasAttribute('data-focus') && !steps.some(s => s.hasAttribute('data-focus'))) {
+    warnOnce('scrolly: data-camera has no data-focus anywhere — the camera never moves')
+  }
+
   const stage = stageRect(rig)
 
   const resolve = (el: HTMLElement): Shot | null => {
@@ -116,7 +134,7 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
     if (!selector) return null
     const target = document.querySelector(selector)
     if (!target) {
-      console.warn(`scrolly: data-focus="${selector}" matches no element`)
+      warnOnce(`scrolly: data-focus="${selector}" matches no element`)
       return null
     }
     const t = targetRect(rig, target)

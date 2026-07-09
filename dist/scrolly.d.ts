@@ -80,6 +80,7 @@ export declare class Story {
     private _cameraShot;
     private _measureCamera;
     private _activate;
+    private _warnDanglingShows;
     private _stampScrubs;
     private _detail;
     on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;

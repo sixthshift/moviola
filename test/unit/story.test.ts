@@ -289,13 +289,17 @@ describe('--progress-<id> (§15.2)', () => {
 /* ---- §15.2 data-scrub ------------------------------------------------------ */
 
 describe('data-scrub (§15.2)', () => {
+  // The dangling scrub lives in its own test only (appended there, not
+  // here): warnOnce's dedup Set is module-level (§15.6), so sharing one
+  // dangling id across every test in this describe would have only the
+  // FIRST test's init actually print it — the rest would be silently
+  // (and correctly) deduped, which would break their unrelated assertions.
   const buildScrubStory = () => {
     document.body.innerHTML = `
       <article class="scrolly">
         <figure>
           <div id="whole" data-scrub></div>
           <div id="chapter" data-scrub="intro"></div>
-          <div id="dangling" data-scrub="nope"></div>
         </figure>
         <section class="step" id="intro"></section>
         <section class="step"></section>
@@ -322,10 +326,14 @@ describe('data-scrub (§15.2)', () => {
 
   test('a dangling id gets no stamp and warns once, prefixed "scrolly:"', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const dangling = document.createElement('div')
+    dangling.id = 'dangling'
+    dangling.dataset.scrub = 'nope'
+    ;(root.querySelector('figure') as HTMLElement).appendChild(dangling)
+
     scrollToStep(0)
     Scrolly.init(root)
-    const el = document.getElementById('dangling') as HTMLElement
-    expect(el.style.getPropertyValue('--t')).toBe('')
+    expect(dangling.style.getPropertyValue('--t')).toBe('')
     expect(warn).toHaveBeenCalledTimes(1)
     expect(warn.mock.calls[0]?.[0]).toMatch(/^scrolly:/)
     warn.mockRestore()
@@ -474,6 +482,218 @@ describe('data-morph (§15.4)', () => {
     expect(root.classList.contains('is-ready')).toBe(false)
     for (const s of steps) expect(s.className).toBe('step')
     expect(root.hasAttribute('data-active-step')).toBe(false)
+  })
+})
+
+/* ---- §15.6 diagnostics ----------------------------------------------------
+ *
+ * `warnOnce`'s dedup Set is module-level (shared by story.ts and camera.ts,
+ * per M205), so it persists across every test in THIS file, not just within
+ * one test. Each case below therefore uses a distinct dangling token/id/
+ * selector never reused elsewhere in this file, so a prior test's warning
+ * can't silently suppress this one's — except the "shared dedup" test below,
+ * which relies on exactly that persistence, and the resize-idempotency test,
+ * which asserts it within a single test (init + two resizes, one warning).
+ */
+
+describe('diagnostics (§15.6)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe('data-show dangling token', () => {
+    const buildShowStory = (tokens: string) => {
+      document.body.innerHTML = `
+        <article class="scrolly">
+          <figure><div id="g" data-show="${tokens}"></div></figure>
+          <section class="step" id="a"></section>
+          <section class="step" id="b"></section>
+        </article>`
+      root = document.querySelector('.scrolly') as HTMLElement
+      steps = [...document.querySelectorAll<HTMLElement>('.step')]
+    }
+
+    test('a token matching no step id warns once, prefixed "scrolly:"', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      buildShowStory('a m205-nope')
+      scrollToStep(0)
+      Scrolly.init(root)
+
+      const matches = warn.mock.calls.filter(c => String(c[0]).includes('m205-nope'))
+      expect(matches).toHaveLength(1)
+      expect(matches[0]?.[0]).toMatch(/^scrolly:/)
+      expect(matches[0]?.[0]).toContain('data-show="m205-nope"')
+    })
+
+    // A step addressed only by its index fallback (stepId's `el.id ||
+    // String(i)`) must never be mistaken for a dangling reference — the
+    // check has to resolve tokens the same way the runtime does.
+    test('a token matching an index-fallback id (no real id on that step) does not warn', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      document.body.innerHTML = `
+        <article class="scrolly">
+          <figure><div id="g" data-show="1"></div></figure>
+          <section class="step" id="a"></section>
+          <section class="step"></section>
+        </article>`
+      root = document.querySelector('.scrolly') as HTMLElement
+      steps = [...document.querySelectorAll<HTMLElement>('.step')]
+      scrollToStep(1)
+      Scrolly.init(root)
+
+      expect(warn).not.toHaveBeenCalled()
+      expect((document.getElementById('g') as HTMLElement).classList.contains('is-shown')).toBe(
+        true
+      )
+    })
+
+    test('fail-soft: DOM state is identical with and without the dangling token', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      buildShowStory('a')
+      scrollToStep(0)
+      Scrolly.init(root)
+      const clean = {
+        activeStep: root.getAttribute('data-active-step'),
+        classes: steps.map(s => s.className),
+        shown: (document.getElementById('g') as HTMLElement).classList.contains('is-shown'),
+        stepProgress: root.style.getPropertyValue('--step-progress'),
+        storyProgress: root.style.getPropertyValue('--story-progress'),
+      }
+
+      buildShowStory('a m205-dangling-fail-soft')
+      scrollToStep(0)
+      Scrolly.init(root)
+      const withDangling = {
+        activeStep: root.getAttribute('data-active-step'),
+        classes: steps.map(s => s.className),
+        shown: (document.getElementById('g') as HTMLElement).classList.contains('is-shown'),
+        stepProgress: root.style.getPropertyValue('--step-progress'),
+        storyProgress: root.style.getPropertyValue('--story-progress'),
+      }
+
+      expect(withDangling).toEqual(clean)
+    })
+  })
+
+  describe('data-scrub dangling id: fail-soft and shared dedup', () => {
+    test('fail-soft: DOM state (incl. the other, valid --t stamps) is identical with and without the dangling element', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const snapshot = () => ({
+        activeStep: root.getAttribute('data-active-step'),
+        stepProgress: root.style.getPropertyValue('--step-progress'),
+        whole: (document.getElementById('whole') as HTMLElement).style.getPropertyValue('--t'),
+        chapter: (document.getElementById('chapter') as HTMLElement).style.getPropertyValue('--t'),
+      })
+
+      document.body.innerHTML = `
+        <article class="scrolly">
+          <figure>
+            <div id="whole" data-scrub></div>
+            <div id="chapter" data-scrub="intro"></div>
+          </figure>
+          <section class="step" id="intro"></section>
+          <section class="step"></section>
+        </article>`
+      root = document.querySelector('.scrolly') as HTMLElement
+      steps = [...document.querySelectorAll<HTMLElement>('.step')]
+      scrollToStep(0)
+      Scrolly.init(root)
+      const withoutDangling = snapshot()
+
+      document.body.innerHTML = `
+        <article class="scrolly">
+          <figure>
+            <div id="whole" data-scrub></div>
+            <div id="chapter" data-scrub="intro"></div>
+            <div id="dangling" data-scrub="m205-fail-soft-nope"></div>
+          </figure>
+          <section class="step" id="intro"></section>
+          <section class="step"></section>
+        </article>`
+      root = document.querySelector('.scrolly') as HTMLElement
+      steps = [...document.querySelectorAll<HTMLElement>('.step')]
+      scrollToStep(0)
+      Scrolly.init(root)
+      const withDangling = snapshot()
+
+      expect(withDangling).toEqual(withoutDangling)
+    })
+
+    test('the warn-once dedup is shared across separate Story instances (module-level)', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      document.body.innerHTML = `
+        <article class="scrolly" id="s1">
+          <figure><div data-scrub="m205-shared-nope"></div></figure>
+          <section class="step" id="a"></section>
+        </article>
+        <article class="scrolly" id="s2">
+          <figure><div data-scrub="m205-shared-nope"></div></figure>
+          <section class="step" id="a"></section>
+        </article>`
+      const r1 = document.getElementById('s1') as HTMLElement
+      const r2 = document.getElementById('s2') as HTMLElement
+
+      Scrolly.init(r1)
+      Scrolly.init(r2)
+
+      const matches = warn.mock.calls.filter(c => String(c[0]).includes('m205-shared-nope'))
+      expect(matches).toHaveLength(1) // one instance's warn suppresses the other's identical message
+    })
+  })
+
+  describe('data-camera with zero data-focus anywhere (§15.6 d)', () => {
+    const buildCameraStory = (rootFocus?: string, stepFocus?: string) => {
+      document.body.innerHTML = `
+        <article class="scrolly"${rootFocus ? ` data-focus="${rootFocus}"` : ''}>
+          <figure><svg><g data-camera></g></svg></figure>
+          <section class="step" id="one"${stepFocus ? ` data-focus="${stepFocus}"` : ''}></section>
+          <section class="step" id="two"></section>
+        </article>`
+      root = document.querySelector('.scrolly') as HTMLElement
+      steps = [...document.querySelectorAll<HTMLElement>('.step')]
+    }
+
+    test('warns once, prefixed "scrolly:", and stays deduped across a resize re-measure', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      buildCameraStory()
+      scrollToStep(-1)
+      Scrolly.init(root)
+      IOStub.instances[0]?.fire(true) // engage: resize listener only attaches while engaged
+
+      window.dispatchEvent(new Event('resize'))
+      window.dispatchEvent(new Event('resize'))
+
+      const matches = warn.mock.calls.filter(c =>
+        String(c[0]).includes('data-camera has no data-focus')
+      )
+      expect(matches).toHaveLength(1)
+      expect(matches[0]?.[0]).toMatch(/^scrolly:/)
+    })
+
+    test('no warning when the root has data-focus', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      buildCameraStory('#one')
+      scrollToStep(-1)
+      Scrolly.init(root)
+
+      expect(
+        warn.mock.calls.some(c => String(c[0]).includes('data-camera has no data-focus'))
+      ).toBe(false)
+    })
+
+    test('no warning when a step has data-focus', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      buildCameraStory(undefined, '#one')
+      scrollToStep(-1)
+      Scrolly.init(root)
+
+      expect(
+        warn.mock.calls.some(c => String(c[0]).includes('data-camera has no data-focus'))
+      ).toBe(false)
+    })
   })
 })
 
