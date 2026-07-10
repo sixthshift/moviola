@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scrolly — how a tree learns to split the data (zoom tour)</title>
+<!-- scrolly:css -->
+<style>/*!
+ * scrolly.css — structural layer only.
+ *
+ * Owns: sticky frame, layouts, mobile collapse, visibility mechanics.
+ * Does not own: your typography, colors, or graphic. Style those yourself,
+ * reacting to .is-active / [data-active-step] / --step-progress.
+ *
+ * Knobs (CSS custom properties, set them on .scrolly or :root):
+ *   --scrolly-card-bg   background of step cards in overlay/mobile modes
+ *   --scrolly-card-fg   text color of step cards in overlay/mobile modes
+ */
+
+.scrolly {
+  position: relative;
+}
+
+/* ---- the pinned graphic ------------------------------------------------- */
+
+.scrolly > figure {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* graphic children stack for crossfades */
+.scrolly > figure > * {
+  grid-area: 1 / 1;
+}
+
+/* §15.3: the camera is geometry, not presentation — no transition here.
+   The value is already scroll-scrubbed (recomputed every frame from cached
+   endpoints), so animating it too would fight the reader's own scroll. */
+.scrolly.is-ready [data-camera] {
+  transform: var(--camera-transform, none);
+}
+
+/* step-driven visibility — hiding is scoped under .is-ready (stamped by the
+   runtime at init) so a page whose JS never ran stays fully readable */
+.scrolly.is-ready [data-show] {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.scrolly.is-ready [data-show].is-shown {
+  opacity: 1;
+}
+
+/* §15.2: scrub any element's own @keyframes against its stamped --t
+   (0..1, one-time set by the runtime). Duration is normalized — the
+   keyframes are the timeline; the author owns animation-name only. */
+.scrolly.is-ready [data-scrub] {
+  animation-duration: 1s;
+  animation-play-state: paused;
+  animation-fill-mode: both;
+  animation-delay: calc(var(--t, 0) * -1s);
+}
+
+/* ---- steps --------------------------------------------------------------- */
+
+.scrolly > .step {
+  position: relative;
+  z-index: 1;
+  min-height: 90vh;
+  min-height: 90dvh;
+  display: grid;
+  align-content: center;
+}
+
+/* ---- side layouts -------------------------------------------------------- */
+
+.scrolly[data-layout="side-right"],
+.scrolly[data-layout="side-left"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2rem;
+}
+
+.scrolly[data-layout="side-right"] > figure,
+.scrolly[data-layout="side-left"] > figure {
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="side-right"] > figure {
+  grid-column: 2;
+}
+.scrolly[data-layout="side-right"] > .step {
+  grid-column: 1;
+}
+.scrolly[data-layout="side-left"] > figure {
+  grid-column: 1;
+}
+.scrolly[data-layout="side-left"] > .step {
+  grid-column: 2;
+}
+
+/* ---- overlay layout ------------------------------------------------------ */
+
+.scrolly[data-layout="overlay"] {
+  display: grid;
+}
+
+.scrolly[data-layout="overlay"] > figure {
+  grid-column: 1;
+  grid-row: 1 / span 999;
+}
+
+.scrolly[data-layout="overlay"] > .step {
+  grid-column: 1;
+  justify-self: center;
+  width: min(34rem, calc(100% - 2rem));
+}
+
+/* A step's content reads as a card over the graphic. Keep each step's
+   content in a single block (wrap in a div if it's more than one). */
+.scrolly[data-layout="overlay"] > .step > * {
+  background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+  color: var(--scrolly-card-fg, inherit);
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+}
+
+/* ---- mobile: side layouts collapse to overlay ---------------------------- */
+
+@media (max-width: 720px) {
+  .scrolly[data-layout="side-right"],
+  .scrolly[data-layout="side-left"] {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+  }
+
+  .scrolly[data-layout="side-right"] > figure,
+  .scrolly[data-layout="side-left"] > figure,
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    grid-column: 1;
+  }
+
+  .scrolly[data-layout="side-right"] > .step,
+  .scrolly[data-layout="side-left"] > .step {
+    justify-self: center;
+    width: min(34rem, calc(100% - 2rem));
+  }
+
+  .scrolly[data-layout="side-right"] > .step > *,
+  .scrolly[data-layout="side-left"] > .step > * {
+    background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
+    color: var(--scrolly-card-fg, inherit);
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+  }
+}
+
+/* ---- accessibility & print ----------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .scrolly.is-ready [data-show] {
+    transition: none;
+  }
+
+  /* every scrub becomes a cut at the chapter midpoint (§15.2) */
+  .scrolly.is-ready [data-scrub] {
+    animation-delay: calc(round(var(--t, 0)) * -1s);
+  }
+}
+
+@media print {
+  .scrolly > figure {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+
+  .scrolly > figure > * {
+    grid-area: auto;
+  }
+
+  .scrolly.is-ready [data-show] {
+    opacity: 1;
+  }
+
+  .scrolly > .step {
+    min-height: 0;
+  }
+}
+</style>
+<!-- /scrolly:css -->
+<style>
+/* ---- page ---- */
+:root { color-scheme: dark; }
+body {
+  margin: 0;
+  background: #0a0f1c;
+  color: #e2e8f5;
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+header, footer { max-width: 40rem; margin: 0 auto; padding: 4rem 1.25rem; }
+header { min-height: 70vh; display: grid; align-content: center; }
+.kicker { text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; color: #8ea2c9; }
+h1 { font-size: clamp(1.8rem, 4.5vw, 3rem); line-height: 1.15; margin: .3em 0; }
+.note { color: #8ea2c9; font-size: .85rem; }
+footer { color: #8ea2c9; font-size: .9rem; }
+code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
+
+/* ---- the story ---- */
+.scrolly {
+  --hill: #2dd4bf;
+  --flat: #f2b134;
+  --split: #ff7a7a;
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-stroke: rgba(255, 255, 255, 0.16);
+  --scrolly-card-bg: rgba(9, 13, 24, 0.88);
+  --scrolly-card-fg: #eef2fb;
+}
+
+.scrolly > figure { background: #05070f; }
+.scrolly svg { width: 100%; height: 100%; display: block; }
+
+.panel { fill: var(--panel); stroke: var(--panel-stroke); stroke-width: 2; }
+.panel-label { font: 12px/1.2 system-ui, sans-serif; letter-spacing: .08em; fill: #8ea2c9; }
+
+.home-dot { stroke: rgba(5, 7, 15, 0.6); stroke-width: 1.5; }
+.class-hill { fill: var(--hill); }
+.class-flat { fill: var(--flat); }
+
+/* §15.2: the two home clusters and both split bars all ride the scrub
+   mechanic — the SAME chapters the camera above is touring, not a
+   separate timeline. Scrolling back rewinds every one of them exactly. */
+.hill-homes { animation-name: drift-hill; }
+@keyframes drift-hill { from { transform: translate(0, 0); } to { transform: translate(-260px, 300px); } }
+
+.flat-homes { animation-name: drift-flat; }
+@keyframes drift-flat { from { transform: translate(0, 0); } to { transform: translate(300px, -320px); } }
+
+.small-hill { animation-name: drift-leaf; }
+@keyframes drift-leaf { from { transform: translate(0, 0); } to { transform: translate(-70px, -40px); } }
+
+.split-bar { fill: var(--split); opacity: .9; }
+.split-elevation-bar { transform-origin: 380px 600px; animation-name: draw-elevation; }
+@keyframes draw-elevation { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.split-size-bar { transform-origin: 290px 760px; animation-name: draw-size; }
+@keyframes draw-size { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+.split-label { font: 12px/1.2 system-ui, sans-serif; fill: #ffb4b4; letter-spacing: .04em; }
+
+.tree-edge { stroke: #3a4972; stroke-width: 2; }
+.tree-node rect { fill: #101a30; stroke: #3a4972; stroke-width: 1.5; }
+.tree-node text { font: 16px/1.2 system-ui, sans-serif; fill: #eef2fb; text-anchor: middle; }
+.tree-node .tree-sub { font-size: 12px; fill: #8ea2c9; }
+.tree-leaf rect { stroke: var(--hill); }
+
+/* HUD caption + progress rail live inside the graphic */
+.hud {
+  align-self: start; justify-self: start;
+  display: grid; margin: 1.1rem 1.25rem; pointer-events: none; max-width: 22rem;
+}
+.hud span {
+  grid-area: 1 / 1;
+  font-size: .85rem; letter-spacing: .02em;
+  color: #eef2fb; text-shadow: 0 1px 4px rgba(0, 0, 0, .8);
+}
+.rail {
+  align-self: start; justify-self: stretch;
+  height: 3px; width: 100%; background: rgba(255, 255, 255, .08); pointer-events: none;
+}
+.rail i {
+  display: block; height: 100%; background: var(--hill);
+  transform: scaleX(var(--story-progress, 0)); transform-origin: left;
+}
+
+.scrolly .step > div { border-left: 3px solid transparent; }
+.scrolly .step.is-active > div { border-left-color: var(--hill); }
+.scrolly .step h2 { margin-top: 0; font-size: 1.15rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="kicker">A scrolly original · SPEC §15.7 camera + scrub choreography</p>
+  <h1>How a Tree Learns to Split the Data</h1>
+  <p>A decision tree over twenty-four invented homes, in the choreographic
+     spirit of R2D3's 2015 essay <em>A Visual Introduction to Machine
+     Learning</em>. One large canvas holds both the data and the tree it
+     grows; the camera tours between them chapter by chapter while every
+     regrouping and every split line you see is scrubbed live against your
+     own scroll position — never a clock, never a separate timeline.</p>
+  <p class="note">Zero author JavaScript beyond <code>Scrolly.init()</code>.
+     Scroll ↓ (or use ←/→)</p>
+</header>
+
+<article class="scrolly" data-layout="overlay" id="story" data-focus="#focus-overview" data-zoom="0.95">
+
+  <figure aria-hidden="true">
+    <svg viewBox="0 0 2400 1300" preserveAspectRatio="xMidYMid slice">
+      <g id="camera" data-camera>
+        <g id="camera-anchors" aria-hidden="true">
+          <rect id="focus-overview" x="60" y="60" width="2280" height="1180" opacity="0"/>
+          <circle id="focus-split-elevation" cx="600" cy="600" r="1" opacity="0"/>
+          <circle id="focus-sf-region" cx="345" cy="852" r="1" opacity="0"/>
+          <circle id="focus-ny-region" cx="888" cy="305" r="1" opacity="0"/>
+          <circle id="focus-split-size" cx="295" cy="860" r="1" opacity="0"/>
+          <circle id="focus-leaf-pure" cx="170" cy="760" r="1" opacity="0"/>
+          <circle id="focus-leaf-large" cx="420" cy="889" r="1" opacity="0"/>
+          <rect id="focus-tree" x="1450" y="150" width="900" height="700" opacity="0"/>
+        </g>
+
+        <rect class="panel" x="50" y="50" width="1080" height="1080"/>
+        <text class="panel-label" x="70" y="90">DATA SPACE — elevation × size</text>
+
+        <g class="flat-homes" data-scrub="split-elevation">
+          <circle class="home-dot class-flat" cx="440" cy="600" r="9"/>
+          <circle class="home-dot class-flat" cx="480" cy="650" r="9"/>
+          <circle class="home-dot class-flat" cx="520" cy="700" r="9"/>
+          <circle class="home-dot class-flat" cx="560" cy="440" r="9"/>
+          <circle class="home-dot class-flat" cx="600" cy="690" r="9"/>
+          <circle class="home-dot class-flat" cx="640" cy="720" r="9"/>
+          <circle class="home-dot class-flat" cx="680" cy="610" r="9"/>
+          <circle class="home-dot class-flat" cx="720" cy="470" r="9"/>
+          <circle class="home-dot class-flat" cx="760" cy="650" r="9"/>
+          <circle class="home-dot class-flat" cx="800" cy="520" r="9"/>
+          <circle class="home-dot class-flat" cx="410" cy="690" r="9"/>
+          <circle class="home-dot class-flat" cx="450" cy="760" r="9"/>
+        </g>
+
+        <g class="hill-homes" data-scrub="sf-region">
+          <g class="small-hill" data-scrub="split-size">
+            <circle class="home-dot class-hill" cx="420" cy="450" r="9"/>
+            <circle class="home-dot class-hill" cx="460" cy="520" r="9"/>
+            <circle class="home-dot class-hill" cx="500" cy="470" r="9"/>
+            <circle class="home-dot class-hill" cx="540" cy="560" r="9"/>
+            <circle class="home-dot class-hill" cx="580" cy="500" r="9"/>
+          </g>
+          <circle class="home-dot class-hill" cx="620" cy="610" r="9"/>
+          <circle class="home-dot class-hill" cx="660" cy="480" r="9"/>
+          <circle class="home-dot class-hill" cx="700" cy="540" r="9"/>
+          <circle class="home-dot class-hill" cx="740" cy="600" r="9"/>
+          <circle class="home-dot class-hill" cx="780" cy="460" r="9"/>
+          <circle class="home-dot class-hill" cx="760" cy="700" r="9"/>
+          <circle class="home-dot class-hill" cx="500" cy="730" r="9"/>
+        </g>
+
+        <rect class="split-bar split-elevation-bar"
+              data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview"
+              data-scrub="split-elevation" x="380" y="595" width="440" height="10"/>
+        <text class="split-label" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x="600" y="580">elevation split</text>
+
+        <rect class="split-bar split-size-bar"
+              data-show="split-size leaf-pure leaf-large tree-complete overview"
+              data-scrub="split-size" x="290" y="760" width="10" height="200"/>
+        <text class="split-label" data-show="split-size leaf-pure leaf-large tree-complete overview" x="120" y="750">size split</text>
+
+        <g id="tree">
+          <text class="panel-label" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x="1470" y="130">DECISION TREE</text>
+
+          <line class="tree-edge" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x1="1875" y1="270" x2="1615" y2="430"/>
+          <line class="tree-edge" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x1="1875" y1="270" x2="2135" y2="430"/>
+          <line class="tree-edge" data-show="split-size leaf-pure leaf-large tree-complete overview" x1="2135" y1="520" x2="2005" y2="690"/>
+          <line class="tree-edge" data-show="split-size leaf-pure leaf-large tree-complete overview" x1="2135" y1="520" x2="2245" y2="690"/>
+
+          <g class="tree-node" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+            <rect x="1770" y="180" width="210" height="90" rx="8"/>
+            <text x="1875" y="220">All homes</text>
+            <text class="tree-sub" x="1875" y="245">n = 24, mixed</text>
+          </g>
+
+          <g class="tree-node" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+            <rect x="1500" y="430" width="230" height="90" rx="8"/>
+            <text x="1615" y="465">Flat terrain</text>
+            <text class="tree-sub" x="1615" y="490">→ New York cluster</text>
+          </g>
+
+          <g class="tree-node" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+            <rect x="2020" y="430" width="230" height="90" rx="8"/>
+            <text x="2135" y="465">Hill terrain</text>
+            <text class="tree-sub" x="2135" y="490">→ San Francisco cluster</text>
+          </g>
+
+          <g class="tree-node tree-leaf" data-show="split-size leaf-pure leaf-large tree-complete overview">
+            <rect x="1900" y="690" width="210" height="90" rx="8"/>
+            <text x="2005" y="725">Small hill homes</text>
+            <text class="tree-sub" x="2005" y="750">pure leaf</text>
+          </g>
+
+          <g class="tree-node" data-show="split-size leaf-pure leaf-large tree-complete overview">
+            <rect x="2140" y="690" width="210" height="90" rx="8"/>
+            <text x="2245" y="725">Large hill homes</text>
+            <text class="tree-sub" x="2245" y="750">still mixed</text>
+          </g>
+        </g>
+      </g>
+    </svg>
+    <div class="hud">
+      <span data-show="cloud">Two cities, one pile of homes — sorted by nothing yet.</span>
+      <span data-show="split-elevation">Question 1 — how high off the ground?</span>
+      <span data-show="sf-region">The hill homes regroup.</span>
+      <span data-show="ny-region">The flat homes regroup.</span>
+      <span data-show="split-size">Question 2 — how big is it?</span>
+      <span data-show="leaf-pure">A pure leaf — one class, no more questions.</span>
+      <span data-show="leaf-large">Not every branch resolves this cleanly.</span>
+      <span data-show="tree-complete">The tree that grew, one split at a time.</span>
+      <span data-show="overview">Same data. Same tree. Every branch a question answered.</span>
+    </div>
+    <div class="rail"><i></i></div>
+  </figure>
+
+  <section class="step" id="cloud">
+    <div>
+      <h2>Twenty-four homes, no labels yet</h2>
+      <p>Picture every home a lender has ever seen scattered onto one chart,
+       with elevation on one axis and square footage on the other. Nothing
+       separates them yet — from here a home in San Francisco looks exactly
+       like one in New York. A decision tree starts exactly this blind, with
+       one pile of points and no idea which question to ask first.</p>
+    </div>
+  </section>
+
+  <section class="step" id="split-elevation" data-focus="#focus-split-elevation" data-zoom="2.2">
+    <div>
+      <h2>The tree asks its first question</h2>
+      <p>A decision tree learns by finding the single question that splits
+       its data most cleanly, then repeating that trick on each half. Here
+       the first question is elevation: draw one line through the cloud,
+       and the homes above it already look less like the homes below it —
+       the tree hasn't seen a single price tag yet.</p>
+    </div>
+  </section>
+
+  <section class="step" id="ny-region" data-focus="#focus-ny-region" data-zoom="3">
+    <div>
+      <h2>Below the line: the flat homes</h2>
+      <p>Every home the elevation split sent to the low side drifts
+       together into its own corner of the canvas. They are not yet sorted
+       by anything else — square footage, room count, walk score — but
+       they have already been told apart from everything above that first
+       line, using one threshold and nothing more.</p>
+    </div>
+  </section>
+
+  <section class="step" id="sf-region" data-focus="#focus-sf-region" data-zoom="3">
+    <div>
+      <h2>Above the line: the hill homes</h2>
+      <p>The other half of the split settles into its own region just as
+       plainly. Two clusters now sit where one tangled cloud used to be,
+       and neither the tree nor the reader has looked at a single price
+       tag to get here — elevation alone did this much sorting, in one
+       comparison per home.</p>
+    </div>
+  </section>
+
+  <section class="step" id="split-size" data-focus="#focus-split-size" data-zoom="4.2">
+    <div>
+      <h2>The hill cluster asks a second question</h2>
+      <p>One split rarely finishes the job. Inside the hill-home cluster, a
+       second boundary appears — this time along square footage — because
+       the homes above the elevation line still disagree along a feature
+       the tree hasn't isolated yet. Watch the smaller half peel away as
+       the new line draws in.</p>
+    </div>
+  </section>
+
+  <section class="step" id="leaf-pure" data-focus="#focus-leaf-pure" data-zoom="6.5">
+    <div>
+      <h2>A leaf, finally pure</h2>
+      <p>Zoom into the smaller half of that second split and every
+       remaining home belongs to the same class. This is what a decision
+       tree is chasing the whole way down: a leaf where no further
+       question would change the answer, because there's only one answer
+       left to give.</p>
+    </div>
+  </section>
+
+  <section class="step" id="leaf-large" data-focus="#focus-leaf-large" data-zoom="5.5">
+    <div>
+      <h2>Not every branch ends this cleanly</h2>
+      <p>The other half of the size split is not so tidy — a handful of
+       homes here still disagree with their neighbors. A real tree would
+       keep splitting this branch further; ours stops here on purpose, to
+       show that purity isn't guaranteed after the first two questions, or
+       even the first five.</p>
+    </div>
+  </section>
+
+  <section class="step" id="tree-complete" data-focus="#focus-tree" data-zoom="1.6">
+    <div>
+      <h2>The tree that grew while you scrolled</h2>
+      <p>Every split you just watched happen inside the data has a
+       matching branch here: elevation first, then size, with one pure
+       leaf at the end of the shortest path. A trained decision tree is
+       nothing more than this shape, stored as thresholds instead of drawn
+       as lines on a chart.</p>
+    </div>
+  </section>
+
+  <section class="step" id="overview" data-focus="#focus-overview" data-zoom="0.95">
+    <div>
+      <h2>Same twenty-four homes, fully sorted</h2>
+      <p>Pull back and both views sit side by side — a data space carved
+       into regions, and the tree of yes/no questions that carved it.
+       Neither one is a real city; the choreography is the same recursive
+       idea real classifiers use, run here on twenty-four invented houses
+       so every step of it can be watched.</p>
+    </div>
+  </section>
+
+</article>
+
+<footer>
+  <p>Nine camera flights (<code>data-camera</code>/<code>data-focus</code>/
+     <code>data-zoom</code>) tour one large SVG stage in a single
+     continuous sweep; the two home clusters and both split bars move
+     continuously under <code>data-scrub</code>, keyed to the very same
+     chapters the camera is flying through — never a separate clock. The
+     only author script on this page is <code>Scrolly.init()</code>.</p>
+</footer>
+
+<!-- scrolly:js -->
+<script>/*!
+* scrolly — the scrollytelling framework
+*
+* You write the DOM, scrolly runs the state machine, effects live in your CSS.
+*
+* Document model:
+*   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+*     <figure> …graphic; children tagged data-show="step-id …"… </figure>
+*     <section class="step" id="intro">…</section>
+*     <section class="step" id="crash">…</section>
+*   </article>
+*
+* State machine output (all effects belong in CSS):
+*   steps            → .is-past / .is-active / .is-future
+*   [data-show] els  → .is-shown while a listed step is active
+*   root             → [data-active-step="…"], --step-progress, --story-progress
+*
+* Events (bubbling CustomEvents, detail = { step, id, index, direction }):
+*   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+*/var Scrolly=(function(){var M=t=>Math.min(1,Math.max(0,t));function b(t,s){let e=-1;for(const[r,o]of t.entries()){if(o>s)break;e=r}return e}function $(t,s,e){return M((e-t)/Math.max(1,s-t))}function S(t,s,e){return M((e-t)/Math.max(1,s-t))}function E(t,s,e){const r=b(t,e);return t.map((o,n)=>{var i;return r<0||n>r?0:n<r?1:S(o,(i=s[n])!==null&&i!==void 0?i:o,e)})}var y=(t,s,e)=>t+(s-t)*e;function L(t,s,e){return{cx:y(t.cx,s.cx,e),cy:y(t.cy,s.cy,e),k:Math.exp(y(Math.log(t.k),Math.log(s.k),e))}}function k(t,s,e,r){return .7*Math.min(e/Math.max(1,t),r/Math.max(1,s))}function B(t,s){return`translate(${s.x}px, ${s.y}px) scale(${t.k}) translate(${-t.cx}px, ${-t.cy}px)`}var T=new Set;function m(t){T.has(t)||(T.add(t),console.warn(t))}function R(t){var s;const e=(s=t==null?void 0:t.querySelector("[data-camera]"))!==null&&s!==void 0?s:null;return!e||!t||!("getScreenCTM"in e)?null:{camera:e,stage:t}}var P=(t,s)=>({x:Math.min(t.x,s.x),y:Math.min(t.y,s.y),w:Math.abs(s.x-t.x),h:Math.abs(s.y-t.y)});function q(t){const s=t.camera.parentNode,e=s&&"getScreenCTM"in s?s.getScreenCTM():null;if(!e)return null;const r=e.inverse(),o=t.stage.getBoundingClientRect();return P(new DOMPoint(o.left,o.top).matrixTransform(r),new DOMPoint(o.right,o.bottom).matrixTransform(r))}function O(t,s){if(!("getBBox"in s&&"getScreenCTM"in s))return null;const e=s,r=t.camera.getScreenCTM(),o=e.getScreenCTM();if(!r||!o)return null;const n=r.inverse().multiply(o),i=e.getBBox();return P(new DOMPoint(i.x,i.y).matrixTransform(n),new DOMPoint(i.x+i.width,i.y+i.height).matrixTransform(n))}function F(t,s,e){!s.hasAttribute("data-focus")&&!e.some(l=>l.hasAttribute("data-focus"))&&m("scrolly: data-camera has no data-focus anywhere \u2014 the camera never moves");const r=q(t),o=l=>{var d;const p=l.dataset.focus;if(!p)return null;const h=document.querySelector(p);if(!h)return m(`scrolly: data-focus="${p}" matches no element`),null;const c=O(t,h);if(!c||!r)return null;const v=Number.parseFloat((d=l.dataset.zoom)!==null&&d!==void 0?d:"");return{cx:c.x+c.w/2,cy:c.y+c.h/2,k:Number.isFinite(v)?v:k(c.w,c.h,r.w,r.h)}},n=o(s),i=e.map(o),f=[],u=[];let a=n;return i.forEach((l,d)=>{const p=l!=null?l:a;f.push(p);const h=i.slice(d+1).find(v=>v!==null),c=l?h!=null?h:l:p;u.push(c),a=c}),{establishing:n,held:f,next:u,center:r?{x:r.x+r.w/2,y:r.y+r.h/2}:null}}function g(t,s,e){t.dispatchEvent(new CustomEvent(`scrolly:${s}`,{detail:e,bubbles:!0}))}function D(t,s,e){const r=`scrolly:${s}`,o=n=>e(n.detail);return t.addEventListener(r,o),()=>t.removeEventListener(r,o)}function I(t,s){if(t.key!=="ArrowLeft"&&t.key!=="ArrowRight"||t.altKey||t.ctrlKey||t.metaKey||t.shiftKey)return;const e=t.target;if(e&&(e.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName)))return;const r=s.active+(t.key==="ArrowRight"?1:-1),o=s.steps[r];if(!o)return;t.preventDefault();const n=window.innerHeight*s.offset,i=o.getBoundingClientRect().top+window.scrollY,f=window.matchMedia("(prefers-reduced-motion: reduce)").matches;window.scrollTo({top:i-n+2,behavior:f?"auto":"smooth"})}var N=.5,w=(t,s)=>t.id||String(s),_=/^[A-Za-z0-9_-]+$/,C=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches,x=new WeakMap;function A(t,s){var e;return(e=x.get(t))!==null&&e!==void 0?e:new z(t,s)}var z=class{constructor(t,s={}){var e,r;this.active=-1,this.l=!1,this.r=!1,this.s=[],this.o=[],this.t=null,this.i=null,this.u=!1,this.root=t,this.offset=parseFloat((e=t.dataset.offset)!==null&&e!==void 0?e:String((r=s.offset)!==null&&r!==void 0?r:N)),this.graphic=t.querySelector(":scope > figure"),this.steps=[...t.querySelectorAll(":scope > .step")],this.shown=this.graphic?[...this.graphic.querySelectorAll("[data-show]")]:[],this.e=this.steps.map((o,n)=>({id:o.id,index:n})).filter(({id:o})=>_.test(o)),this.f=R(this.graphic),this.m=()=>this.d(),this.g=()=>{this.n(),this.d()},this.M=o=>I(o,this),x.set(t,this),this.p=new IntersectionObserver(o=>{this.v(o.some(n=>n.isIntersecting))},{rootMargin:"100px 0px"}),this.p.observe(t);for(const o of this.steps)o.classList.add("is-future");this.b(),this.S(),this.n(),t.classList.add("is-ready"),this.c()}v(t){if(t===this.l)return;this.l=t;const s=t?"addEventListener":"removeEventListener";window[s]("scroll",this.m,{passive:!0}),window[s]("resize",this.g),window[s]("keydown",this.M),t&&this.c()}d(){this.r||(this.r=!0,requestAnimationFrame(()=>{this.r=!1,this.c()}))}c(){var t,s;const e=this.steps[0],r=this.steps[this.steps.length-1];if(!e||!r)return;const o=window.innerHeight*this.offset,n=this.steps.map(h=>h.getBoundingClientRect().top),i=b(n,o);i!==this.active&&this.T(i);const f=r.getBoundingClientRect().bottom,u=$(e.getBoundingClientRect().top,f,o);let a=0;const l=this.steps[i];if(l){const h=l.getBoundingClientRect(),c=this.steps[i+1],v=c?c.getBoundingClientRect().top:h.bottom;a=S(h.top,v,o)}if(this.root.style.setProperty("--story-progress",u.toFixed(4)),this.root.style.setProperty("--step-progress",a.toFixed(4)),this.e.length>0){const h=E(n,[...n.slice(1),f],o);for(const{id:c,index:v}of this.e){var d;this.root.style.setProperty(`--progress-${c}`,((d=h[v])!==null&&d!==void 0?d:0).toFixed(4))}}const p=this.P(i,a);p&&this.root.style.setProperty("--camera-transform",B(p,(t=(s=this.t)===null||s===void 0?void 0:s.center)!==null&&t!==void 0?t:{x:0,y:0})),i>=0&&g(this.root,"progress",{...this.a(i),progress:a,storyProgress:u})}P(t,s){var e;if(!(!((e=this.t)===null||e===void 0)&&e.center))return null;if(t<0)return this.t.establishing;const r=this.t.held[t],o=this.t.next[t];return!r||!o?null:L(r,o,C()?Math.round(s):s)}n(){this.f&&(this.t=F(this.f,this.root,this.steps))}T(t){const s=this.active,e=t>s?"down":"up";this.active=t,this.n();const r=()=>{if(this.u)return;this.steps.forEach((u,a)=>{u.classList.toggle("is-past",t>-1&&a<t),u.classList.toggle("is-active",a===t),u.classList.toggle("is-future",t<0||a>t)});const n=this.steps[t],i=n?w(n,t):null;i===null?this.root.removeAttribute("data-active-step"):this.root.setAttribute("data-active-step",i);for(const u of this.shown){var f;const a=((f=u.dataset.show)!==null&&f!==void 0?f:"").split(/\s+/);u.classList.toggle("is-shown",i!==null&&a.includes(i))}};if(this.root.dataset.morph!==void 0&&!C()&&typeof document.startViewTransition=="function"){var o;(o=this.i)===null||o===void 0||o.skipTransition(),this.i=document.startViewTransition(r)}else r();s>=0&&g(this.root,"stepexit",{...this.a(s),direction:e}),t>=0&&g(this.root,"stepenter",{...this.a(t),direction:e})}b(){const t=new Set(this.steps.map((e,r)=>w(e,r)));for(const e of this.shown){var s;for(const r of((s=e.dataset.show)!==null&&s!==void 0?s:"").split(/\s+/).filter(Boolean))t.has(r)||m(`scrolly: data-show="${r}" matches no step id`)}}S(){const t=new Set(this.e.map(s=>s.id));for(const s of this.root.querySelectorAll("[data-scrub]")){const e=s.dataset.scrub;if(!e)s.style.setProperty("--t","var(--story-progress)");else if(t.has(e))s.style.setProperty("--t",`var(--progress-${e})`);else{m(`scrolly: data-scrub="${e}" matches no chapter`);continue}this.o.push(s)}}a(t){const s=this.steps[t];return{step:s,id:w(s,t),index:t}}on(t,s){const e=D(this.root,t,s),r=()=>{e();const o=this.s.indexOf(r);o!==-1&&this.s.splice(o,1)};return this.s.push(r),r}destroy(){var t;this.u=!0,(t=this.i)===null||t===void 0||t.skipTransition(),this.p.disconnect(),this.v(!1);for(const s of[...this.s])s();this.s=[];for(const s of this.steps)s.classList.remove("is-past","is-active","is-future");for(const s of this.shown)s.classList.remove("is-shown");this.root.classList.remove("is-ready"),this.root.removeAttribute("data-active-step"),this.root.style.removeProperty("--step-progress"),this.root.style.removeProperty("--story-progress");for(const{id:s}of this.e)this.root.style.removeProperty(`--progress-${s}`);for(const s of this.o)s.style.removeProperty("--t");this.o=[],this.root.style.removeProperty("--camera-transform"),this.t=null,x.delete(this.root)}};/*!
+* scrolly — the scrollytelling framework
+*
+* You write the DOM, scrolly runs the state machine, effects live in your CSS.
+*
+* Document model:
+*   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+*     <figure> …graphic; children tagged data-show="step-id …"… </figure>
+*     <section class="step" id="intro">…</section>
+*     <section class="step" id="crash">…</section>
+*   </article>
+*
+* State machine output (all effects belong in CSS):
+*   steps            → .is-past / .is-active / .is-future
+*   [data-show] els  → .is-shown while a listed step is active
+*   root             → [data-active-step="…"], --step-progress, --story-progress
+*
+* Events (bubbling CustomEvents, detail = { step, id, index, direction }):
+*   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+*/function K(t,s){if(t===void 0)return[...document.querySelectorAll(".scrolly")].map(r=>A(r));const e=typeof t=="string"?document.querySelector(t):t;if(!e)throw new Error(`scrolly: no element matches ${t}`);return A(e,s)}return{version:"0.0.1",init:K}})();
+</script>
+<!-- /scrolly:js -->
+<script>Scrolly.init()</script>
+
+</body>
+</html>

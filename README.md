@@ -114,6 +114,7 @@ verified against `scripts/validate-story.mjs --tier1`.
 | `examples/scroll-linked.html` | 1 | A classifier's boundary rotating and its points drifting, both pure `@keyframes` scrubbed against scroll position by `data-scrub` — zero author JS, `overlay` layout |
 | `examples/longform.html` | 3 | Three independent stories on one page, mixing `side-right`, `overlay`, and `side-left` layouts |
 | `examples/virus-got-out.html` | 1 | Structural recreation of the SPEC §14 Tier 2 target *How the Virus Got Out* (NYT 2020): `data-camera`/`data-focus`/`data-zoom` camera flights per step, `data-scrub` + `offset-path` particle flows, a scroll-linked case bloom on `--story-progress`, chapter theming, `overlay` layout — zero author JS |
+| `examples/zoom-tour.html` | 1 | R2D3-style zoom tour of a decision tree learning to split a home-price dataset: nine `data-camera`/`data-focus`/`data-zoom` flights across one large stage, with two home clusters and both split lines moving continuously under `data-scrub` in the SAME chapters the camera is touring, `overlay` layout — zero author JS |
 
 ## Themes
 
