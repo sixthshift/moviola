@@ -43,9 +43,13 @@ loop** (human gates — never build around them, never mechanize them):
   writes anywhere in the motion layer (keyboard.ts's existing stepping is
   the sole scroll writer in the lib). Validator instrumentation is the
   check.
-- **Size bars unchanged:** dist JS ≤ 4 KB gz, CSS ≤ 2 KB gz
-  (test/unit/size.test.ts). If the camera threatens the bar, it splits
-  into a separate opt-in file — escalate BEFORE touching the bar.
+- **Size bars (v0.4 amendment, Jason 2026-07-07, ledger [0020]):** the JS
+  bar binds `dist/scrolly.min.js` ≤ 4 KB gz; CSS ≤ 2 KB gz
+  (test/unit/size.test.ts). `dist/scrolly.iife.js` is REMOVED (M210) —
+  `scrolly.min.js` is the canonical artifact for embeds, skill/assets, and
+  the validator's lib byte-match; `src/` is the readable reference. Camera
+  /morph/diagnostics land IN CORE under that bar (the §15.7 opt-in-split
+  contingency is retired). Escalate BEFORE touching the bar values.
 - **Per-frame work stays bounded by step count** (SPEC §5.3): the vars are
   `2 + N` writes; camera endpoints are measured on step-change/resize,
   never per frame; no new per-frame `getBoundingClientRect` beyond the
@@ -138,6 +142,13 @@ Run from repo root:
       tier2 or better; author stepenter JS contains no motion
       interpolation (grep floor in ticket); distinctGraphicStates ≥ the
       pre-re-cut count for all three.
+- [ ] NET-NEW recreation exercising camera + scrub together at Tier 1
+      (SPEC §15.7 bullet 4; coverage correction, ledger [0035]):
+      `examples/zoom-tour.html` — validator `--tier1` PASS bidirectional,
+      the M-A mid-chapter flight probe holds (≥10 distinct
+      `--camera-transform` values over a sweep; mid-chapter frame differs
+      from both endpoints), ≥3 distinct `data-focus` targets, `data-scrub`
+      present with author JS exactly `Scrolly.init`.
 
 ### Phase M-D — Docs closure (M209)
 - [ ] README contract tables list every new variable/attribute; recipes
