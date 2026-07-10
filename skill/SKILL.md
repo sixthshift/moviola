@@ -63,6 +63,61 @@ Rules:
 | `--step-progress` (0→1 through active step) | root, inherits everywhere | scrubbed animation: `transform: scaleX(var(--step-progress))` |
 | `--story-progress` (0→1 whole story) | root | progress bars, parallax |
 
+## The motion layer (interpolation between states)
+
+`data-show`/`data-active-step` cover *states*. For the space **between**
+states — a camera flying, particles riding a route, elements regrouping —
+reach for these before writing any `stepenter` callback:
+
+| Attribute | Where | Use for |
+|---|---|---|
+| `data-scrub="<step-id>"` (or valueless) | any element | scrub the element's own `@keyframes` against scroll: valueless scrubs the whole story, an id scrubs that chapter |
+| `data-camera` | one element inside the `<figure>` (must be SVG) | opts the graphic in as the camera stage |
+| `data-focus="<selector>"` + `data-zoom="<n>"` | root (establishing shot) or any step | point the camera; omit `data-zoom` to auto-fit the target at ~70% of the stage |
+| `data-morph` | the root | wraps step-change writes in a View Transition; name elements with `view-transition-name` to have them travel instead of cross-fade |
+
+A dangling `data-focus`/`data-scrub` reference never breaks the page — it
+holds state and logs a `scrolly:`-prefixed `console.warn` once.
+
+### Camera rig
+
+```html
+<figure>
+  <svg viewBox="0 0 2000 1000">
+    <g data-camera>
+      <circle id="wuhan" cx="1560" cy="430" r="1"/>
+    </g>
+  </svg>
+</figure>
+<section class="step" id="outbreak" data-focus="#wuhan" data-zoom="6.5">…</section>
+<section class="step" id="world" data-focus="#the-map">…</section>
+```
+
+### Scrubbed particles
+
+```html
+<circle class="mote" data-scrub="trains" style="offset-path:url(#rail)"/>
+```
+```css
+.mote[data-scrub] { animation-name: ride; }
+@keyframes ride {
+  from { offset-distance: 0%; }
+  to   { offset-distance: 100%; }
+}
+```
+
+### Morph regroup
+
+```html
+<article class="scrolly" data-morph>
+```
+```js
+dotEls.forEach((el, i) => { el.style.viewTransitionName = `dot-${i}` })
+story.on('stepenter', ({ id }) => drawStep(id))  // sets cx/cy per dot, full state
+```
+`drawStep` stays a plain idempotent full-state redraw — `data-morph` only
+changes how the browser paints the transition between two calls.
+
 ## Layout selection
 
 | Layout | When |
