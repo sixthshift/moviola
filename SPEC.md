@@ -251,7 +251,16 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
   `window.Scrolly`; the ESM build exports the same object as its default
   with no global side effect.
-- ⬜ npm publish + CDN (jsdelivr/unpkg) once the name is settled.
+- ✅ **v0.4 amendment — single classic artifact**: `dist/scrolly.iife.js`
+  is removed. The canonical runtime artifact — the bytes embedded in
+  examples, `skill/assets/`, and byte-matched by the §14 validator's lib
+  detection — is `dist/scrolly.min.js` (still a classic script attaching
+  `window.Scrolly`; mangling policy unchanged). The readable implementation
+  reference is `src/`, shipped in the package; the §3 JS bar binds
+  `scrolly.min.js`. Rationale (decision 2026-07-07): the readable embed was
+  a third copy of the implementation, its 4 KB share of the bar blocked
+  §15, and view-source's job is teaching the rig — the author's markup and
+  CSS — not lib internals.
 - ❓ **Name**: "scrolly" is used semi-generically in the community and the
   npm name is likely taken. Verify; fallbacks to brainstorm if collision
   (e.g. scoped `@…/scrolly`, or a distinct name). Blocks npm/public launch
