@@ -251,6 +251,7 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
   `window.Scrolly`; the ESM build exports the same object as its default
   with no global side effect.
+- ⬜ npm publish + CDN (jsdelivr/unpkg) once the name is settled.
 - ✅ **v0.4 amendment — single classic artifact**: `dist/scrolly.iife.js`
   is removed. The canonical runtime artifact — the bytes embedded in
   examples, `skill/assets/`, and byte-matched by the §14 validator's lib
@@ -417,9 +418,9 @@ is not throwaway test matter; it is the public proof and the marketing.
 
 ---
 
-## 15. The motion layer (v0.4 proposal) ⬜
+## 15. The motion layer (v0.4 proposal) ✅
 
-**Status: draft for review — nothing below is implemented.**
+**Status: implemented in v0.4** (the open-question items below remain deferred).
 
 ### 15.0 The gap this closes
 
@@ -467,7 +468,7 @@ file fails both audiences at once. Hence:
    breaks the page (state holds, story keeps working) — and the runtime
    says so in the console (§15.6). Silence is the worst DX.
 
-### 15.2 Chapter timelines — `--progress-<id>` and `data-scrub` ⬜
+### 15.2 Chapter timelines — `--progress-<id>` and `data-scrub` ✅
 
 **Problem.** `--step-progress` is one shared variable that resets each
 chapter, so nothing persistent can be hung on it; authors who want
@@ -532,7 +533,7 @@ Rules:
 - ❓ Whether `data-scrub="a b"` (multi-chapter spans) is worth the added
   semantics in v0.4 — defer unless a §14 target demands it.
 
-### 15.3 The declarative camera — `data-camera`, `data-focus`, `data-zoom` ⬜
+### 15.3 The declarative camera — `data-camera`, `data-focus`, `data-zoom` ✅
 
 **Problem.** The dominant ambitious genre is a camera over a large canvas
 (map, chart, illustration). Today the rig is author-land calculator work:
@@ -595,7 +596,7 @@ Rules:
 - ❓ Non-selector shots (`data-focus="1200 400 3"` raw coordinates) —
   defer; invisible anchor elements are idiomatic and view-source-teachable.
 
-### 15.4 Morph — `data-morph` (View Transitions) ⬜
+### 15.4 Morph — `data-morph` (View Transitions) ✅
 
 **Problem.** The regroup genre (§14 *Punishing Reach*: N elements
 re-sorting per chapter) is Tier 2 purely because moving-between-states
@@ -637,7 +638,7 @@ Rules (ordering and honesty guarantees):
 - Not required: every v0.3 page runs unchanged; each primitive is opt-in by
   one attribute.
 
-### 15.6 Diagnostics and the director's tools ⬜
+### 15.6 Diagnostics and the director's tools ✅
 
 Writing is half the loop; *seeing* is the other half. reveal.js's ease is
 overview mode as much as its markup. scrollytelling's authoring loop today
@@ -661,7 +662,7 @@ is scroll-down-scroll-up-squint; these close it:
    storyboard — the machine's eyes handed to the human. The capture
    machinery already exists (§14); this is an output format.
 
-### 15.7 Conformance and acceptance
+### 15.7 Conformance and acceptance ✅
 
 - **Size**: the existing §3 bars hold — no amendment. Measured headroom at
   proposal time: `scrolly.min.js` 2146 B of 4096 B gzipped, `scrolly.css`

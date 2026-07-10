@@ -42,6 +42,8 @@ Everything scrolly does is expressed as state your CSS can react to:
 | `.scrolly[data-active-step="id"]` | lets any selector on the page react to any step |
 | `--step-progress` | 0 → 1 through the active step's chapter (its top to the next step's top) |
 | `--story-progress` | 0 → 1 through the whole story |
+| `--progress-<id>` | per-chapter progress for any step with a valid-ident `id`: `0` before it, `0 → 1` through it, holds `1` after — unlike `--step-progress`, never resets |
+| `--camera-transform` | the current camera shot on `[data-camera]`, continuously interpolated between focused steps |
 
 ### Attributes
 
@@ -51,6 +53,23 @@ Everything scrolly does is expressed as state your CSS can react to:
   (default `0.5`).
 - Steps should have `id`s — they name states for `data-show` and
   `data-active-step`, and give you deep links (`page.html#crash`) for free.
+
+### The motion layer
+
+Declarative interpolation between states — no JS, the browser renders the
+motion (SPEC §15):
+
+| Attribute | Where | What it does |
+|---|---|---|
+| `data-scrub="<step-id>"` (or valueless) | any element | stamps `--t` from `var(--progress-<id>)` (or `var(--story-progress)`); scrubs the element's own `@keyframes` against scroll position via structural CSS |
+| `data-camera` | one element inside the `<figure>` (SVG content) | opts the graphic in as the camera stage |
+| `data-focus="<selector>"` | the root, or any step | names what the camera looks at; the root's own shot is the establishing view |
+| `data-zoom="<n>"` | alongside `data-focus` | magnification; omitted = fit the target at ~70% of the stage |
+| `data-morph` | the root | wraps each step-change's DOM writes in `document.startViewTransition()`; name elements with `view-transition-name` to have them travel instead of cross-fade |
+
+Referential mistakes (a `data-show`/`data-scrub`/`data-focus` token matching
+nothing, or a `data-camera` rig with no `data-focus` anywhere) never break the
+page — they fail soft and log a `scrolly:`-prefixed `console.warn` once.
 
 ### JS API
 
@@ -91,10 +110,10 @@ verified against `scripts/validate-story.mjs --tier1`.
 |---|---|---|
 | `examples/warming-world.html` | 1 | Stepped line-chart build — six illustrative warming factors added one at a time, `side-right` layout |
 | `examples/stepped-scatter.html` | 1 | Sticky 60-point scatter with stepped cohort highlighting and long prose gaps between steps, `side-left` layout |
-| `examples/dots-flow.html` | 2 | Bidirectional particle-flow SVG re-triggered per step via `stepenter`, `side-right` layout |
-| `examples/scroll-linked.html` | 2 | Continuous scroll-linked SVG transform driven by `--step-progress`, `overlay` layout |
+| `examples/dots-flow.html` | 2 | Bidirectional particle-flow SVG re-triggered per step via `stepenter`, each dot travelling via `data-morph` + `view-transition-name` instead of snapping, `side-right` layout |
+| `examples/scroll-linked.html` | 1 | A classifier's boundary rotating and its points drifting, both pure `@keyframes` scrubbed against scroll position by `data-scrub` — zero author JS, `overlay` layout |
 | `examples/longform.html` | 3 | Three independent stories on one page, mixing `side-right`, `overlay`, and `side-left` layouts |
-| `examples/virus-got-out.html` | 1 | Structural recreation of the SPEC §14 Tier 2 target *How the Virus Got Out* (NYT 2020): CSS camera fly-tos per step, SMIL particle flows, a scroll-linked case bloom on `--story-progress`, chapter theming, `overlay` layout — zero author JS |
+| `examples/virus-got-out.html` | 1 | Structural recreation of the SPEC §14 Tier 2 target *How the Virus Got Out* (NYT 2020): `data-camera`/`data-focus`/`data-zoom` camera flights per step, `data-scrub` + `offset-path` particle flows, a scroll-linked case bloom on `--story-progress`, chapter theming, `overlay` layout — zero author JS |
 
 ## Themes
 

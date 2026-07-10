@@ -118,6 +118,59 @@ This is the fix for the classic all-videos-autoplay-at-once bug.
 Step `id`s are native anchors, so the links work with zero JS; the attribute
 selector lights up the current dot.
 
+## Camera rig (`data-camera` / `data-focus` / `data-zoom`)
+
+Mark the stage once; point each step at what to look at. No math, no CSS —
+the runtime composes the transform and flies between shots as the reader
+scrolls.
+
+```html
+<figure>
+  <svg viewBox="0 0 2000 1000">
+    <g data-camera>
+      <circle id="wuhan" cx="1560" cy="430" r="1"/>
+    </g>
+  </svg>
+</figure>
+<section class="step" id="outbreak" data-focus="#wuhan" data-zoom="6.5">…</section>
+<section class="step" id="world" data-focus="#the-map">…</section>
+```
+`data-zoom` is optional — omit it and the camera fits the target at ~70% of
+the stage. A step without `data-focus` holds the previous shot.
+
+## Scrubbed particles (`data-scrub` + `offset-path`)
+
+Ride a path across a chapter's own scroll span — no `stepenter`, no manual
+progress math:
+
+```html
+<circle class="mote" data-scrub="trains" style="offset-path:url(#rail)"/>
+```
+```css
+.mote[data-scrub] { animation-name: ride; }
+@keyframes ride {
+  from { offset-distance: 0%; }
+  to   { offset-distance: 100%; }
+}
+```
+Scrolling back rewinds the mote; it stays arrived once the chapter passes.
+
+## Morph regroup (`data-morph` + `view-transition-name`)
+
+Redraw the full state on every `stepenter` as usual; `data-morph` upgrades
+the snap into a native FLIP-style travel for any element you name:
+
+```html
+<article class="scrolly" data-morph>
+```
+```js
+dotEls.forEach((el, i) => { el.style.viewTransitionName = `dot-${i}` })
+story.on('stepenter', ({ id }) => drawStep(id))  // sets cx/cy per dot, full state
+```
+`drawStep` stays a plain idempotent redraw (same rule as stepped D3 builds,
+above) — `data-morph` only changes how the browser paints the transition
+between two calls, never the redraw logic itself.
+
 ## Ruled out
 
 Horizontal-scroll sections: scrolly observes scroll, it never owns it.
