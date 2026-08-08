@@ -1,0 +1,17 @@
+{
+  "$doc": "Known flaky tests + discriminators. Kickoff Primes verify's quarantine set from quarantined entries; status flips to resolved when a run proves the test stable. Keyed by test.",
+  "flakes": [
+    {
+      "test": "e2e/show-ranges.spec.ts — 'every span form matches the union' (settleOn timeout) inside the full Playwright suite",
+      "cmd": "bunx playwright test --workers=1",
+      "mode": "infra-resource-contention",
+      "discriminator": "Environment resource contention, not a product or test defect: renderer OOM from ~6 concurrent Chromium instances under Playwright's then-default workers:4 on a memory-constrained host (~1.2GB free), reproduced 2-in-9 parallel full-suite runs with a 'Target crashed' signature (journal seq169). Product path positively excluded by source inspection, and the same spec passed serially in every other full-suite run this drive (T005 104/104, T007 114/114, T008 120/120, T011 128/128, T014 117/117). Resolved by serializing the gate's Playwright run to --workers=1 (seq170-173) rather than by raising a timeout or adding retries (both explicitly rejected as suppressions).",
+      "evidence": 1,
+      "stale": 0,
+      "status": "quarantined",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    }
+  ]
+}

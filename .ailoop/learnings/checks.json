@@ -1,0 +1,77 @@
+{
+  "$doc": "Verified toolchain commands carried across campaigns. Kickoff Primes toolchain detection + the baseline from active entries, then RE-PROBES them (a prior is a hypothesis, not a fact). Keyed by name.",
+  "checks": [
+    {
+      "name": "types-compile-clean",
+      "cmd": "bun run typecheck",
+      "tier": "fast",
+      "note": "Backlog fastChecks entry; ran green at every ticket verify this campaign (16/16 tickets).",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    },
+    {
+      "name": "biome-lint-and-format-clean",
+      "cmd": "bun run lint",
+      "tier": "fast",
+      "note": "Backlog fastChecks entry; ran green at every ticket verify this campaign.",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    },
+    {
+      "name": "unit-suite-incl-size-bars-and-embed-freshness",
+      "cmd": "bun run test",
+      "tier": "fast",
+      "note": "vitest run; includes test/unit/size.test.ts's frozen gzip bars (4608 B JS / 2048 B CSS after CO-1) and the dist/embed byte-identity assertions. Ran green at every ticket verify.",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    },
+    {
+      "name": "full-check-e2e-links-and-generated-artifacts-fresh",
+      "cmd": "bun run typecheck && bun run lint && bun run test && bun run build && bunx playwright test --workers=1 && node scripts/check-links.mjs && git diff --exit-code dist examples skill/assets",
+      "tier": "gate",
+      "note": "Campaign gate, mid-drive amended from the unbounded-worker form (Playwright workers 4->1) after a renderer-OOM gate-red; proven green at campaign-gate-close seq174 and seq190 (129/129 e2e). check-links.mjs only resolves relative/local links (schemed URLs are explicitly skipped); no network access observed on read.",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    },
+    {
+      "name": "build-reproducible-against-committed-artifacts",
+      "cmd": "bun run build && git diff --exit-code dist examples skill/assets && bun run build && git diff --exit-code dist examples skill/assets",
+      "tier": "gate",
+      "note": "Double-build determinism against committed dist/examples/skill-assets; green at every campaign-gate-close this drive.",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    },
+    {
+      "name": "zoom-tour-story-validator-tier1-bidirectional",
+      "cmd": "node scripts/validate-story.mjs examples/zoom-tour.html --tier1",
+      "tier": "gate",
+      "note": "Bidirectional tier-1 structural validator over the flagship example; green at every campaign-gate-close. Only writes a file when an explicit --report path is passed, which this invocation does not do.",
+      "evidence": 1,
+      "stale": 0,
+      "status": "active",
+      "first_seen": "scrolly-v05-dx",
+      "last_confirmed": "scrolly-v05-dx",
+      "last_confirmed_at": "2026-08-08T13:08:39.549Z"
+    }
+  ]
+}
