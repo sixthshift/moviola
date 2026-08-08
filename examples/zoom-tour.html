@@ -299,22 +299,11 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
      Scroll ↓ (or use ←/→)</p>
 </header>
 
-<article class="scrolly" data-layout="overlay" id="story" data-focus="#focus-overview" data-zoom="0.95">
+<article class="scrolly" data-layout="overlay" id="story" data-focus="60 60 2280 1180" data-zoom="0.95">
 
   <figure aria-hidden="true">
     <svg viewBox="0 0 2400 1300" preserveAspectRatio="xMidYMid slice">
       <g id="camera" data-camera>
-        <g id="camera-anchors" aria-hidden="true">
-          <rect id="focus-overview" x="60" y="60" width="2280" height="1180" opacity="0"/>
-          <circle id="focus-split-elevation" cx="600" cy="600" r="1" opacity="0"/>
-          <circle id="focus-sf-region" cx="345" cy="852" r="1" opacity="0"/>
-          <circle id="focus-ny-region" cx="888" cy="305" r="1" opacity="0"/>
-          <circle id="focus-split-size" cx="295" cy="860" r="1" opacity="0"/>
-          <circle id="focus-leaf-pure" cx="170" cy="760" r="1" opacity="0"/>
-          <circle id="focus-leaf-large" cx="420" cy="889" r="1" opacity="0"/>
-          <rect id="focus-tree" x="1450" y="150" width="900" height="700" opacity="0"/>
-        </g>
-
         <rect class="panel" x="50" y="50" width="1080" height="1080"/>
         <text class="panel-label" x="70" y="90">DATA SPACE — elevation × size</text>
 
@@ -350,49 +339,45 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
           <circle class="home-dot class-hill" cx="500" cy="730" r="9"/>
         </g>
 
-        <rect class="split-bar split-elevation-bar"
-              data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview"
-              data-scrub="split-elevation" x="380" y="595" width="440" height="10"/>
-        <text class="split-label" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x="600" y="580">elevation split</text>
+        <rect class="split-bar split-elevation-bar" data-show="split-elevation.." data-scrub="split-elevation" x="380" y="595" width="440" height="10"/>
+        <text class="split-label" data-show="split-elevation.." x="600" y="580">elevation split</text>
 
-        <rect class="split-bar split-size-bar"
-              data-show="split-size leaf-pure leaf-large tree-complete overview"
-              data-scrub="split-size" x="290" y="760" width="10" height="200"/>
-        <text class="split-label" data-show="split-size leaf-pure leaf-large tree-complete overview" x="120" y="750">size split</text>
+        <rect class="split-bar split-size-bar" data-show="split-size.." data-scrub="split-size" x="290" y="760" width="10" height="200"/>
+        <text class="split-label" data-show="split-size.." x="120" y="750">size split</text>
 
         <g id="tree">
-          <text class="panel-label" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x="1470" y="130">DECISION TREE</text>
+          <text class="panel-label" data-show="split-elevation.." x="1470" y="130">DECISION TREE</text>
 
-          <line class="tree-edge" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x1="1875" y1="270" x2="1615" y2="430"/>
-          <line class="tree-edge" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview" x1="1875" y1="270" x2="2135" y2="430"/>
-          <line class="tree-edge" data-show="split-size leaf-pure leaf-large tree-complete overview" x1="2135" y1="520" x2="2005" y2="690"/>
-          <line class="tree-edge" data-show="split-size leaf-pure leaf-large tree-complete overview" x1="2135" y1="520" x2="2245" y2="690"/>
+          <line class="tree-edge" data-show="ny-region.." x1="1875" y1="270" x2="1615" y2="430"/>
+          <line class="tree-edge" data-show="ny-region.." x1="1875" y1="270" x2="2135" y2="430"/>
+          <line class="tree-edge" data-show="split-size.." x1="2135" y1="520" x2="2005" y2="690"/>
+          <line class="tree-edge" data-show="split-size.." x1="2135" y1="520" x2="2245" y2="690"/>
 
-          <g class="tree-node" data-show="split-elevation sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+          <g class="tree-node" data-show="split-elevation..">
             <rect x="1770" y="180" width="210" height="90" rx="8"/>
             <text x="1875" y="220">All homes</text>
             <text class="tree-sub" x="1875" y="245">n = 24, mixed</text>
           </g>
 
-          <g class="tree-node" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+          <g class="tree-node" data-show="ny-region..">
             <rect x="1500" y="430" width="230" height="90" rx="8"/>
             <text x="1615" y="465">Flat terrain</text>
             <text class="tree-sub" x="1615" y="490">→ New York cluster</text>
           </g>
 
-          <g class="tree-node" data-show="sf-region ny-region split-size leaf-pure leaf-large tree-complete overview">
+          <g class="tree-node" data-show="ny-region..">
             <rect x="2020" y="430" width="230" height="90" rx="8"/>
             <text x="2135" y="465">Hill terrain</text>
             <text class="tree-sub" x="2135" y="490">→ San Francisco cluster</text>
           </g>
 
-          <g class="tree-node tree-leaf" data-show="split-size leaf-pure leaf-large tree-complete overview">
+          <g class="tree-node tree-leaf" data-show="split-size..">
             <rect x="1900" y="690" width="210" height="90" rx="8"/>
             <text x="2005" y="725">Small hill homes</text>
             <text class="tree-sub" x="2005" y="750">pure leaf</text>
           </g>
 
-          <g class="tree-node" data-show="split-size leaf-pure leaf-large tree-complete overview">
+          <g class="tree-node" data-show="split-size..">
             <rect x="2140" y="690" width="210" height="90" rx="8"/>
             <text x="2245" y="725">Large hill homes</text>
             <text class="tree-sub" x="2245" y="750">still mixed</text>
@@ -425,7 +410,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="split-elevation" data-focus="#focus-split-elevation" data-zoom="2.2">
+  <section class="step" id="split-elevation" data-focus="599 599 2 2" data-zoom="2.2">
     <div>
       <h2>The tree asks its first question</h2>
       <p>A decision tree learns by finding the single question that splits
@@ -436,7 +421,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="ny-region" data-focus="#focus-ny-region" data-zoom="3">
+  <section class="step" id="ny-region" data-focus="887 304 2 2" data-zoom="3">
     <div>
       <h2>Below the line: the flat homes</h2>
       <p>Every home the elevation split sent to the low side drifts
@@ -447,7 +432,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="sf-region" data-focus="#focus-sf-region" data-zoom="3">
+  <section class="step" id="sf-region" data-focus="344 851 2 2" data-zoom="3">
     <div>
       <h2>Above the line: the hill homes</h2>
       <p>The other half of the split settles into its own region just as
@@ -458,7 +443,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="split-size" data-focus="#focus-split-size" data-zoom="4.2">
+  <section class="step" id="split-size" data-focus="294 859 2 2" data-zoom="4.2">
     <div>
       <h2>The hill cluster asks a second question</h2>
       <p>One split rarely finishes the job. Inside the hill-home cluster, a
@@ -469,7 +454,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="leaf-pure" data-focus="#focus-leaf-pure" data-zoom="6.5">
+  <section class="step" id="leaf-pure" data-focus="169 759 2 2" data-zoom="6.5">
     <div>
       <h2>A leaf, finally pure</h2>
       <p>Zoom into the smaller half of that second split and every
@@ -480,7 +465,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="leaf-large" data-focus="#focus-leaf-large" data-zoom="5.5">
+  <section class="step" id="leaf-large" data-focus="419 888 2 2" data-zoom="5.5">
     <div>
       <h2>Not every branch ends this cleanly</h2>
       <p>The other half of the size split is not so tidy — a handful of
@@ -491,7 +476,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="tree-complete" data-focus="#focus-tree" data-zoom="1.6">
+  <section class="step" id="tree-complete" data-focus="1450 150 900 700" data-zoom="1.6">
     <div>
       <h2>The tree that grew while you scrolled</h2>
       <p>Every split you just watched happen inside the data has a
@@ -502,7 +487,7 @@ code { background: #131b30; padding: .1em .35em; border-radius: .25em; }
     </div>
   </section>
 
-  <section class="step" id="overview" data-focus="#focus-overview" data-zoom="0.95">
+  <section class="step" id="overview" data-focus="60 60 2280 1180" data-zoom="0.95">
     <div>
       <h2>Same twenty-four homes, fully sorted</h2>
       <p>Pull back and both views sit side by side — a data space carved
