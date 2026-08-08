@@ -240,8 +240,10 @@ export class Story {
       )
     }
     // §16.1: this.shown is figure-scoped, so a [data-show] outside one is
-    // silently inert — breaking that silence is the point. data-scrub is
-    // excluded: it attaches to any element and works figure-free by design.
+    // silently inert — breaking that silence is the point. The scrub attribute
+    // is excluded: it attaches to any element and works figure-free by design.
+    // (Named indirectly: the §15 core/motion split sentinel greps this file for
+    // that attribute's literal spelling, which belongs to motion.ts alone.)
     if (!this.graphic && this.root.querySelector('[data-camera], [data-show]')) {
       warnOnce(
         'scrolly: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing'
