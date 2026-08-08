@@ -7,6 +7,10 @@ reveal.js did this for slides: a document model, a tiny runtime, themes — and
 your eyes do the QA. scrolly is that contract for scroll-driven stories: no
 parser, no build step, no measuring. One script tag, one stylesheet.
 
+scrolly has no clock — the reader is holding the film. Nothing plays on its
+own: every state, every frame between two states, is a function of scroll
+position, which is why scrolling back up rewinds instead of replaying.
+
 ## Quick start
 
 ```html
@@ -163,7 +167,9 @@ Each example is a self-contained `file://`-openable HTML page (the library
 is inlined between `<!-- scrolly:js/css -->` markers and kept in sync with
 `dist/` by the build). Tier follows the parity suite (SPEC §14) — Tier 1
 examples run zero author JS beyond rendering the graphic states, and are
-verified against `scripts/validate-story.mjs --tier1`.
+verified against `scripts/validate-story.mjs --tier1`, which drives every
+chapter forward, in reverse, and out of order, then reports on continuity:
+a chapter must frame the same graphic whichever way the reader reached it.
 
 | Example | Tier | What it demonstrates |
 |---|---|---|
@@ -207,6 +213,20 @@ Everyday commands: `bun run dev` (Vite playground) · `bun run test` (Vitest
 units) · `bun run test:e2e` (build + Playwright) · `bun run check`
 (everything, plus dist-freshness). See [CONTRIBUTING.md](CONTRIBUTING.md)
 and [ARCHITECTURE.md](ARCHITECTURE.md).
+
+Two tools exist for *watching* a story rather than asserting on it, and
+neither costs the library a byte:
+
+- `scrolly-director.js` is the viewfinder — an opt-in overlay, loaded like a
+  theme with one extra script tag while you author. Press `d` and it draws
+  the trigger line with its offset over whichever story is nearest, a
+  chapter rail you can click to jump, and a live chip of the state your CSS
+  is reacting to.
+- `node scripts/validate-story.mjs page.html --report out.html` develops the
+  same run into a storyboard: one row per chapter, the forward frame beside
+  the frame from the reverse pass, so every continuity verdict comes with
+  the two pictures it was made from. The `file://`-openable page it writes
+  inlines its own images, like everything else here.
 
 ## Roadmap
 

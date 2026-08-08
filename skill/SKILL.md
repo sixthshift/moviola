@@ -93,6 +93,10 @@ holds state and logs a `scrolly:`-prefixed `console.warn` once.
 <section class="step" id="world" data-focus="#the-map">…</section>
 ```
 
+Each focused step is one shot on the storyboard, and the camera interpolates
+between consecutive shots — so neighbouring shots want framings different
+enough that the flight between them reads as a move.
+
 ### Scrubbed particles
 
 ```html
@@ -158,6 +162,8 @@ a delta) — reverse scrolling then works for free.
 
 ## Quality bar
 
+- Storyboard before HTML: one row per step, what the reader reads beside what
+  the graphic shows. Two rows that draw the same frame are one step, not two.
 - 4–8 steps per story; every step must change the graphic (a step with no
   visible change is a dead step — cut it or give it a state).
 - The graphic must be legible at every step in isolation.
