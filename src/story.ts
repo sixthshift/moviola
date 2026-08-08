@@ -150,12 +150,14 @@ export class Story {
       }
     }
 
-    const shot = this._cameraShot(active, step)
-    if (shot)
-      this.root.style.setProperty(
-        '--camera-transform',
-        cameraTransform(shot, this._shots?.center ?? { x: 0, y: 0 })
-      )
+    // A resolvable center is the precondition for any shot existing at all
+    // (shots are only resolved when the stage measured), so guard on it once
+    // rather than re-defaulting it per call.
+    const center = this._shots?.center
+    if (center) {
+      const shot = this._cameraShot(active, step)
+      if (shot) this.root.style.setProperty('--camera-transform', cameraTransform(shot, center))
+    }
 
     if (active >= 0) {
       emit(this.root, 'progress', { ...this._detail(active), progress: step, storyProgress: story })
@@ -168,7 +170,7 @@ export class Story {
   // camera has already arrived by the time the later step's prose appears).
   // Reduced motion snaps to the nearer shot — a cut, never a flight.
   private _cameraShot(active: number, step: number): Shot | null {
-    if (!this._shots?.center) return null
+    if (!this._shots) return null
     if (active < 0) return this._shots.establishing
     const from = this._shots.held[active]
     const to = this._shots.next[active]

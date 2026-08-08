@@ -336,7 +336,7 @@ var Story = class {
 		});
 	}
 	_update() {
-		var _this$_shots$center, _this$_shots;
+		var _this$_shots;
 		const first = this.steps[0];
 		const last = this.steps[this.steps.length - 1];
 		if (!first || !last) return;
@@ -363,11 +363,11 @@ var Story = class {
 				this.root.style.setProperty(`--progress-${id}`, ((_chapters$index = chapters[index]) !== null && _chapters$index !== void 0 ? _chapters$index : 0).toFixed(4));
 			}
 		}
-		const shot = this._cameraShot(active, step);
-		if (shot) this.root.style.setProperty("--camera-transform", cameraTransform(shot, (_this$_shots$center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center) !== null && _this$_shots$center !== void 0 ? _this$_shots$center : {
-			x: 0,
-			y: 0
-		}));
+		const center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center;
+		if (center) {
+			const shot = this._cameraShot(active, step);
+			if (shot) this.root.style.setProperty("--camera-transform", cameraTransform(shot, center));
+		}
 		if (active >= 0) emit(this.root, "progress", {
 			...this._detail(active),
 			progress: step,
@@ -375,8 +375,7 @@ var Story = class {
 		});
 	}
 	_cameraShot(active, step) {
-		var _this$_shots2;
-		if (!((_this$_shots2 = this._shots) === null || _this$_shots2 === void 0 ? void 0 : _this$_shots2.center)) return null;
+		if (!this._shots) return null;
 		if (active < 0) return this._shots.establishing;
 		const from = this._shots.held[active];
 		const to = this._shots.next[active];

@@ -22,6 +22,12 @@ Dependencies point one way: `index → story → {geometry, events, keyboard, ty
 `geometry.ts` is deliberately DOM-free — it is the state machine's math,
 unit-tested as pure numbers against the SPEC §5 semantics.
 
+`story.ts` is at its split threshold. The pre-committed seam is core emission
+(§5–§7 state: classes, `data-active-step`, the two progress variables, events)
+vs. motion-layer emission (§15: scrub stamps, camera orchestration, the morph
+wrap) — the next feature that lands in this file executes that split as part
+of its own change, not as a separate sweep.
+
 ## Dataflow
 
 ```
