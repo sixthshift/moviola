@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>shot-unknown</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,30 +196,70 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §16 + §15.6 the unrecognized data-shot diagnostic. ONE subject — the rect
+   * #subject — focused by both chapters:
+   *
+   *   #unknown    data-shot="extreme"  -> not in the pinned name table: warns,
+   *                                      and falls to the default fit (0.70,
+   *                                      which is `medium`'s own fraction)
+   *   #unnamed    no shot attribute    -> the control: the same default fit,
+   *                                      reached without a name, and silent
+   *
+   * The pair is the discriminator: the fallback is only honest if the two
+   * chapters settle at the SAME transform, so the assertion needs no
+   * hand-derived pixel constant — an unknown name that quietly resolved to some
+   * other fraction (or to `NaN`, or to no shot at all) would part them.
+   *
+   * Because both chapters resolve to the identical shot, the flight between
+   * them is a constant, so the sampled transform is that shot whatever the
+   * sample's exact progress happens to be.
+   *
+   * Nothing else here can warn, so the unknown-name report is the page's only
+   * `scrolly:` line: both chapters carry a resolving `data-focus` (so the
+   * "no data-focus anywhere" report stays silent), neither carries a
+   * `data-zoom` to conflict with, and there is no `data-show` or `data-scrub`.
+   *
+   * The spacer and the two-viewport chapters exist for the same reason as in
+   * e2e/fixtures-clean/shot-framings.html: every chapter's own start has to be
+   * reachable at a positive scroll offset.
+   */
+  .lead, .tail { height: 100vh; }
+  .scrolly > .step { min-height: 200vh; }
+  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .step p { max-width: 30rem; }
 </style>
 </head>
 <body>
 
+<div class="lead"><p>Scroll down: an invented shot name, and the default framing it falls back to.</p></div>
+
 <article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
   <figure>
-    <div class="panel"></div>
+    <svg viewBox="0 0 1000 800">
+      <g data-camera>
+        <rect x="0" y="0" width="1000" height="800" fill="#eef2f7"/>
+        <rect id="subject" x="440" y="350" width="120" height="100" fill="#12305e"/>
+      </g>
+    </svg>
   </figure>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <section class="step" id="unknown" data-focus="#subject" data-shot="extreme">
+    <p><code>data-shot="extreme"</code> is not a shot name — it is reported, and
+    the framing falls back to the default fit.</p>
+  </section>
+
+  <section class="step" id="unnamed" data-focus="#subject">
+    <p>The same subject with no shot name at all: the same framing, reached the
+    ordinary way, and silent.</p>
+  </section>
 
 </article>
+
+<div class="tail"></div>
 <!-- scrolly:js -->
 <script>/*!
 * scrolly — the scrollytelling framework
@@ -262,8 +303,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-fetch('ht' + 'tps://example.invalid/should-not-be-fetched.json').catch(() => {})
+  Scrolly.init()
 </script>
 </body>
 </html>

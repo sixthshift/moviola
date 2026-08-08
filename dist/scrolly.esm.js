@@ -368,6 +368,31 @@ var SHOT_FRACTIONS = {
 	close: .9
 };
 /**
+* The magnification `el` asks for — and §15.6's report of a framing that was
+* authored in vain. Both diagnostics belong at this one fork because both say
+* the same thing about the same mistake: the `data-shot` on this element
+* changed nothing. An explicit `data-zoom` outranks the name outright; on the
+* fit path a name outside the table lands on `fitZoom`'s own default, which is
+* `medium`'s fraction. Neither warning moves a resolved value — the fallbacks
+* they describe are the ones already in force.
+*
+* `warnOnce` keys on the whole message, so each offending value is reported
+* exactly once (a resize re-measure re-runs this for every step) while two
+* different bad names stay two distinct reports.
+*/
+function resolveZoom(el, box, stage) {
+	var _el$dataset$zoom;
+	const shot = el.dataset.shot;
+	const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
+	if (Number.isFinite(zoom)) {
+		if (shot !== void 0) warnOnce(`scrolly: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`);
+		return zoom;
+	}
+	const fraction = SHOT_FRACTIONS[shot !== null && shot !== void 0 ? shot : ""];
+	if (shot !== void 0 && fraction === void 0) warnOnce(`scrolly: data-shot="${shot}" is not a known shot name — using the medium fit`);
+	return fitZoom(box.w, box.h, stage.w, stage.h, fraction);
+}
+/**
 * Resolve every focused step's shot. A `data-focus` that resolves to no box —
 * a selector matching nothing, or malformed coordinates — warns once and is
 * treated as absent (hold, never a throw or a jump to identity — §15.3).
@@ -376,14 +401,12 @@ function measureShots(rig, root, steps) {
 	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("scrolly: data-camera has no data-focus anywhere — the camera never moves");
 	const stage = stageRect(rig);
 	const resolve = (el) => {
-		var _el$dataset$zoom, _el$dataset$shot;
 		const box = focusBox(rig, el);
 		if (!box || !stage) return null;
-		const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
 		return {
 			cx: box.x + box.w / 2,
 			cy: box.y + box.h / 2,
-			k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h, SHOT_FRACTIONS[(_el$dataset$shot = el.dataset.shot) !== null && _el$dataset$shot !== void 0 ? _el$dataset$shot : ""])
+			k: resolveZoom(el, box, stage)
 		};
 	};
 	const establishing = resolve(root);

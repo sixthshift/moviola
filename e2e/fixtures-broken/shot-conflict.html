@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>shot-conflict</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,30 +196,68 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §16 + §15.6 the data-shot / data-zoom co-presence diagnostic. ONE subject —
+   * the rect #subject — focused by both chapters:
+   *
+   *   #conflict   data-shot="close" data-zoom="2"  -> the explicit zoom wins,
+   *                                                  and the ignored name warns
+   *   #shot-only  data-shot="close"                -> the control: same name,
+   *                                                  same subject, no zoom, so
+   *                                                  it settles on the close
+   *                                                  FIT and says nothing
+   *
+   * The pair is the discriminator: a runtime that let the name win, or that
+   * averaged the two, could not land #conflict on exactly 2 while #shot-only
+   * sits somewhere else entirely (the close fit of this subject in this stage).
+   *
+   * Nothing else here can warn, so the co-presence report is the page's only
+   * `scrolly:` line: both chapters carry a resolving `data-focus` (so the
+   * "no data-focus anywhere" report stays silent), `close` is in the pinned
+   * name table, and there is no `data-show` or `data-scrub` at all.
+   *
+   * Chapters are two viewports tall and the page opens with a spacer, for the
+   * same reason as e2e/fixtures-clean/shot-framings.html: a chapter's own start
+   * has to be reachable at a positive scroll offset, and #conflict's chapter is
+   * a real flight (out to #shot-only's framing), so a sample taken a hair past
+   * its start must still be a hair's worth away from the authored 2.
+   */
+  .lead, .tail { height: 100vh; }
+  .scrolly > .step { min-height: 200vh; }
+  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .step p { max-width: 30rem; }
 </style>
 </head>
 <body>
 
+<div class="lead"><p>Scroll down: one subject, a named framing overruled by an explicit zoom.</p></div>
+
 <article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
   <figure>
-    <div class="panel"></div>
+    <svg viewBox="0 0 1000 800">
+      <g data-camera>
+        <rect x="0" y="0" width="1000" height="800" fill="#eef2f7"/>
+        <rect id="subject" x="440" y="350" width="120" height="100" fill="#12305e"/>
+      </g>
+    </svg>
   </figure>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <section class="step" id="conflict" data-focus="#subject" data-shot="close" data-zoom="2">
+    <p><code>data-shot="close"</code> and <code>data-zoom="2"</code> on the same
+    step: the number wins, the name is reported as ignored.</p>
+  </section>
+
+  <section class="step" id="shot-only" data-focus="#subject" data-shot="close">
+    <p>The same subject and the same name without a <code>data-zoom</code> —
+    this one is framed by the fit, and is silent.</p>
+  </section>
 
 </article>
+
+<div class="tail"></div>
 <!-- scrolly:js -->
 <script>/*!
 * scrolly — the scrollytelling framework
@@ -262,8 +301,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-fetch('ht' + 'tps://example.invalid/should-not-be-fetched.json').catch(() => {})
+  Scrolly.init()
 </script>
 </body>
 </html>

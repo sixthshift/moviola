@@ -183,6 +183,41 @@ function focusBox(rig: CameraRig, el: HTMLElement): Rect | null {
  */
 const SHOT_FRACTIONS: Record<string, number> = { wide: 0.5, medium: 0.7, close: 0.9 }
 
+/**
+ * The magnification `el` asks for — and §15.6's report of a framing that was
+ * authored in vain. Both diagnostics belong at this one fork because both say
+ * the same thing about the same mistake: the `data-shot` on this element
+ * changed nothing. An explicit `data-zoom` outranks the name outright; on the
+ * fit path a name outside the table lands on `fitZoom`'s own default, which is
+ * `medium`'s fraction. Neither warning moves a resolved value — the fallbacks
+ * they describe are the ones already in force.
+ *
+ * `warnOnce` keys on the whole message, so each offending value is reported
+ * exactly once (a resize re-measure re-runs this for every step) while two
+ * different bad names stay two distinct reports.
+ */
+function resolveZoom(el: HTMLElement, box: Rect, stage: Rect): number {
+  const shot = el.dataset.shot
+  const zoom = Number.parseFloat(el.dataset.zoom ?? '')
+  if (Number.isFinite(zoom)) {
+    if (shot !== undefined) {
+      warnOnce(
+        `scrolly: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`
+      )
+    }
+    return zoom
+  }
+
+  // `shot ?? ''` reads as undefined out of the table, which is exactly the
+  // "nothing to say" argument `fitZoom` defaults — so an unknown name is
+  // reported, never repaired.
+  const fraction = SHOT_FRACTIONS[shot ?? '']
+  if (shot !== undefined && fraction === undefined) {
+    warnOnce(`scrolly: data-shot="${shot}" is not a known shot name — using the medium fit`)
+  }
+  return fitZoom(box.w, box.h, stage.w, stage.h, fraction)
+}
+
 export interface Shots {
   /** The root's own shot (§15.3: the establishing shot while no step is active). */
   establishing: Shot | null
@@ -234,13 +269,10 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
   const resolve = (el: HTMLElement): Shot | null => {
     const box = focusBox(rig, el)
     if (!box || !stage) return null
-    const zoom = Number.parseFloat(el.dataset.zoom ?? '')
     return {
       cx: box.x + box.w / 2,
       cy: box.y + box.h / 2,
-      k: Number.isFinite(zoom)
-        ? zoom
-        : fitZoom(box.w, box.h, stage.w, stage.h, SHOT_FRACTIONS[el.dataset.shot ?? '']),
+      k: resolveZoom(el, box, stage),
     }
   }
 
