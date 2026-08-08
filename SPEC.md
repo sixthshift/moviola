@@ -420,7 +420,8 @@ is not throwaway test matter; it is the public proof and the marketing.
 
 ## 15. The motion layer (v0.4 proposal) ✅
 
-**Status: implemented in v0.4** (the open-question items below remain deferred).
+**Status: implemented in v0.4**; §16 amends it for v0.5. The open-question
+items below remain deferred except the two marked adopted.
 
 ### 15.0 The gap this closes
 
@@ -591,10 +592,15 @@ Rules:
   (`data-active-step` × transform recipe, unchanged).
 - Reduced motion: interpolation quantizes to the nearer shot — cuts, not
   flights (same rule as §15.2).
-- ❓ Easing/apex control (van Wijk–Nuij smooth pan-zoom paths) — likely
-  v0.5; scroll pace is the reader's easing, so linear/log may be enough.
-- ❓ Non-selector shots (`data-focus="1200 400 3"` raw coordinates) —
-  defer; invisible anchor elements are idiomatic and view-source-teachable.
+- ❓ Easing/apex control → adopted, §16.4 (v0.5): the van Wijk–Nuij smooth
+  pan-zoom path is now *the* flight, at ρ = √2. "Scroll pace is the reader's
+  easing" held — it is exactly why the path carries no easing knob — but
+  linear/log was not enough (§16.4).
+- ❓ Non-selector shots → adopted, §16.2 (v0.5): a raw box is
+  `data-focus="x y w h"`, chosen on the value's first character. Invisible
+  anchors stay idiomatic but are not always available; the `1200 400 3`
+  point-plus-zoom spelling sketched here was rejected with its reasons
+  (§16.2).
 
 ### 15.4 Morph — `data-morph` (View Transitions) ✅
 
@@ -686,3 +692,191 @@ is scroll-down-scroll-up-squint; these close it:
   camera-and-scrub story on the first render; a human developer given only
   a gallery example's view-source reproduces the camera rig without
   reading this spec. Both are release gates for v0.4.
+
+---
+
+## 16. Motion-layer amendments (v0.5) ✅
+
+**Status: implemented in v0.5.** §15 recorded the motion layer as proposed;
+this section records the four surfaces that landed on top of it, as shipped,
+and is the normative text wherever the two disagree. Two of §15.3's deferred
+questions are resolved here — raw-coordinate focus (§16.2) and easing/apex
+control (§16.4) — and each is marked at its §15.3 entry.
+
+### 16.1 Ranges in `data-show` ✅
+
+**Problem.** An element that belongs on screen from its entrance to the end of
+the story had to name every step: `data-show="crash slide recovery coda"`. That
+list is the author restating their own step order, and it rots silently the
+moment a step is inserted in the middle of it.
+
+**Grammar.** Step ids match `/^[A-Za-z0-9_-]+$/` (§15.2's custom-property ident
+rule), so `..` can never occur inside an id — which is what makes it an
+unambiguous separator rather than a guess. A `data-show` value is a
+space-separated token list, and each token is either a bare id or one of four
+spans:
+
+| Token | Steps it contributes |
+|---|---|
+| `a` | just `a` — the pre-range behaviour, verbatim |
+| `a..b` | `a` through `b`, inclusive |
+| `a..` | `a` through the story's last step |
+| `..b` | the story's first step through `b` |
+| `..` | every step |
+
+Membership is the **union** over tokens, so mixed values compose:
+`data-show="intro cliff..peak coda"`. Bare `..` is a real spelling and is *not*
+the same as omitting `data-show` — `..` opts the element into the visibility
+mechanics (it takes `is-shown`, the structural crossfade applies) for every
+chapter, whereas an element carrying no `data-show` at all opts out of those
+mechanics entirely and is never classed.
+
+**Resolution.** Endpoints resolve to step *indices* in DOM order, once at init,
+against the same keys the rest of the contract addresses a step by: its own id,
+or its DOM index when it has none — the key `data-active-step` already carries
+— so an id-less step is addressable by index and never reads as a dangling
+reference. Membership is static for the story's life thereafter: §5.1's live
+geometry re-measures step *positions* on resize and late layout changes, never
+which steps a range covers, so `crash..` means the same steps after a resize as
+before it.
+
+Rules (fail-soft, §15.1.6 — nothing here throws, and one bad token never voids
+the good tokens beside it):
+- Dangling endpoint (`crash..nowhere`): contributes nothing, warns once, in the
+  pre-range wording — the message says the value *matches no step* id.
+- A `..`-bearing token matching none of the four span forms (`a..b..c`, `...`,
+  `a....b`): the same disposition — nothing, one warn. It is the same authoring
+  mistake as a dangling endpoint, a token naming a step the story does not
+  have, so it is reported as one rather than parsed into something the author
+  never wrote.
+- Reversed span (`recovery..crash`): the empty set, and one warn that says
+  *reversed*. Never a silent swap into the forward span — a swap would hide an
+  author's misunderstanding of their own step order behind working output.
+
+### 16.2 Raw-coordinate focus — `data-focus="x y w h"` ✅
+
+**Adopted**; §15.3 deferred this on the grounds that invisible anchor elements
+are idiomatic and view-source-teachable. They are — and they are not always
+available: a tour that frames a *region* of a chart has no element to point at,
+and adding a zero-size `<rect>` per shot is graphic markup whose only job is to
+carry four numbers.
+
+**Grammar.** `data-focus` picks its form from the value's **first character** —
+a digit or `-` means raw coordinates, anything else is a selector. Deliberately
+crude, because the rule's whole value is that an author can tell which path a
+value takes by looking at its first character. Two spellings are pinned traps
+and stay traps:
+
+| Value | Path taken | Why |
+|---|---|---|
+| `"0.5 0 10 10"` | coordinates | leading digit |
+| `".5 0 10 10"` | selector, failing soft as *matches no element* | authors write `0.5`, not `.5` |
+| `"+50 0 200 100"` | selector, failing soft as *matches no element* | `+` is not a digit, and sniffing further would cost the first-character rule itself |
+
+Neither trap is valid CSS either; a selector the engine cannot parse is caught
+and given the same no-match disposition, never allowed to throw out of init.
+
+**Semantics.** Exactly four numbers — `x y w h` — in the camera element's own
+untransformed `viewBox` space, which is the same space a selector's target is
+measured into. The box is then the shot's subject in exactly the way a
+selector's bounding box is: the same fit default, the same `data-zoom` (and
+§16.3 `data-shot`) override, the same reduced-motion cuts. Both forms meet at
+the point framing is decided, so they cannot drift apart.
+
+Malformed — a token count other than four, any non-finite number, or `w`/`h` at
+or below zero — and the camera holds, with one warn. Numbers are read with
+`Number`, not `parseFloat`: a half-numeric token like `30q` is an authoring
+mistake to report, never a prefix to salvage. "Holds" means the shot already
+arrived at, and on the **first** shot there is nothing to hold — so
+`--camera-transform` is not written at all until the first valid shot resolves,
+rather than written as identity. §15.3's `var(--camera-transform, none)` is what
+makes that an untransformed stage rather than a blank one.
+
+**Rejected: `"x y k"` (point plus zoom)** — the spelling §15.3's own open
+question sketched. It is shorter and wrong at the contract level: it conflates
+the subject with its framing, so `data-zoom` is either redundant with the `k` in
+the value or in conflict with it, and it leaves no box for the fit default to
+fit, which is the one thing a `data-zoom`-less shot needs. `x y w h` keeps
+subject and framing orthogonal, exactly as a selector plus `data-zoom` already
+did.
+
+### 16.3 Named framings — `data-shot` ✅
+
+**Problem.** `data-zoom="2.2"` is a calculator number of the kind §15.1's axiom
+3 hands to the library. *How tight* the frame sits is a creative choice — but it
+is a creative choice with a three-word vocabulary the authors of this genre
+already have.
+
+**Grammar.** `data-shot` sits exactly where `data-zoom` sits — on a step, or on
+the root for the establishing shot — and names the fraction of the stage the
+subject's box is fitted to:
+
+| Name | Fraction of the stage |
+|---|---|
+| `wide` | 0.50 |
+| `medium` | 0.70 — identical to today's unnamed default (§15.3's "~70%") |
+| `close` | 0.90 |
+
+Rules:
+- Precedence: an explicit `data-zoom` on the same element wins outright, and
+  their co-presence emits one warn. The warn moves nothing; it reports a
+  framing authored in vain, which is the whole of the fix.
+- An unknown name (`data-shot="closeup"`) falls back to 0.70 and warns once.
+  The fallback is the fit default itself rather than a second copy of the
+  number, which is what keeps `medium` and *no attribute* one number in one
+  place.
+- A shot name is a framing and never a timing: `data-shot` says nothing about
+  the flight between two shots. §16.4 owns that, unconfigurably.
+
+### 16.4 Flights — the van Wijk–Nuij path ✅
+
+**Adopted**; §15.3 deferred this on the grounds that scroll pace is the reader's
+easing, so linear/log may be enough. The pace argument held; *enough* did not. A
+linear pan holds full magnification across the whole traverse, so a long move
+smears the stage sideways and costs the reader any sense of where they went.
+
+The van Wijk–Nuij smooth pan-zoom path **replaces** linear-pan + log-zoom as
+*the* flight. §15.3's variable table entry ("pan linear, zoom in log space") is
+superseded; log-space zoom survives below as one degenerate case. The path is
+the geodesic of zoom-pan space, so a long pan pulls out through its middle and
+back in rather than sliding flat.
+
+- **ρ = √2**, the paper's own default, fixed in code. There is no easing
+  attribute, no ρ knob and no duration — the reader's scroll pace is the only
+  easing there is (§15.1 axioms 1 and 3).
+- **The unit pin: `w ≡ W / k`**, where `W` is the stage's own width in the
+  camera element's untransformed coordinate space, passed to the interpolation
+  alongside the two shots. The pin is load-bearing rather than bookkeeping: the
+  path trades pan distance against view width inside one square root, so the two
+  have to be commensurable, and a normalized `1/k` measured against a world-unit
+  pan is exactly what produces absurd mid-flight zoom-outs.
+- **Progress is linear in the arc parameter s**, not in whatever parameter the
+  closed form happens to be written in — the paper's constant-perceived-velocity
+  recommendation. That is what makes `t = 0.5` the path's midpoint in s and, for
+  a symmetric flight, its apex: a pan of `d` between two shots of view width `w`
+  peaks at width `√(d² + w²)`.
+
+Degenerate cases, all resolved inside the math rather than special-cased at the
+call site:
+- **Zero pan distance**: no distance to trade zoom against, so the geodesic
+  collapses to the pure log-space ramp — equal zoom ratios per unit of progress,
+  §15.3's original zoom behaviour, now a special case instead of the rule.
+- **Identical shots**: the identity at every `t`, returned exactly, with no 0/0.
+  This is the case an unfocused or dangling step interpolates, so a hold is a
+  constant and never a replayed flight.
+- **Equal zoom with a vanishing pan**: approaches the linear pan and stays
+  finite at every `t` — the classic sinh/log blow-up, bounded by an absolute
+  world-unit distance below which the general form's cancellation would amplify
+  into noise.
+- **Endpoints**: short-circuited, so a chapter boundary lands on its authored
+  shot bit-exactly and a flight never overshoots.
+
+**Reduced motion is unchanged** (§15.2, §15.3): progress quantizes to the nearer
+shot, so every flight becomes a cut and the path above is never traversed.
+
+**Seeing a flight** stays §15.6's job — §16 adds no diagnostic surface of its own
+beyond the warns above. The validator's contact sheet is the storyboard for the
+framings a run actually produced; its forward-versus-reverse pass is the
+continuity report that pins a flight as a pure function of scroll position; and
+`scrolly-director.js` is the authoring viewfinder for the chapter progress a
+flight is scrubbed by.
