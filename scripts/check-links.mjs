@@ -52,19 +52,28 @@ function isInScope(target) {
   return true
 }
 
+const lineOf = (text, offset) => text.slice(0, offset).split('\n').length
+
+/*
+ * Scanned as one string, not line by line: a link whose text wraps — a long
+ * image alt, a sentence-length label — is still one link, and matching per
+ * line skipped it silently, which is the worst failure a checker has (a green
+ * run over a link it never read). `](` must still be adjacent, so a wrap
+ * between the label and the target does not match, and stripFencedCode blanks
+ * fenced lines while keeping their newlines, so offsets still name the right
+ * line.
+ */
 function findLinks(text) {
+  const scanned = stripFencedCode(text)
   const links = []
-  const lines = stripFencedCode(text).split('\n')
-  lines.forEach((line, i) => {
-    for (const re of [MD_LINK_RE, HREF_RE]) {
-      re.lastIndex = 0
-      let m
-      while ((m = re.exec(line))) {
-        const raw = (m[1] ?? m[2]).split(/\s+/)[0] // drop a markdown title suffix
-        if (isInScope(raw)) links.push({ line: i + 1, target: raw })
-      }
+  for (const re of [MD_LINK_RE, HREF_RE]) {
+    re.lastIndex = 0
+    let m
+    while ((m = re.exec(scanned))) {
+      const raw = (m[1] ?? m[2]).trim().split(/\s+/)[0] // drop a markdown title suffix
+      if (isInScope(raw)) links.push({ line: lineOf(scanned, m.index), target: raw })
     }
-  })
+  }
   return links
 }
 
