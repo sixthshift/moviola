@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>show-ranges</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,24 +196,50 @@
 </style>
 <!-- /scrolly:css -->
 <style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
 
-    * { box-sizing: border-box; }
-    body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-    .panel { width: 200px; height: 200px; background: #888888; display: block; }
-  
+  /*
+   * §16.1 data-show ranges, the clean case: every well-formed span form on one
+   * story of three steps (a, b, c), so membership is readable by eye —
+   *
+   *   #open   data-show="b.."   -> b, c
+   *   #mixed  data-show="a c.." -> a, c        (bare + open-ended union)
+   *   #all    data-show=".."    -> a, b, c
+   *   #upto   data-show="..b"   -> a, b
+   *   #closed data-show="a..b"  -> a, b        (both endpoints named)
+   *
+   * The bars stack in the sticky figure (scrolly.css grid-area) and only the
+   * ones whose set holds the active step id are opaque. Nothing here is a
+   * diagnostic trigger: every endpoint names a real step, so the page must
+   * print zero `scrolly:` warnings.
+   */
+  .scrolly > .step { min-height: 100vh; }
+  .stack { display: grid; gap: 12px; width: 320px; }
+  .bar { height: 48px; border-radius: 6px; color: #fff; padding: 0.75rem; font-weight: 700; }
+  #open { background: #e33333; }
+  #mixed { background: #33aa77; }
+  #all { background: #3377ee; }
+  #upto { background: #b05ccc; }
+  #closed { background: #d2802a; }
 </style>
 </head>
 <body>
 
 <article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
   <figure>
-    <div class="panel"></div>
+    <div class="stack">
+      <div class="bar" id="open" data-show="b..">b..</div>
+      <div class="bar" id="mixed" data-show="a c..">a c..</div>
+      <div class="bar" id="all" data-show="..">..</div>
+      <div class="bar" id="upto" data-show="..b">..b</div>
+      <div class="bar" id="closed" data-show="a..b">a..b</div>
+    </div>
   </figure>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <section class="step" id="a"><p>step a — only the open-start spans cover it.</p></section>
+  <section class="step" id="b"><p>step b — every span except the bare-plus-open union covers it.</p></section>
+  <section class="step" id="c"><p>step c — the open-ended spans run to here.</p></section>
 
 </article>
 <!-- scrolly:js -->
@@ -258,7 +285,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
+  Scrolly.init()
 </script>
 </body>
 </html>

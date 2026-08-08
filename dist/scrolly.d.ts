@@ -54,7 +54,17 @@ export declare class Story {
     offset: number;
     graphic: HTMLElement | null;
     steps: HTMLElement[];
-    shown: HTMLElement[];
+    /**
+     * §16.1: each `[data-show]` element paired with the step keys it is shown
+     * for. Membership is resolved once at construction from the step order and
+     * is static for the story's life — §5.1's live geometry re-measures
+     * positions, never which steps a range covers, so `crash..` means the same
+     * steps after a resize as before it.
+     */
+    shown: Array<{
+        el: HTMLElement;
+        keys: Set<string>;
+    }>;
     active: number;
     private _engaged;
     private _ticking;
@@ -73,7 +83,18 @@ export declare class Story {
     private _tick;
     private _update;
     private _activate;
-    private _warnDanglingShows;
+    /**
+     * §16.1 membership, resolved against the step keys a step is addressed by
+     * everywhere else (stepId — real id, or index fallback), so an
+     * index-fallback id is never mistaken for a dangling reference.
+     *
+     * §15.6(a): the wording and the warn channel live here, not in
+     * geometry.ts — resolveShow reports issues as data so the math stays
+     * console-free. A dangling endpoint keeps the pre-range message verbatim;
+     * a reversed span gets its own, since an author who inverted their step
+     * order needs to be told that rather than shown an empty graphic.
+     */
+    private _resolveShows;
     private _detail;
     on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;
     destroy(): void;

@@ -7,7 +7,7 @@
 
 import { warnOnce } from './camera'
 import { emit, subscribe } from './events'
-import { activeIndex, chapterProgress, stepProgress, storyProgress } from './geometry'
+import { activeIndex, chapterProgress, resolveShow, stepProgress, storyProgress } from './geometry'
 import { handleKeydown } from './keyboard'
 import { Motion } from './motion'
 import type { ScrollyEventMap, ScrollyEventName, ScrollyOptions, StepDetail } from './types'
@@ -30,7 +30,14 @@ export class Story {
   offset: number
   graphic: HTMLElement | null
   steps: HTMLElement[]
-  shown: HTMLElement[]
+  /**
+   * §16.1: each `[data-show]` element paired with the step keys it is shown
+   * for. Membership is resolved once at construction from the step order and
+   * is static for the story's life — §5.1's live geometry re-measures
+   * positions, never which steps a range covers, so `crash..` means the same
+   * steps after a resize as before it.
+   */
+  shown: Array<{ el: HTMLElement; keys: Set<string> }>
   active = -1
 
   private _engaged = false
@@ -51,7 +58,7 @@ export class Story {
     this.offset = parseFloat(root.dataset.offset ?? String(opts.offset ?? OFFSET))
     this.graphic = root.querySelector(':scope > figure')
     this.steps = [...root.querySelectorAll<HTMLElement>(':scope > .step')]
-    this.shown = this.graphic ? [...this.graphic.querySelectorAll<HTMLElement>('[data-show]')] : []
+    this.shown = this._resolveShows()
     this._progressIds = this.steps
       .map((s, index) => ({ id: s.id, index }))
       .filter(({ id }) => VALID_IDENT.test(id))
@@ -73,7 +80,6 @@ export class Story {
     this._io.observe(root)
 
     for (const s of this.steps) s.classList.add('is-future')
-    this._warnDanglingShows()
     this._motion = new Motion(
       root,
       this.graphic,
@@ -168,9 +174,8 @@ export class Story {
       if (id === null) this.root.removeAttribute('data-active-step')
       else this.root.setAttribute('data-active-step', id)
 
-      for (const el of this.shown) {
-        const ids = (el.dataset.show ?? '').split(/\s+/)
-        el.classList.toggle('is-shown', id !== null && ids.includes(id))
+      for (const { el, keys } of this.shown) {
+        el.classList.toggle('is-shown', id !== null && keys.has(id))
       }
     }
 
@@ -185,16 +190,34 @@ export class Story {
     if (next >= 0) emit(this.root, 'stepenter', { ...this._detail(next), direction })
   }
 
-  // §15.6(a): a data-show token is addressed by the SAME id a step is
-  // addressed by everywhere else (stepId — real id, or index fallback), so
-  // an index-fallback id is never mistaken for a dangling reference.
-  private _warnDanglingShows(): void {
-    const ids = new Set(this.steps.map((s, i) => stepId(s, i)))
-    for (const el of this.shown) {
-      for (const token of (el.dataset.show ?? '').split(/\s+/).filter(Boolean)) {
-        if (!ids.has(token)) warnOnce(`scrolly: data-show="${token}" matches no step id`)
+  /**
+   * §16.1 membership, resolved against the step keys a step is addressed by
+   * everywhere else (stepId — real id, or index fallback), so an
+   * index-fallback id is never mistaken for a dangling reference.
+   *
+   * §15.6(a): the wording and the warn channel live here, not in
+   * geometry.ts — resolveShow reports issues as data so the math stays
+   * console-free. A dangling endpoint keeps the pre-range message verbatim;
+   * a reversed span gets its own, since an author who inverted their step
+   * order needs to be told that rather than shown an empty graphic.
+   */
+  private _resolveShows(): Array<{ el: HTMLElement; keys: Set<string> }> {
+    const stepKeys = this.steps.map(stepId)
+    const els = this.graphic ? [...this.graphic.querySelectorAll<HTMLElement>('[data-show]')] : []
+    return els.map(el => {
+      const { keys, issues } = resolveShow(
+        (el.dataset.show ?? '').split(/\s+/).filter(Boolean),
+        stepKeys
+      )
+      for (const { token, reason } of issues) {
+        warnOnce(
+          reason === 'reversed'
+            ? `scrolly: data-show="${token}" is a reversed range`
+            : `scrolly: data-show="${token}" matches no step id`
+        )
       }
-    }
+      return { el, keys }
+    })
   }
 
   private _detail(i: number): StepDetail {
@@ -224,7 +247,7 @@ export class Story {
     for (const off of [...this._subs]) off()
     this._subs = []
     for (const s of this.steps) s.classList.remove('is-past', 'is-active', 'is-future')
-    for (const el of this.shown) el.classList.remove('is-shown')
+    for (const { el } of this.shown) el.classList.remove('is-shown')
     this.root.classList.remove('is-ready')
     this.root.removeAttribute('data-active-step')
     this.root.style.removeProperty('--step-progress')

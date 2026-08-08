@@ -134,6 +134,72 @@ function fitZoom(targetW, targetH, stageW, stageH) {
 function cameraTransform(shot, stageCenter) {
 	return `translate(${stageCenter.x}px, ${stageCenter.y}px) scale(${shot.k}) translate(${-shot.cx}px, ${-shot.cy}px)`;
 }
+var SPAN = /^([\w-]*)\.\.([\w-]*)$/;
+/**
+* §16.1 `data-show` range resolution: a token list and the story's step keys
+* in DOM order (`stepId` — the real id, or the numeric-index fallback) in,
+* the set of keys the element is shown for out, plus every token that
+* resolved to nothing and why.
+*
+* Endpoints resolve by index in the passed order, so membership is fixed by
+* the order it was handed — §5.1's live geometry keeps applying to positions
+* only. Open endpoints mean the story's first and last step, so `..` is every
+* step: distinct from omitting `data-show`, which opts out of visibility
+* mechanics entirely and never reaches here.
+*
+* A reversed span (`recovery..crash`) contributes nothing and is reported —
+* never quietly swapped into the forward span, because a swap would hide an
+* author's misunderstanding of their own step order behind working output. A
+* dangling endpoint and a malformed span share the `'no-step'` disposition
+* because both are the same authoring mistake — a token naming a step the
+* story doesn't have.
+*
+* The issue list is data, not prose: message wording and the warn channel
+* belong to the caller (§15.6), which is what keeps this module console-free.
+*/
+function resolveShow(tokens, stepKeys) {
+	const keys = /* @__PURE__ */ new Set();
+	const issues = [];
+	for (const token of tokens) {
+		if (!token.includes("..")) {
+			if (stepKeys.includes(token)) keys.add(token);
+			else issues.push({
+				token,
+				reason: "no-step"
+			});
+			continue;
+		}
+		const span = SPAN.exec(token);
+		if (!span) {
+			issues.push({
+				token,
+				reason: "no-step"
+			});
+			continue;
+		}
+		const from = span[1] ? stepKeys.indexOf(span[1]) : 0;
+		const to = span[2] ? stepKeys.indexOf(span[2]) : stepKeys.length - 1;
+		if (from < 0 || to < 0) {
+			issues.push({
+				token,
+				reason: "no-step"
+			});
+			continue;
+		}
+		if (from > to) {
+			issues.push({
+				token,
+				reason: "reversed"
+			});
+			continue;
+		}
+		for (let i = from; i <= to; i++) keys.add(stepKeys[i]);
+	}
+	return {
+		keys,
+		issues
+	};
+}
 //#endregion
 //#region src/camera.ts
 /**
@@ -409,7 +475,7 @@ var Story = class {
 		this.offset = parseFloat((_root$dataset$offset = root.dataset.offset) !== null && _root$dataset$offset !== void 0 ? _root$dataset$offset : String((_opts$offset = opts.offset) !== null && _opts$offset !== void 0 ? _opts$offset : OFFSET));
 		this.graphic = root.querySelector(":scope > figure");
 		this.steps = [...root.querySelectorAll(":scope > .step")];
-		this.shown = this.graphic ? [...this.graphic.querySelectorAll("[data-show]")] : [];
+		this.shown = this._resolveShows();
 		this._progressIds = this.steps.map((s, index) => ({
 			id: s.id,
 			index
@@ -426,7 +492,6 @@ var Story = class {
 		}, { rootMargin: "100px 0px" });
 		this._io.observe(root);
 		for (const s of this.steps) s.classList.add("is-future");
-		this._warnDanglingShows();
 		this._motion = new Motion(root, this.graphic, this.steps, this._progressIds.map(({ id }) => id));
 		root.classList.add("is-ready");
 		this._update();
@@ -497,11 +562,7 @@ var Story = class {
 			const id = activeStep ? stepId(activeStep, next) : null;
 			if (id === null) this.root.removeAttribute("data-active-step");
 			else this.root.setAttribute("data-active-step", id);
-			for (const el of this.shown) {
-				var _el$dataset$show;
-				const ids = ((_el$dataset$show = el.dataset.show) !== null && _el$dataset$show !== void 0 ? _el$dataset$show : "").split(/\s+/);
-				el.classList.toggle("is-shown", id !== null && ids.includes(id));
-			}
+			for (const { el, keys } of this.shown) el.classList.toggle("is-shown", id !== null && keys.has(id));
 		};
 		this._motion.stepChange(write);
 		if (prev >= 0) emit(this.root, "stepexit", {
@@ -513,12 +574,28 @@ var Story = class {
 			direction
 		});
 	}
-	_warnDanglingShows() {
-		const ids = new Set(this.steps.map((s, i) => stepId(s, i)));
-		for (const el of this.shown) {
-			var _el$dataset$show2;
-			for (const token of ((_el$dataset$show2 = el.dataset.show) !== null && _el$dataset$show2 !== void 0 ? _el$dataset$show2 : "").split(/\s+/).filter(Boolean)) if (!ids.has(token)) warnOnce(`scrolly: data-show="${token}" matches no step id`);
-		}
+	/**
+	* §16.1 membership, resolved against the step keys a step is addressed by
+	* everywhere else (stepId — real id, or index fallback), so an
+	* index-fallback id is never mistaken for a dangling reference.
+	*
+	* §15.6(a): the wording and the warn channel live here, not in
+	* geometry.ts — resolveShow reports issues as data so the math stays
+	* console-free. A dangling endpoint keeps the pre-range message verbatim;
+	* a reversed span gets its own, since an author who inverted their step
+	* order needs to be told that rather than shown an empty graphic.
+	*/
+	_resolveShows() {
+		const stepKeys = this.steps.map(stepId);
+		return (this.graphic ? [...this.graphic.querySelectorAll("[data-show]")] : []).map((el) => {
+			var _el$dataset$show;
+			const { keys, issues } = resolveShow(((_el$dataset$show = el.dataset.show) !== null && _el$dataset$show !== void 0 ? _el$dataset$show : "").split(/\s+/).filter(Boolean), stepKeys);
+			for (const { token, reason } of issues) warnOnce(reason === "reversed" ? `scrolly: data-show="${token}" is a reversed range` : `scrolly: data-show="${token}" matches no step id`);
+			return {
+				el,
+				keys
+			};
+		});
 	}
 	_detail(i) {
 		const step = this.steps[i];
@@ -546,7 +623,7 @@ var Story = class {
 		for (const off of [...this._subs]) off();
 		this._subs = [];
 		for (const s of this.steps) s.classList.remove("is-past", "is-active", "is-future");
-		for (const el of this.shown) el.classList.remove("is-shown");
+		for (const { el } of this.shown) el.classList.remove("is-shown");
 		this.root.classList.remove("is-ready");
 		this.root.removeAttribute("data-active-step");
 		this.root.style.removeProperty("--step-progress");
