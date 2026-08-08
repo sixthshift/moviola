@@ -77,16 +77,66 @@ export interface Shot {
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
 
 /**
- * Interpolate two shots (§15.3): pan is linear, zoom is log-space (equal
- * ratios per unit of progress, not equal pixels — linear zoom reads as
- * lurching). `from.k === to.k` degrades to a constant zoom with no special
- * case: log(k) is the same value throughout, so `lerp` never moves it.
+ * Interpolate two shots along the van Wijk–Nuij smooth pan-zoom flight
+ * (§15.3), at the paper's default ρ = √2. The path is the geodesic of
+ * zoom-pan space, so a long pan pulls OUT through its middle and back in
+ * rather than sliding flat, and `t` maps linearly onto the path's arc
+ * parameter — constant perceived velocity, with the reader's scroll pace as
+ * the only easing there is (no duration, no easing knob; ρ is fixed in code).
+ *
+ * `worldWidth` is the stage's own width in the same untransformed camera
+ * units as `cx`/`cy`, pinning view width to `w ≡ worldWidth / k`. That pin is
+ * load-bearing: pan distance and view width have to be commensurable, and
+ * feeding the closed form a normalized `1/k` against a world-unit pan is what
+ * produces absurd mid-flight zoom-outs. It carries a default only because
+ * every three-argument caller reaches a `worldWidth`-independent branch —
+ * identical shots, zero pan distance, or an exact endpoint — where no value
+ * of it can reach the result.
  */
-export function interpolateShot(from: Shot, to: Shot, t: number): Shot {
+export function interpolateShot(from: Shot, to: Shot, t: number, worldWidth = 1): Shot {
+  // The endpoints short-circuit instead of round-tripping the closed form, so
+  // a chapter boundary lands on its authored shot bit-exactly (and a
+  // reduced-motion cut, which rounds `t`, only ever takes these two paths).
+  if (t <= 0) return { ...from }
+  if (t >= 1) return { ...to }
+
+  const d = Math.hypot(to.cx - from.cx, to.cy - from.cy)
+  // No pan distance to trade zoom against: the geodesic collapses to the pure
+  // log-space ramp — equal zoom ratios per unit of progress. This is also the
+  // identical-shot case, which it returns bit-exactly (`1 ** t` is exactly 1).
+  // The bound is an absolute world-unit distance, sitting far above the scale
+  // at which the general branch's `1 / (2 * d)` would amplify the cancellation
+  // in `u`'s numerator into noise.
+  if (d < 1e-6) {
+    return {
+      cx: lerp(from.cx, to.cx, t),
+      cy: lerp(from.cy, to.cy, t),
+      k: from.k * (to.k / from.k) ** t,
+    }
+  }
+
+  // The paper's b/r substitution with ρ² = 2 and ρ⁴ = 4 folded in. `r` is the
+  // arc parameter (up to the constant factor ρ), so lerping it in `t` is
+  // exactly what makes progress linear in arc length. `-asinh(b)` is the
+  // stable form of the paper's `ln(√(b²+1) − b)`, which cancels catastrophically
+  // for a long pan at high zoom; it also hands back cosh(r0) = hypot(b0, 1)
+  // and sinh(r0) = −b0 for free.
+  const w0 = worldWidth / from.k
+  const w1 = worldWidth / to.k
+  const dw = w1 * w1 - w0 * w0
+  const b0 = (dw + 4 * d * d) / (4 * w0 * d)
+  const b1 = (dw - 4 * d * d) / (4 * w1 * d)
+  const cosh0 = Math.hypot(b0, 1)
+  const r = lerp(-Math.asinh(b0), -Math.asinh(b1), t)
+  // `u` is the fraction of the pan already covered — the paper's u(s) divided
+  // by the total distance, so it drives the same `lerp` the degenerate branch
+  // uses. `from.k * cosh(r) / cosh(r0)` is `worldWidth / w(s)` with the
+  // division by `w0` cancelled back out, keeping k off the round trip.
+  const u = ((cosh0 * Math.tanh(r) + b0) * w0) / (2 * d)
   return {
-    cx: lerp(from.cx, to.cx, t),
-    cy: lerp(from.cy, to.cy, t),
-    k: Math.exp(lerp(Math.log(from.k), Math.log(to.k), t)),
+    cx: lerp(from.cx, to.cx, u),
+    cy: lerp(from.cy, to.cy, u),
+    k: (from.k * Math.cosh(r)) / cosh0,
   }
 }
 

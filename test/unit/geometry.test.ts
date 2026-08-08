@@ -152,13 +152,91 @@ describe('chapterProgress (§15.2: 1 passed / stepProgress active / 0 future)', 
   })
 })
 
-describe('interpolateShot (§15.3: pan linear, zoom log-space)', () => {
-  test('pan is linear in cx/cy', () => {
-    const from = { cx: 0, cy: 0, k: 1 }
-    const to = { cx: 100, cy: 200, k: 1 }
-    expect(interpolateShot(from, to, 0)).toEqual({ cx: 0, cy: 0, k: 1 })
-    expect(interpolateShot(from, to, 0.25)).toEqual({ cx: 25, cy: 50, k: 1 })
-    expect(interpolateShot(from, to, 1)).toEqual({ cx: 100, cy: 200, k: 1 })
+describe('interpolateShot (§15.3: the van Wijk–Nuij flight, ρ = √2)', () => {
+  // The stage's world-space width, the 4th argument. Everything below that
+  // omits it reaches a branch no value of it can influence.
+  const W = 1000
+  const LONG_PAN = { from: { cx: 0, cy: 0, k: 4 }, to: { cx: 1000, cy: 0, k: 4 } }
+
+  test('a long pan at equal zoom pulls out through its middle instead of sliding flat', () => {
+    const mid = interpolateShot(LONG_PAN.from, LONG_PAN.to, 0.5, W)
+    expect(mid.cx).toBeCloseTo(500, 9)
+    expect(mid.cy).toBeCloseTo(0, 9)
+    // View width is w = W/k = 250 at both ends over a pan of d = 1000, so the
+    // flight's apex width is √(d² + w²) and k = 1000/√1062500 = 4/√17. ρ = 1
+    // would give 4/√5 ≈ 1.789 and any log-space lerp would hold k at 4 — this
+    // one number pins the path family AND ρ.
+    expect(mid.k).toBeCloseTo(4 / Math.sqrt(17), 4)
+    expect(mid.k).toBeCloseTo(0.970143, 4)
+  })
+
+  test('pure zoom degenerates to the log-space ramp: no pan distance to trade against', () => {
+    const mid = interpolateShot({ cx: 0, cy: 0, k: 1 }, { cx: 0, cy: 0, k: 16 }, 0.5, W)
+    expect(mid.k).toBeCloseTo(4, 9)
+  })
+
+  test('identical shots return the held shot exactly at every t, with no 0/0', () => {
+    const held = { cx: 320, cy: -80, k: 2.5 }
+    for (const t of [0, 0.25, 0.5, 1]) {
+      expect(interpolateShot(held, { ...held }, t, W)).toEqual(held)
+    }
+  })
+
+  test('a vanishing pan stays finite at every t — the classic sinh/log blow-up', () => {
+    const from = { cx: 0, cy: 0, k: 4 }
+    const to = { cx: 1e-9, cy: 0, k: 4 }
+    for (const t of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
+      const shot = interpolateShot(from, to, t, W)
+      expect(Number.isFinite(shot.cx)).toBe(true)
+      expect(Number.isFinite(shot.cy)).toBe(true)
+      expect(Number.isFinite(shot.k)).toBe(true)
+    }
+  })
+
+  test('endpoints stay exact with a world width in play, so a flight never overshoots', () => {
+    for (const [t, want] of [
+      [0, LONG_PAN.from],
+      [1, LONG_PAN.to],
+    ] as const) {
+      const shot = interpolateShot(LONG_PAN.from, LONG_PAN.to, t, W)
+      expect(shot.cx).toBeCloseTo(want.cx, 9)
+      expect(shot.cy).toBeCloseTo(want.cy, 9)
+      expect(shot.k).toBeCloseTo(want.k, 9)
+    }
+  })
+
+  // R19: chapter progress maps linearly onto the flight's ARC parameter — the
+  // paper's constant-perceived-velocity recommendation — not onto whatever
+  // parameter the closed form happens to be written in. That is what makes
+  // t = 0.5 the path's midpoint, and its apex for a symmetric flight.
+  test('progress is linear in the arc parameter, not in the closed form’s own parameter', () => {
+    const at = (t: number) => interpolateShot(LONG_PAN.from, LONG_PAN.to, t, W)
+
+    const early = at(0.25)
+    const late = at(0.75)
+    expect(early.k).toBeCloseTo(late.k, 6)
+    expect(early.cx + late.cx).toBeCloseTo(1000, 6)
+
+    // The flight is a geodesic of zoom-pan space — a circle in (ρ²·cx, w) with
+    // w = W/k — so its arc element is √(ρ⁴·dcx² + dw²) / w, and taking w as
+    // the geometric mean of an interval's endpoint widths makes the chord
+    // exact to ~1e-15 across quarters this coarse. Four equal increments is
+    // then a direct statement that equal progress buys equal arc: a flight on
+    // the right curve but parameterized by pan distance instead spreads them
+    // by ~1.2. (The superseded log-space lerp passes THIS assertion — flat pan
+    // at flat zoom is trivially equal-arc — which is why the apex-width case
+    // above carries the path family.) The ρ⁴ weight is not decoration:
+    // plain √(dcx² + dw²)/w measures a metric this path is NOT a geodesic of
+    // and spreads the increments by ~0.3 even when the flight is exact.
+    const samples = [0, 0.25, 0.5, 0.75, 1].map(t => {
+      const shot = at(t)
+      return { cx: shot.cx, w: W / shot.k }
+    })
+    const increments = samples.slice(1).map((q, i) => {
+      const p = samples[i] as { cx: number; w: number }
+      return Math.hypot(2 * (q.cx - p.cx), q.w - p.w) / Math.sqrt(p.w * q.w)
+    })
+    for (const ds of increments) expect(ds).toBeCloseTo(increments[0] as number, 3)
   })
 
   test('zoom is log-space: equal ratios per unit t, not equal pixels', () => {
@@ -169,14 +247,6 @@ describe('interpolateShot (§15.3: pan linear, zoom log-space)', () => {
     expect(interpolateShot(from, to, 0.5).k).toBeCloseTo(2, 10)
     // a quarter of the way: 1 * (4/1)^0.25 = sqrt(2)
     expect(interpolateShot(from, to, 0.25).k).toBeCloseTo(Math.SQRT2, 10)
-  })
-
-  test('k1 === k2 holds a constant zoom throughout, no NaN/drift from log(1)', () => {
-    const from = { cx: 0, cy: 0, k: 3 }
-    const to = { cx: 10, cy: 10, k: 3 }
-    for (const t of [0, 0.3, 0.5, 0.9, 1]) {
-      expect(interpolateShot(from, to, t).k).toBeCloseTo(3, 10)
-    }
   })
 
   test('endpoints are exact', () => {

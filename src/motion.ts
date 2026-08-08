@@ -52,13 +52,15 @@ export class Motion {
 
   /** Per frame: the camera's transform for the position the core just measured. */
   update(active: number, step: number): void {
-    // A resolvable center is the precondition for any shot existing at all
-    // (shots are only resolved when the stage measured), so guard on it once
-    // rather than re-defaulting it per call.
-    const center = this._shots?.center
-    if (!center) return
-    const shot = this._cameraShot(active, step)
-    if (shot) this._root.style.setProperty('--camera-transform', cameraTransform(shot, center))
+    // A resolvable stage is the precondition for any shot existing at all
+    // (shots are only resolved when the stage measured), so its center and its
+    // world width are guarded together once here rather than re-defaulted per
+    // call — they resolve or fail as one measurement.
+    const shots = this._shots
+    if (!shots?.center || shots.worldWidth === null) return
+    const shot = this._cameraShot(active, step, shots.worldWidth)
+    if (shot)
+      this._root.style.setProperty('--camera-transform', cameraTransform(shot, shots.center))
   }
 
   /**
@@ -101,13 +103,13 @@ export class Motion {
   // flight plays out across the EARLIER one's own chapter progress (so the
   // camera has already arrived by the time the later step's prose appears).
   // Reduced motion snaps to the nearer shot — a cut, never a flight.
-  private _cameraShot(active: number, step: number): Shot | null {
+  private _cameraShot(active: number, step: number, worldWidth: number): Shot | null {
     if (!this._shots) return null
     if (active < 0) return this._shots.establishing
     const from = this._shots.held[active]
     const to = this._shots.next[active]
     if (!from || !to) return null
-    return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step)
+    return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step, worldWidth)
   }
 
   // §15.2: one-time --t stamp per [data-scrub] element — valueless scrubs the

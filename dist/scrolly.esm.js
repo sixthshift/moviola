@@ -77,16 +77,43 @@ function chapterProgress(tops, ends, trigger) {
 }
 var lerp = (a, b, t) => a + (b - a) * t;
 /**
-* Interpolate two shots (§15.3): pan is linear, zoom is log-space (equal
-* ratios per unit of progress, not equal pixels — linear zoom reads as
-* lurching). `from.k === to.k` degrades to a constant zoom with no special
-* case: log(k) is the same value throughout, so `lerp` never moves it.
+* Interpolate two shots along the van Wijk–Nuij smooth pan-zoom flight
+* (§15.3), at the paper's default ρ = √2. The path is the geodesic of
+* zoom-pan space, so a long pan pulls OUT through its middle and back in
+* rather than sliding flat, and `t` maps linearly onto the path's arc
+* parameter — constant perceived velocity, with the reader's scroll pace as
+* the only easing there is (no duration, no easing knob; ρ is fixed in code).
+*
+* `worldWidth` is the stage's own width in the same untransformed camera
+* units as `cx`/`cy`, pinning view width to `w ≡ worldWidth / k`. That pin is
+* load-bearing: pan distance and view width have to be commensurable, and
+* feeding the closed form a normalized `1/k` against a world-unit pan is what
+* produces absurd mid-flight zoom-outs. It carries a default only because
+* every three-argument caller reaches a `worldWidth`-independent branch —
+* identical shots, zero pan distance, or an exact endpoint — where no value
+* of it can reach the result.
 */
-function interpolateShot(from, to, t) {
-	return {
+function interpolateShot(from, to, t, worldWidth = 1) {
+	if (t <= 0) return { ...from };
+	if (t >= 1) return { ...to };
+	const d = Math.hypot(to.cx - from.cx, to.cy - from.cy);
+	if (d < 1e-6) return {
 		cx: lerp(from.cx, to.cx, t),
 		cy: lerp(from.cy, to.cy, t),
-		k: Math.exp(lerp(Math.log(from.k), Math.log(to.k), t))
+		k: from.k * (to.k / from.k) ** t
+	};
+	const w0 = worldWidth / from.k;
+	const w1 = worldWidth / to.k;
+	const dw = w1 * w1 - w0 * w0;
+	const b0 = (dw + 4 * d * d) / (4 * w0 * d);
+	const b1 = (dw - 4 * d * d) / (4 * w1 * d);
+	const cosh0 = Math.hypot(b0, 1);
+	const r = lerp(-Math.asinh(b0), -Math.asinh(b1), t);
+	const u = (cosh0 * Math.tanh(r) + b0) * w0 / (2 * d);
+	return {
+		cx: lerp(from.cx, to.cx, u),
+		cy: lerp(from.cy, to.cy, u),
+		k: from.k * Math.cosh(r) / cosh0
 	};
 }
 /**
@@ -225,7 +252,8 @@ function measureShots(rig, root, steps) {
 		center: stage ? {
 			x: stage.x + stage.w / 2,
 			y: stage.y + stage.h / 2
-		} : null
+		} : null,
+		worldWidth: stage ? stage.w : null
 	};
 }
 //#endregion
@@ -297,11 +325,10 @@ var Motion = class {
 	}
 	/** Per frame: the camera's transform for the position the core just measured. */
 	update(active, step) {
-		var _this$_shots;
-		const center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center;
-		if (!center) return;
-		const shot = this._cameraShot(active, step);
-		if (shot) this._root.style.setProperty("--camera-transform", cameraTransform(shot, center));
+		const shots = this._shots;
+		if (!(shots === null || shots === void 0 ? void 0 : shots.center) || shots.worldWidth === null) return;
+		const shot = this._cameraShot(active, step, shots.worldWidth);
+		if (shot) this._root.style.setProperty("--camera-transform", cameraTransform(shot, shots.center));
 	}
 	/**
 	* The step change: shots re-measure against the pre-write layout, then the
@@ -331,13 +358,13 @@ var Motion = class {
 		this._root.style.removeProperty("--camera-transform");
 		this._shots = null;
 	}
-	_cameraShot(active, step) {
+	_cameraShot(active, step, worldWidth) {
 		if (!this._shots) return null;
 		if (active < 0) return this._shots.establishing;
 		const from = this._shots.held[active];
 		const to = this._shots.next[active];
 		if (!from || !to) return null;
-		return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step);
+		return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step, worldWidth);
 	}
 	_stampScrubs(chapters) {
 		const bound = new Set(chapters);

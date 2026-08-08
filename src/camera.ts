@@ -112,6 +112,13 @@ export interface Shots {
   next: (Shot | null)[]
   /** The stage's own center, in camera-local units — the flight's destination. */
   center: { x: number; y: number } | null
+  /**
+   * The stage's own width, in the same camera-local units — the world width
+   * §15.3's flight measures view width against (`w ≡ worldWidth / k`). Null
+   * exactly when `center` is null: both come from the one stage measurement
+   * that is already the precondition for any shot resolving at all.
+   */
+  worldWidth: number | null
 }
 
 /**
@@ -172,5 +179,5 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
 
   const center = stage ? { x: stage.x + stage.w / 2, y: stage.y + stage.h / 2 } : null
 
-  return { establishing, held, next, center }
+  return { establishing, held, next, center, worldWidth: stage ? stage.w : null }
 }
