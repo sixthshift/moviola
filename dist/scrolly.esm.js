@@ -263,16 +263,107 @@ function handleKeydown(e, host) {
 	});
 }
 //#endregion
+//#region src/motion.ts
+/**
+* §15 the motion layer — one instance per Story, owning every write that is
+* *motion* rather than state: the `[data-scrub]` `--t` stamps, the declarative
+* camera's `--camera-transform`, and the `data-morph` view-transition wrap.
+*
+* story.ts keeps §5–§7 emission (classes, `data-active-step`, the progress
+* variables, the events) and calls in here at the five moments motion has an
+* opinion: construction, every frame, every step change, every resize, and
+* teardown. The direction is one-way — `story → motion → {camera, geometry}`:
+* motion never reads back into the story, so the core stays unaware of whether
+* a camera or a scrub exists at all.
+*/
+var reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var Motion = class {
+	/**
+	* `chapters` are the step ids the core exposes as `--progress-<id>` (§15.2)
+	* — the only ids a `data-scrub` can bind to.
+	*/
+	constructor(root, graphic, steps, chapters) {
+		this._scrubs = [];
+		this._shots = null;
+		this._transition = null;
+		this._root = root;
+		this._steps = steps;
+		this._rig = resolveRig(graphic);
+		this._stampScrubs(chapters);
+		this.measure();
+	}
+	measure() {
+		if (this._rig) this._shots = measureShots(this._rig, this._root, this._steps);
+	}
+	/** Per frame: the camera's transform for the position the core just measured. */
+	update(active, step) {
+		var _this$_shots;
+		const center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center;
+		if (!center) return;
+		const shot = this._cameraShot(active, step);
+		if (shot) this._root.style.setProperty("--camera-transform", cameraTransform(shot, center));
+	}
+	/**
+	* The step change: shots re-measure against the pre-write layout, then the
+	* core's §5.2 atomic write batch runs — wrapped in a view transition when
+	* §15.4 `data-morph` applies. The batch is the ONLY thing `data-morph`
+	* wraps; the core's progress-variable writes stay outside it.
+	*
+	* Feature-detect and reduced-motion both fall through to the exact
+	* pre-morph path. A new step-change mid-flight skips the running transition
+	* itself (latest wins, never a queue).
+	*/
+	stepChange(write) {
+		var _this$_transition;
+		this.measure();
+		if (this._root.dataset.morph === void 0 || reducedMotion() || typeof document.startViewTransition !== "function") {
+			write();
+			return;
+		}
+		(_this$_transition = this._transition) === null || _this$_transition === void 0 || _this$_transition.skipTransition();
+		this._transition = document.startViewTransition(write);
+	}
+	destroy() {
+		var _this$_transition2;
+		(_this$_transition2 = this._transition) === null || _this$_transition2 === void 0 || _this$_transition2.skipTransition();
+		for (const el of this._scrubs) el.style.removeProperty("--t");
+		this._scrubs = [];
+		this._root.style.removeProperty("--camera-transform");
+		this._shots = null;
+	}
+	_cameraShot(active, step) {
+		if (!this._shots) return null;
+		if (active < 0) return this._shots.establishing;
+		const from = this._shots.held[active];
+		const to = this._shots.next[active];
+		if (!from || !to) return null;
+		return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step);
+	}
+	_stampScrubs(chapters) {
+		const bound = new Set(chapters);
+		for (const el of this._root.querySelectorAll("[data-scrub]")) {
+			const id = el.dataset.scrub;
+			if (!id) el.style.setProperty("--t", "var(--story-progress)");
+			else if (bound.has(id)) el.style.setProperty("--t", `var(--progress-${id})`);
+			else {
+				warnOnce(`scrolly: data-scrub="${id}" matches no chapter`);
+				continue;
+			}
+			this._scrubs.push(el);
+		}
+	}
+};
+//#endregion
 //#region src/story.ts
 /**
 * The Story runtime — one instance per `.scrolly` element. Owns the
-* IntersectionObserver-gated scroll loop and every DOM state write; the math
-* it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts.
+* IntersectionObserver-gated scroll loop and every §5–§7 DOM state write; the
+* math it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts,
+* and the §15 motion writes (scrub stamps, camera, morph) in motion.ts.
 */
 var OFFSET = .5;
 var stepId = (el, i) => el.id || String(i);
 var VALID_IDENT = /^[A-Za-z0-9_-]+$/;
-var reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var instances = /* @__PURE__ */ new WeakMap();
 /** `Scrolly.init()` is idempotent per element: re-init returns the existing Story. */
 function getOrCreateStory(el, opts) {
@@ -286,9 +377,6 @@ var Story = class {
 		this._engaged = false;
 		this._ticking = false;
 		this._subs = [];
-		this._scrubs = [];
-		this._shots = null;
-		this._transition = null;
 		this._destroyed = false;
 		this.root = root;
 		this.offset = parseFloat((_root$dataset$offset = root.dataset.offset) !== null && _root$dataset$offset !== void 0 ? _root$dataset$offset : String((_opts$offset = opts.offset) !== null && _opts$offset !== void 0 ? _opts$offset : OFFSET));
@@ -299,10 +387,9 @@ var Story = class {
 			id: s.id,
 			index
 		})).filter(({ id }) => VALID_IDENT.test(id));
-		this._rig = resolveRig(this.graphic);
 		this._onScroll = () => this._tick();
 		this._onResize = () => {
-			this._measureCamera();
+			this._motion.measure();
 			this._tick();
 		};
 		this._onKey = (e) => handleKeydown(e, this);
@@ -313,8 +400,7 @@ var Story = class {
 		this._io.observe(root);
 		for (const s of this.steps) s.classList.add("is-future");
 		this._warnDanglingShows();
-		this._stampScrubs();
-		this._measureCamera();
+		this._motion = new Motion(root, this.graphic, this.steps, this._progressIds.map(({ id }) => id));
 		root.classList.add("is-ready");
 		this._update();
 	}
@@ -336,7 +422,6 @@ var Story = class {
 		});
 	}
 	_update() {
-		var _this$_shots;
 		const first = this.steps[0];
 		const last = this.steps[this.steps.length - 1];
 		if (!first || !last) return;
@@ -363,33 +448,17 @@ var Story = class {
 				this.root.style.setProperty(`--progress-${id}`, ((_chapters$index = chapters[index]) !== null && _chapters$index !== void 0 ? _chapters$index : 0).toFixed(4));
 			}
 		}
-		const center = (_this$_shots = this._shots) === null || _this$_shots === void 0 ? void 0 : _this$_shots.center;
-		if (center) {
-			const shot = this._cameraShot(active, step);
-			if (shot) this.root.style.setProperty("--camera-transform", cameraTransform(shot, center));
-		}
+		this._motion.update(active, step);
 		if (active >= 0) emit(this.root, "progress", {
 			...this._detail(active),
 			progress: step,
 			storyProgress: story
 		});
 	}
-	_cameraShot(active, step) {
-		if (!this._shots) return null;
-		if (active < 0) return this._shots.establishing;
-		const from = this._shots.held[active];
-		const to = this._shots.next[active];
-		if (!from || !to) return null;
-		return interpolateShot(from, to, reducedMotion() ? Math.round(step) : step);
-	}
-	_measureCamera() {
-		if (this._rig) this._shots = measureShots(this._rig, this.root, this.steps);
-	}
 	_activate(next) {
 		const prev = this.active;
 		const direction = next > prev ? "down" : "up";
 		this.active = next;
-		this._measureCamera();
 		const write = () => {
 			if (this._destroyed) return;
 			this.steps.forEach((s, i) => {
@@ -407,11 +476,7 @@ var Story = class {
 				el.classList.toggle("is-shown", id !== null && ids.includes(id));
 			}
 		};
-		if (this.root.dataset.morph !== void 0 && !reducedMotion() && typeof document.startViewTransition === "function") {
-			var _this$_transition;
-			(_this$_transition = this._transition) === null || _this$_transition === void 0 || _this$_transition.skipTransition();
-			this._transition = document.startViewTransition(write);
-		} else write();
+		this._motion.stepChange(write);
 		if (prev >= 0) emit(this.root, "stepexit", {
 			...this._detail(prev),
 			direction
@@ -426,19 +491,6 @@ var Story = class {
 		for (const el of this.shown) {
 			var _el$dataset$show2;
 			for (const token of ((_el$dataset$show2 = el.dataset.show) !== null && _el$dataset$show2 !== void 0 ? _el$dataset$show2 : "").split(/\s+/).filter(Boolean)) if (!ids.has(token)) warnOnce(`scrolly: data-show="${token}" matches no step id`);
-		}
-	}
-	_stampScrubs() {
-		const chapters = new Set(this._progressIds.map((p) => p.id));
-		for (const el of this.root.querySelectorAll("[data-scrub]")) {
-			const id = el.dataset.scrub;
-			if (!id) el.style.setProperty("--t", "var(--story-progress)");
-			else if (chapters.has(id)) el.style.setProperty("--t", `var(--progress-${id})`);
-			else {
-				warnOnce(`scrolly: data-scrub="${id}" matches no chapter`);
-				continue;
-			}
-			this._scrubs.push(el);
 		}
 	}
 	_detail(i) {
@@ -460,9 +512,8 @@ var Story = class {
 		return off;
 	}
 	destroy() {
-		var _this$_transition2;
 		this._destroyed = true;
-		(_this$_transition2 = this._transition) === null || _this$_transition2 === void 0 || _this$_transition2.skipTransition();
+		this._motion.destroy();
 		this._io.disconnect();
 		this._engage(false);
 		for (const off of [...this._subs]) off();
@@ -474,10 +525,6 @@ var Story = class {
 		this.root.style.removeProperty("--step-progress");
 		this.root.style.removeProperty("--story-progress");
 		for (const { id } of this._progressIds) this.root.style.removeProperty(`--progress-${id}`);
-		for (const el of this._scrubs) el.style.removeProperty("--t");
-		this._scrubs = [];
-		this.root.style.removeProperty("--camera-transform");
-		this._shots = null;
 		instances.delete(this.root);
 	}
 };

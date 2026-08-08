@@ -10,7 +10,9 @@ normative contract lives in [SPEC.md](SPEC.md).
 
 ```
 index.ts      public API — Scrolly.init(), version; the only entry point
-story.ts      Story class: lifecycle, engage/disengage, DOM state writes
+story.ts      Story class: lifecycle, engage/disengage, §5–§7 state writes
+motion.ts     Motion class: §15 motion writes — scrub --t, camera, morph wrap
+camera.ts     §15.3 shot resolution: SVG measurement; shared warnOnce
 geometry.ts   pure math: activeIndex, stepProgress, storyProgress, clamp
 keyboard.ts   ←/→ chapter stepping (guards first, never scroll-jacking)
 events.ts     bubbling CustomEvent emit + typed subscribe
@@ -18,15 +20,25 @@ types.ts      public type surface (StepDetail, ScrollyEventMap, …)
 scrolly.css   structural layer only: pinning, layouts, mobile collapse
 ```
 
-Dependencies point one way: `index → story → {geometry, events, keyboard, types}`.
+Dependencies point one way: `index → story → motion → {camera, geometry}`,
+with `story` also over `{geometry, events, keyboard, types}`.
 `geometry.ts` is deliberately DOM-free — it is the state machine's math,
 unit-tested as pure numbers against the SPEC §5 semantics.
 
-`story.ts` is at its split threshold. The pre-committed seam is core emission
-(§5–§7 state: classes, `data-active-step`, the two progress variables, events)
-vs. motion-layer emission (§15: scrub stamps, camera orchestration, the morph
-wrap) — the next feature that lands in this file executes that split as part
-of its own change, not as a separate sweep.
+The core/motion seam is executed, not pending. `story.ts` owns **§5–§7
+emission**: the IntersectionObserver engage/tick loop, `activeIndex`, the
+`is-past`/`is-active`/`is-future` classes, `data-active-step`, the progress
+variables (`--story-progress`, `--step-progress`, `--progress-<id>`),
+`data-show` → `is-shown`, and the three events. `motion.ts` owns **§15
+emission**: the `[data-scrub]` `--t` stamps, the cached camera shots and
+`--camera-transform`, and the `data-morph` view-transition wrap — one `Motion`
+per `Story`, constructed by it and torn down with it.
+
+The core hands motion exactly five moments — construction, each frame, each
+step change, each resize, teardown — and never learns whether a camera or a
+scrub exists; motion never reads back into the story. So `data-morph` wraps
+only the §5.2 atomic write batch (the core passes that closure in), while the
+progress-variable writes stay outside it.
 
 ## Dataflow
 

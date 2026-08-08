@@ -65,23 +65,15 @@ export declare class Story {
     private _onKey;
     /** Steps addressable as `--progress-<id>` (§15.2), fixed at construction. */
     private _progressIds;
-    /** `[data-scrub]` elements stamped with `--t` at init (§15.2), for teardown. */
-    private _scrubs;
-    /** §15.3: null when the graphic has no `[data-camera]` (feature is opt-in). */
-    private _rig;
-    private _shots;
-    /** §15.4: the in-flight morph, tracked so the next step-change can skip it (latest wins, no queue). */
-    private _transition;
+    /** §15's writes — the core hands it the moments, never the state (see motion.ts). */
+    private _motion;
     private _destroyed;
     constructor(root: HTMLElement, opts?: ScrollyOptions);
     private _engage;
     private _tick;
     private _update;
-    private _cameraShot;
-    private _measureCamera;
     private _activate;
     private _warnDanglingShows;
-    private _stampScrubs;
     private _detail;
     on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;
     destroy(): void;
