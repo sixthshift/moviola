@@ -11,7 +11,7 @@
 // from this repo's docs — flagging them would be noise, not a defect.
 //
 // Usage: node scripts/check-links.mjs [file ...]
-// Defaults to README.md, SPEC.md, docs/recipes.md. Exits 1 and lists every
+// Defaults to the root docs set plus docs/*.md. Exits 1 and lists every
 // unresolved target; exits 0 once everything resolves.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -23,6 +23,8 @@ const DEFAULT_FILES = [
   'SPEC.md',
   'ARCHITECTURE.md',
   'CONTRIBUTING.md',
+  'docs/api.md',
+  'docs/philosophy.md',
   'docs/recipes.md',
 ].map(f => path.join(ROOT, f))
 

@@ -3,13 +3,79 @@
 **The scrollytelling framework.** You write the DOM, scrolly runs the state
 machine, effects live in your CSS.
 
-reveal.js did this for slides: a document model, a tiny runtime, themes — and
-your eyes do the QA. scrolly is that contract for scroll-driven stories: no
-parser, no build step, no measuring. One script tag, one stylesheet.
+Drop in one script tag and one stylesheet, mark up your story as sections,
+and scrolly turns scroll position into classes, attributes, and CSS custom
+properties. It never sets a visual property itself — your CSS does every
+effect. 4.5 KB gzipped, zero dependencies, no build step, runs from
+`file://`.
 
-scrolly has no clock — the reader is holding the film. Nothing plays on its
-own: every state, every frame between two states, is a function of scroll
-position, which is why scrolling back up rewinds instead of replaying.
+> **Status: pre-1.0 (v0.0.1), not yet published to npm.** The contract below
+> is stable and covered by tests. Until the first publish, install by
+> vendoring the two files (see [Install](#install)).
+
+## Demo
+
+![Four scroll positions of examples/virus-got-out.html: the camera starts tight on Wuhan, pulls back through the rail network and the cordon, and ends on the whole world with flight arcs converging](docs/demo-filmstrip.png)
+
+One story, four scroll positions — the camera pulling back as the reader
+scrolls. Nothing in it is scripted: the camera moves because each step
+carries a `data-focus`, the cards and colours change because CSS reacts to
+`[data-active-step]`, and the only JavaScript on the page is
+`Scrolly.init()`.
+
+Every example is a single self-contained HTML file you can open straight from
+disk — no server, no build:
+
+| | |
+|---|---|
+| [`index.html`](index.html) | the tour: layouts, crossfades, progress, themes |
+| [`examples/virus-got-out.html`](examples/virus-got-out.html) | camera flights over a map, scrubbed particle flows — zero author JS |
+| [`examples/zoom-tour.html`](examples/zoom-tour.html) | a nine-shot zoom tour of a decision tree, camera and scrub in the same chapters |
+
+Full list in the [Gallery](#gallery).
+
+## Install
+
+**Vendor the files.** Copy `dist/scrolly.min.js` and `dist/scrolly.css` next
+to your page and reference them directly. This is the intended path: the
+library is small enough to commit, and pages stay openable from `file://`.
+
+```html
+<link rel="stylesheet" href="scrolly.css">
+<script src="scrolly.min.js"></script>
+```
+
+**Or clone and build.** `dist/` is committed, so this is only needed if you
+change `src/`:
+
+```sh
+git clone https://github.com/sixthshift/scrolly-js.git
+cd scrolly-js && bun install && bun run build
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+**npm** — the package is `scrolly-js`, not published yet (tracked in
+[Roadmap](#roadmap)). The manifest is ready, so this works unchanged on the
+day it ships:
+
+```js
+import Scrolly from 'scrolly-js'   // dist/scrolly.esm.js, types included
+```
+
+The package name carries a `-js` suffix because plain `scrolly` on npm
+belongs to an unrelated 2014 scrollbar plugin. Nothing you write changes:
+the class is `.scrolly`, the global is `Scrolly`, the events are
+`scrolly:stepenter` and friends — same split reveal.js uses.
+
+What's in `dist/`:
+
+| File | |
+|---|---|
+| `scrolly.min.js` | classic `<script>`, sets `window.Scrolly` — the canonical artifact |
+| `scrolly.css` | structural stylesheet (pinning, layouts, mobile collapse) |
+| `scrolly.esm.js` | ES module, no global side effect |
+| `scrolly.d.ts` | TypeScript types |
 
 ## Quick start
 
@@ -26,14 +92,13 @@ position, which is why scrolling back up rewinds instead of replaying.
   <section class="step" id="recovery">…prose…</section>
 </article>
 
-<script src="scrolly.js"></script>
+<script src="scrolly.min.js"></script>
 <script>Scrolly.init()</script>
 ```
 
-The `<figure>` pins to the viewport; steps scroll past it. As each step
-crosses the trigger line, the state machine updates classes, attributes, and
-CSS variables — your CSS does the rest. Open `index.html` for the live demo
-(it works from `file://`, no server needed).
+The `<figure>` pins to the viewport; the steps scroll past it. As each step
+crosses the trigger line, scrolly updates the state below and your CSS does
+the rest.
 
 ## The contract
 
@@ -42,64 +107,27 @@ Everything scrolly does is expressed as state your CSS can react to:
 | Surface | What it carries |
 |---|---|
 | `.step` classes | `is-past` / `is-active` / `is-future` |
-| `[data-show="id …"]` graphic children | `is-shown` while a listed step is active (crossfade by default); a token may span a range — `a..b`, `a..`, `..b`, `..` |
 | `.scrolly[data-active-step="id"]` | lets any selector on the page react to any step |
-| `--step-progress` | 0 → 1 through the active step's chapter (its top to the next step's top) |
-| `--story-progress` | 0 → 1 through the whole story |
-| `--progress-<id>` | per-chapter progress for any step with a valid-ident `id`: `0` before it, `0 → 1` through it, holds `1` after — unlike `--step-progress`, never resets |
-| `--camera-transform` | the current camera shot on `[data-camera]`, continuously interpolated between focused steps |
+| `[data-show="id …"]` graphic children | `is-shown` while a listed step is active (crossfade by default) |
+| `--step-progress` / `--story-progress` | 0 → 1 through the active chapter / the whole story |
+| `--progress-<id>` | per-chapter progress that never resets — the scrub timeline |
+| `--camera-transform` | the current camera shot, interpolated between focused steps |
 
-### Attributes
+That is the whole mental model. The full reference — every attribute, the
+`data-show` range syntax, the declarative motion layer
+(`data-scrub`/`data-camera`/`data-focus`/`data-morph`), and the JS API for
+imperative graphics — is in **[docs/api.md](docs/api.md)**.
 
-- `data-layout` — `side-right` · `side-left` · `overlay`. Side layouts
-  collapse to overlay automatically under 720px.
-- `data-offset` — trigger line as a fraction of viewport height
-  (default `0.5`).
-- Steps should have `id`s — they name states for `data-show` and
-  `data-active-step`, and give you deep links (`page.html#crash`) for free.
-
-### The motion layer
-
-Declarative interpolation between states — no JS, the browser renders the
-motion (SPEC §15):
-
-| Attribute | Where | What it does |
-|---|---|---|
-| `data-scrub="<step-id>"` (or valueless) | any element | stamps `--t` from `var(--progress-<id>)` (or `var(--story-progress)`); scrubs the element's own `@keyframes` against scroll position via structural CSS |
-| `data-camera` | one element inside the `<figure>` (SVG content) | opts the graphic in as the camera stage |
-| `data-focus="<selector>"` or `data-focus="x y w h"` | the root, or any step | names what the camera looks at — an element to measure, or a raw box in the camera's own coordinates (a leading digit or `-` picks the box form); the root's own shot is the establishing view |
-| `data-zoom="<n>"` | alongside `data-focus` | magnification; omitted = fit the target at ~70% of the stage |
-| `data-shot="<name>"` | alongside `data-focus` | named framing instead of a number: `wide` fits the subject to half the stage, `medium` to the 70% default, `close` to 90%; a `data-zoom` on the same element wins |
-| `data-morph` | the root | wraps each step-change's DOM writes in `document.startViewTransition()`; name elements with `view-transition-name` to have them travel instead of cross-fade |
-
-Referential mistakes (a `data-show`/`data-scrub`/`data-focus` token matching
-nothing, or a `data-camera` rig with no `data-focus` anywhere) never break the
-page — they fail soft and log a `scrolly:`-prefixed `console.warn` once.
-
-### JS API
-
-Only needed for imperative graphics (D3, canvas, maps). scrollama users will
-recognize it:
-
-```js
-const story = Scrolly.init('#unemployment')   // or Scrolly.init() for all
-const off = story.on('stepenter', ({ step, id, index, direction }) => { … })
-story.on('stepexit',  ({ id, direction }) => { … })
-story.on('progress',  ({ id, progress, storyProgress }) => { … })
-off()             // on() returns an unsubscribe function
-story.destroy()   // full teardown; init() is idempotent per element
-```
-
-Events are plain bubbling `CustomEvent`s (`scrolly:stepenter` …), so any
-framework can listen without the sugar.
+Referential mistakes never break the page: a token matching nothing fails
+soft and logs one `scrolly:`-prefixed warning.
 
 ## Recipes
 
 The full set lives in [docs/recipes.md](docs/recipes.md). These two are whole
 stories rather than fragments — paste either into a page that already loads
-`scrolly.css` and `scrolly.js` and it runs — and each ships as a live fixture
-(`e2e/fixtures-clean/recipe-*.html`) the e2e suite scrolls end to end, so a
-recipe that stops working cannot stay published.
+`scrolly.css` and `scrolly.min.js` and it runs — and each ships as a live
+fixture (`e2e/fixtures-clean/recipe-*.html`) the e2e suite scrolls end to
+end, so a recipe that stops working cannot stay published.
 
 ### A photo as the camera stage
 
@@ -148,91 +176,89 @@ space, so `0 0 320 200` is the whole `viewBox`.
 You own `animation-name` and nothing else: scrolly stamps `--t` from
 `var(--progress-rising)` and normalizes the duration, so the `@keyframes` are
 the whole timeline. Drop the value — plain `data-scrub` — to scrub against
-`--story-progress` instead of one chapter. Under `prefers-reduced-motion` every
-scrub becomes a cut at its chapter's midpoint.
-
-## What scrolly deliberately is not
-
-- Not a parser or compiler — there is no markdown, no AST, no build.
-- Not a chart library — the graphic is arbitrary HTML; bring D3 or an `<img>`.
-- Not a layout validator — like reveal.js, if your text overflows, that's
-  between you and your eyes.
-
-Keyboard: `←`/`→` step between chapters while a story is on screen (smooth,
-reduced-motion aware). Vertical scroll keys are never touched.
+`--story-progress` instead of one chapter.
 
 ## Gallery
 
-Each example is a self-contained `file://`-openable HTML page (the library
-is inlined between `<!-- scrolly:js/css -->` markers and kept in sync with
-`dist/` by the build). Tier follows the parity suite (SPEC §14) — Tier 1
-examples run zero author JS beyond rendering the graphic states, and are
-verified against `scripts/validate-story.mjs --tier1`, which drives every
-chapter forward, in reverse, and out of order, then reports on continuity:
-a chapter must frame the same graphic whichever way the reader reached it.
+Each example is a self-contained `file://`-openable page. "Zero author JS"
+means the only script on the page is `Scrolly.init()` — everything moving is
+CSS reacting to scrolly's state, verified by
+`scripts/validate-story.mjs --tier1`, which drives every chapter forward, in
+reverse, and out of order and checks that a chapter frames the same graphic
+whichever way the reader reached it.
 
-| Example | Tier | What it demonstrates |
-|---|---|---|
-| `examples/warming-world.html` | 1 | Stepped line-chart build — six illustrative warming factors added one at a time, `side-right` layout |
-| `examples/stepped-scatter.html` | 1 | Sticky 60-point scatter with stepped cohort highlighting and long prose gaps between steps, `side-left` layout |
-| `examples/dots-flow.html` | 2 | Bidirectional particle-flow SVG re-triggered per step via `stepenter`, each dot travelling via `data-morph` + `view-transition-name` instead of snapping, `side-right` layout |
-| `examples/scroll-linked.html` | 1 | A classifier's boundary rotating and its points drifting, both pure `@keyframes` scrubbed against scroll position by `data-scrub` — zero author JS, `overlay` layout |
-| `examples/longform.html` | 3 | Three independent stories on one page, mixing `side-right`, `overlay`, and `side-left` layouts |
-| `examples/virus-got-out.html` | 1 | Structural recreation of the SPEC §14 Tier 2 target *How the Virus Got Out* (NYT 2020): `data-camera`/`data-focus`/`data-zoom` camera flights per step, `data-scrub` + `offset-path` particle flows, a scroll-linked case bloom on `--story-progress`, chapter theming, `overlay` layout — zero author JS |
-| `examples/zoom-tour.html` | 1 | R2D3-style zoom tour of a decision tree learning to split a home-price dataset: nine `data-camera`/`data-focus`/`data-zoom` flights across one large stage, with two home clusters and both split lines moving continuously under `data-scrub` in the SAME chapters the camera is touring, `overlay` layout — zero author JS |
+| Example | What it demonstrates |
+|---|---|
+| [`warming-world.html`](examples/warming-world.html) | Stepped line-chart build: six warming factors added one at a time. Zero author JS. |
+| [`stepped-scatter.html`](examples/stepped-scatter.html) | Sticky scatter with stepped cohort highlighting and long prose gaps between steps. Zero author JS. |
+| [`scroll-linked.html`](examples/scroll-linked.html) | A classifier's boundary rotating and its points drifting — pure `@keyframes` scrubbed by `data-scrub`. Zero author JS. |
+| [`virus-got-out.html`](examples/virus-got-out.html) | Camera flights, `offset-path` particle flows, a scroll-linked bloom, chapter theming. Zero author JS. |
+| [`zoom-tour.html`](examples/zoom-tour.html) | Nine camera flights across one large stage while scrubbed elements move in the same chapters. Zero author JS. |
+| [`dots-flow.html`](examples/dots-flow.html) | Particles regrouping per step, each travelling via `data-morph` + `view-transition-name`. Uses `stepenter`. |
+| [`longform.html`](examples/longform.html) | Three independent stories on one page, mixing all three layouts. |
 
 ## Themes
 
-Typography/color presets, opt-in, loaded after `scrolly.css`:
+Typography and color presets, opt-in, loaded after `scrolly.css`:
 
 ```html
 <link rel="stylesheet" href="scrolly.css">
 <link rel="stylesheet" href="themes/editorial.css">
 ```
 
-- `themes/editorial.css` — warm serif (Georgia/Iowan Old Style).
-- `themes/system.css` — tight neutral `system-ui`.
+- [`themes/editorial.css`](themes/editorial.css) — warm serif (Georgia/Iowan Old Style).
+- [`themes/system.css`](themes/system.css) — tight neutral `system-ui`.
 
 Themes only set typography, color, and the `--scrolly-card-bg` /
-`--scrolly-card-fg` knobs — never geometry. Write your own stylesheet if
-neither fits; the contract is the classes and custom properties, not these
-files.
+`--scrolly-card-fg` knobs — never geometry. Write your own if neither fits;
+the contract is the classes and custom properties, not these files.
 
-## Development
+## Browser support
 
-`src/` (TypeScript modules) is the source of truth; `dist/` is generated by
-`bun run build`, committed, and is what every page here loads — so the repo
-stays `file://`-openable. Never hand-edit `dist/` or the examples' inlined
-lib blocks; the build re-syncs them.
+Any browser with `IntersectionObserver` and CSS custom properties — every
+current release of Chrome, Safari, Firefox, and Edge. Two things degrade
+rather than break:
 
-- `dist/scrolly.min.js` — classic `<script>`, minified; the canonical artifact.
-- `dist/scrolly.esm.js` — `import Scrolly from 'scrolly'` (no global side effect).
-- `dist/scrolly.d.ts` / `dist/scrolly.css` — types and the structural stylesheet.
+- **`data-morph`** needs the View Transitions API. Without it the step change
+  still happens, just without the transition.
+- **`prefers-reduced-motion: reduce`** turns every scrub and camera flight
+  into a cut at the chapter midpoint, and skips morphs entirely.
 
-Everyday commands: `bun run dev` (Vite playground) · `bun run test` (Vitest
-units) · `bun run test:e2e` (build + Playwright) · `bun run check`
-(everything, plus dist-freshness). See [CONTRIBUTING.md](CONTRIBUTING.md)
-and [ARCHITECTURE.md](ARCHITECTURE.md).
+A page whose JavaScript never runs stays fully readable — all hiding CSS is
+scoped under `.scrolly.is-ready`, which the runtime stamps last.
 
-Two tools exist for *watching* a story rather than asserting on it, and
-neither costs the library a byte:
+Keyboard: `←`/`→` step between chapters while a story is on screen (smooth,
+reduced-motion aware). Vertical scroll keys are never touched.
 
-- `scrolly-director.js` is the viewfinder — an opt-in overlay, loaded like a
-  theme with one extra script tag while you author. Press `d` and it draws
-  the trigger line with its offset over whichever story is nearest, a
-  chapter rail you can click to jump, and a live chip of the state your CSS
-  is reacting to.
-- `node scripts/validate-story.mjs page.html --report out.html` develops the
-  same run into a storyboard: one row per chapter, the forward frame beside
-  the frame from the reverse pass, so every continuity verdict comes with
-  the two pictures it was made from. The `file://`-openable page it writes
-  inlines its own images, like everything else here.
+## Authoring tools
+
+Neither costs the library a byte:
+
+- [`scrolly-director.js`](scrolly-director.js) — the viewfinder. Load it like
+  a theme with one extra script tag while you author, press `d`, and it draws
+  the trigger line, a clickable chapter rail, and a live chip of the state
+  your CSS is reacting to.
+- `node scripts/validate-story.mjs page.html --report out.html` — drives your
+  story forward, in reverse, and out of order in a real browser, then writes
+  a storyboard: one row per chapter, the forward frame beside the reverse
+  frame, so every continuity verdict comes with the two pictures behind it.
+
+## Docs
+
+| | |
+|---|---|
+| [docs/api.md](docs/api.md) | full reference — every attribute, variable, and event |
+| [docs/recipes.md](docs/recipes.md) | "does scrolly do X?" — progress bars, maps, video scrub, D3 builds |
+| [docs/philosophy.md](docs/philosophy.md) | why it's shaped this way, and what it deliberately isn't |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | how the repo implements it |
+| [SPEC.md](SPEC.md) | the normative contract |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | setup, scripts, the rules that matter |
 
 ## Roadmap
 
+- first npm publish as `scrolly-js`, plus jsdelivr/unpkg
 - `full` layout variant
-- npm publish (name TBD — see SPEC §9)
 
 ## License
 
-MIT
+[MIT](LICENSE) © Jason Huang
