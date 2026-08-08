@@ -21,6 +21,7 @@ const FIXTURES = {
   nested: 'e2e/fixtures-broken/structure-nested-steps.html',
   noSteps: 'e2e/fixtures-broken/structure-no-steps.html',
   cameraNoFigure: 'e2e/fixtures-broken/structure-camera-no-figure.html',
+  showNoFigure: 'e2e/fixtures-broken/structure-show-no-figure.html',
   proseOnly: 'e2e/fixtures-clean/structure-prose-only.html',
   scrubNoFigure: 'e2e/fixtures-clean/structure-scrub-no-figure.html',
 } as const
@@ -96,6 +97,16 @@ test.describe('§15.6 structure diagnostics', () => {
     // data-focus anywhere" diagnostic cannot fire behind this one
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toMatch(/^scrolly:/)
+  })
+
+  test('data-show without a figure: the same one warn about the missing frame', () => {
+    const { warnings, pageErrors, isReady } = visits.showNoFigure
+    // the other limb of the same check: [data-show] outside a figure is
+    // silently inert, because this.shown only ever looks inside the graphic
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toEqual(visits.cameraNoFigure.warnings[0])
+    expect(pageErrors).toEqual([])
+    expect(isReady).toBe(true)
   })
 
   test('a prose-only story with no figure says nothing', () => {
