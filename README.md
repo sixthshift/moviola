@@ -38,7 +38,7 @@ Everything scrolly does is expressed as state your CSS can react to:
 | Surface | What it carries |
 |---|---|
 | `.step` classes | `is-past` / `is-active` / `is-future` |
-| `[data-show="id …"]` graphic children | `is-shown` while a listed step is active (crossfade by default) |
+| `[data-show="id …"]` graphic children | `is-shown` while a listed step is active (crossfade by default); a token may span a range — `a..b`, `a..`, `..b`, `..` |
 | `.scrolly[data-active-step="id"]` | lets any selector on the page react to any step |
 | `--step-progress` | 0 → 1 through the active step's chapter (its top to the next step's top) |
 | `--story-progress` | 0 → 1 through the whole story |
@@ -63,8 +63,9 @@ motion (SPEC §15):
 |---|---|---|
 | `data-scrub="<step-id>"` (or valueless) | any element | stamps `--t` from `var(--progress-<id>)` (or `var(--story-progress)`); scrubs the element's own `@keyframes` against scroll position via structural CSS |
 | `data-camera` | one element inside the `<figure>` (SVG content) | opts the graphic in as the camera stage |
-| `data-focus="<selector>"` | the root, or any step | names what the camera looks at; the root's own shot is the establishing view |
+| `data-focus="<selector>"` or `data-focus="x y w h"` | the root, or any step | names what the camera looks at — an element to measure, or a raw box in the camera's own coordinates (a leading digit or `-` picks the box form); the root's own shot is the establishing view |
 | `data-zoom="<n>"` | alongside `data-focus` | magnification; omitted = fit the target at ~70% of the stage |
+| `data-shot="<name>"` | alongside `data-focus` | named framing instead of a number: `wide` fits the subject to half the stage, `medium` to the 70% default, `close` to 90%; a `data-zoom` on the same element wins |
 | `data-morph` | the root | wraps each step-change's DOM writes in `document.startViewTransition()`; name elements with `view-transition-name` to have them travel instead of cross-fade |
 
 Referential mistakes (a `data-show`/`data-scrub`/`data-focus` token matching
@@ -87,6 +88,64 @@ story.destroy()   // full teardown; init() is idempotent per element
 
 Events are plain bubbling `CustomEvent`s (`scrolly:stepenter` …), so any
 framework can listen without the sugar.
+
+## Recipes
+
+The full set lives in [docs/recipes.md](docs/recipes.md). These two are whole
+stories rather than fragments — paste either into a page that already loads
+`scrolly.css` and `scrolly.js` and it runs — and each ships as a live fixture
+(`e2e/fixtures-clean/recipe-*.html`) the e2e suite scrolls end to end, so a
+recipe that stops working cannot stay published.
+
+### A photo as the camera stage
+
+A raster gives a selector nothing to point at, which is what raw-coordinate
+`data-focus` is for: each shot names a box of the image itself.
+
+```html
+<article class="scrolly" data-layout="side-right">
+  <figure>
+    <svg viewBox="0 0 320 200" width="100%" height="100%">
+      <g data-camera>
+        <image width="320" height="200" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAUCAMAAADbT899AAAAElBMVEUbT3I2faNOejptnE7PybizRS+ryHFxAAAAYUlEQVR42sWOSQ7AMAgDATv//3LVKguoFuqtXBwxI2KzP4eflr5fYwjf/S14nTjHmTAXjirMXZksCFyEhQFgZhKcrHzFbk1KvoUgA4LDTh3JjwDNw+THKQw9fy50/O7QclzLewORR14f8wAAAABJRU5ErkJggg=="/>
+      </g>
+    </svg>
+  </figure>
+  <section class="step" id="coast" data-focus="0 0 320 200" data-shot="wide"><p>The whole coast.</p></section>
+  <section class="step" id="jetty" data-focus="60 40 80 110" data-shot="medium"><p>Down to the jetty.</p></section>
+  <section class="step" id="hut" data-focus="70 40 40 40" data-shot="close"><p>The hut at its end.</p></section>
+</article>
+```
+
+That `data:` URI is a 32×20 stand-in — swap in your own `photo.jpg`. The stage
+has to be SVG: the camera composes its transform in the graphic's own
+coordinate space, and a bare `<img>` has none. The boxes are read in that same
+space, so `0 0 320 200` is the whole `viewBox`.
+
+### Scrubbing one chapter
+
+```html
+<style>
+  .dial { width: 300px; height: 40px; background: #dde3ee }
+  .needle { width: 6px; height: 40px; background: crimson }
+  .needle[data-scrub] { animation-name: sweep }
+  @keyframes sweep { from { transform: translateX(0) } to { transform: translateX(294px) } }
+</style>
+<article class="scrolly" data-layout="side-right">
+  <figure>
+    <div class="dial"><div class="needle" data-scrub="rising"></div></div>
+  </figure>
+  <section class="step" id="calm"><p>The needle waits at 0%.</p></section>
+  <section class="step" id="rising"><p>Through this chapter it tracks your scroll.</p></section>
+  <section class="step" id="after"><p>Arrived — and it rewinds if you scroll back up.</p></section>
+</article>
+```
+
+You own `animation-name` and nothing else: scrolly stamps `--t` from
+`var(--progress-rising)` and normalizes the duration, so the `@keyframes` are
+the whole timeline. Drop the value — plain `data-scrub` — to scrub against
+`--story-progress` instead of one chapter. Under `prefers-reduced-motion` every
+scrub becomes a cut at its chapter's midpoint.
 
 ## What scrolly deliberately is not
 
