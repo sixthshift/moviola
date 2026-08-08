@@ -1,7 +1,7 @@
 /**
- * Pure scroll geometry — no DOM, just numbers. The state machine's math
- * lives here so it can be unit-tested against the SPEC §5 semantics without
- * a browser.
+ * Pure scroll geometry — DOM-free and console-free. The state machine's math
+ * (and the §16 token grammar that math is addressed by) lives here so it can
+ * be unit-tested against the SPEC semantics without a browser.
  *
  * All positions are viewport-relative (as returned by getBoundingClientRect)
  * and `trigger` is the trigger line's distance from the viewport top.
@@ -159,4 +159,70 @@ export function fitZoom(targetW: number, targetH: number, stageW: number, stageH
  */
 export function cameraTransform(shot: Shot, stageCenter: { x: number; y: number }): string {
   return `translate(${stageCenter.x}px, ${stageCenter.y}px) scale(${shot.k}) translate(${-shot.cx}px, ${-shot.cy}px)`
+}
+
+// The four §16.1 span forms in one shape: `a..b`, `a..` (open end), `..a`
+// (open start), `..` (both open). Step ids are `/^[A-Za-z0-9_-]+$/`, which is
+// what makes `..` an unambiguous separator — and what makes anything else
+// carrying `..` (`a..b..c`, `...`, `a....b`) fail this match rather than
+// parse into something an author didn't write.
+const SPAN = /^([\w-]*)\.\.([\w-]*)$/
+
+/**
+ * §16.1 `data-show` range resolution: a token list and the story's step keys
+ * in DOM order (`stepId` — the real id, or the numeric-index fallback) in,
+ * the set of keys the element is shown for out, plus every token that
+ * resolved to nothing and why.
+ *
+ * Endpoints resolve by index in the passed order, so membership is fixed by
+ * the order it was handed — §5.1's live geometry keeps applying to positions
+ * only. Open endpoints mean the story's first and last step, so `..` is every
+ * step: distinct from omitting `data-show`, which opts out of visibility
+ * mechanics entirely and never reaches here.
+ *
+ * A reversed span (`recovery..crash`) contributes nothing and is reported —
+ * never quietly swapped into the forward span, because a swap would hide an
+ * author's misunderstanding of their own step order behind working output. A
+ * dangling endpoint and a malformed span share the `'no-step'` disposition
+ * because both are the same authoring mistake — a token naming a step the
+ * story doesn't have.
+ *
+ * The issue list is data, not prose: message wording and the warn channel
+ * belong to the caller (§15.6), which is what keeps this module console-free.
+ */
+export function resolveShow(
+  tokens: readonly string[],
+  stepKeys: readonly string[]
+): { keys: Set<string>; issues: Array<{ token: string; reason: 'no-step' | 'reversed' }> } {
+  const keys = new Set<string>()
+  const issues: Array<{ token: string; reason: 'no-step' | 'reversed' }> = []
+
+  for (const token of tokens) {
+    // A bare token is the pre-range behavior verbatim: one key, or one report.
+    if (!token.includes('..')) {
+      if (stepKeys.includes(token)) keys.add(token)
+      else issues.push({ token, reason: 'no-step' })
+      continue
+    }
+    const span = SPAN.exec(token)
+    if (!span) {
+      issues.push({ token, reason: 'no-step' })
+      continue
+    }
+    const from = span[1] ? stepKeys.indexOf(span[1]) : 0
+    const to = span[2] ? stepKeys.indexOf(span[2]) : stepKeys.length - 1
+    // `to < 0` also catches a story with no steps at all, where the open end
+    // has nothing to point at — a dangling endpoint by any other name.
+    if (from < 0 || to < 0) {
+      issues.push({ token, reason: 'no-step' })
+      continue
+    }
+    if (from > to) {
+      issues.push({ token, reason: 'reversed' })
+      continue
+    }
+    for (let i = from; i <= to; i++) keys.add(stepKeys[i] as string)
+  }
+
+  return { keys, issues }
 }

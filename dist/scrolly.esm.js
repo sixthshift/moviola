@@ -20,9 +20,9 @@
 */
 //#region src/geometry.ts
 /**
-* Pure scroll geometry — no DOM, just numbers. The state machine's math
-* lives here so it can be unit-tested against the SPEC §5 semantics without
-* a browser.
+* Pure scroll geometry — DOM-free and console-free. The state machine's math
+* (and the §16 token grammar that math is addressed by) lives here so it can
+* be unit-tested against the SPEC semantics without a browser.
 *
 * All positions are viewport-relative (as returned by getBoundingClientRect)
 * and `trigger` is the trigger line's distance from the viewport top.
