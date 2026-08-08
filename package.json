@@ -1,9 +1,17 @@
 {
-  "name": "scrolly",
+  "name": "scrolly-js",
   "version": "0.0.1",
   "description": "The scrollytelling framework — you write the DOM, scrolly runs the state machine, effects live in your CSS.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sixthshift/scrolly-js.git"
+  },
+  "homepage": "https://github.com/sixthshift/scrolly-js#readme",
+  "bugs": {
+    "url": "https://github.com/sixthshift/scrolly-js/issues"
+  },
   "main": "./dist/scrolly.esm.js",
   "types": "./dist/scrolly.d.ts",
   "exports": {

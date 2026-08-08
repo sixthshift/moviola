@@ -251,7 +251,8 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
   `window.Scrolly`; the ESM build exports the same object as its default
   with no global side effect.
-- ⬜ npm publish + CDN (jsdelivr/unpkg) once the name is settled.
+- ⬜ npm publish + CDN (jsdelivr/unpkg) as `scrolly-js`; name settled, the
+  publish itself is still human-gated.
 - ✅ **v0.4 amendment — single classic artifact**: `dist/scrolly.iife.js`
   is removed. The canonical runtime artifact — the bytes embedded in
   examples, `skill/assets/`, and byte-matched by the §14 validator's lib
@@ -262,10 +263,15 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   a third copy of the implementation, its 4 KB share of the bar blocked
   §15, and view-source's job is teaching the rig — the author's markup and
   CSS — not lib internals.
-- ❓ **Name**: "scrolly" is used semi-generically in the community and the
-  npm name is likely taken. Verify; fallbacks to brainstorm if collision
-  (e.g. scoped `@…/scrolly`, or a distinct name). Blocks npm/public launch
-  only — not development.
+- ✅ **Name** (decision 2026-08-08): the npm name `scrolly` is taken — a
+  dormant 2014 vanilla-JS scrollbar plugin, 2 versions, latest 0.6.0. The
+  package publishes as **`scrolly-js`**. The authoring contract does not
+  move: `.scrolly`, the `scrolly:` event and diagnostic prefix,
+  `--scrolly-card-*`, `window.Scrolly`, and the `scrolly.min.js` /
+  `scrolly.css` filenames all stay. Rationale: the reveal.js split (package
+  name ≠ class name ≠ global) frees the npm name without invalidating a
+  single published example or skill template, where renaming the contract
+  would amend §5 and §7 for no author-visible gain.
 - **Self-contained pattern** (the agent artifact): JS + CSS inlined into one
   HTML file. Must stay copy-paste-able — no external references anywhere in
   the lib. ✅ (property holds; template ships with the skill, §10)
