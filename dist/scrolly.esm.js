@@ -361,8 +361,22 @@ function focusBox(rig, el) {
 * A missing or unrecognized name reads as `undefined` and lands on `fitZoom`'s
 * own default — the fallback framing has one home, in the module that owns
 * fit, rather than a second copy of 0.7 here.
+*
+* The null prototype is what makes "unrecognized" mean every name that isn't
+* in this table: on a plain object literal `data-shot="constructor"` would read
+* back an inherited FUNCTION, which is neither a fraction nor `undefined` — it
+* would skip the unknown-name report and reach the fit arithmetic as `NaN`.
+* Chosen over a per-read `Object.hasOwn` guard on both counts: it fixes the
+* hole once at the table rather than at every site that reads it, and it costs
+* 10 B gzipped against §3's bar where the guard costs 24 B — which overruns the
+* bar outright, and isn't in this project's ES2019 lib besides.
+*
+* The assertion is the price of that literal: `__proto__: null` states a
+* prototype, not a property, and TypeScript cannot say so inside a literal
+* whose contextual type is an all-number index signature.
 */
 var SHOT_FRACTIONS = {
+	__proto__: null,
 	wide: .5,
 	medium: .7,
 	close: .9

@@ -10,14 +10,17 @@
  *    from it is what rules out the losing implementations: a name that won, a
  *    name and a number blended, or a `data-zoom` that only happened to look
  *    right because both steps framed identically.
- *  - fixtures-broken/shot-unknown.html — `data-shot="extreme"` settles at the
- *    same transform as an attribute-less step focusing the same subject, which
- *    is the fit default (0.70, `medium`'s own fraction). Equality against a
- *    control needs no hand-derived constant, and it is the honest statement of
- *    the fallback: the unknown name resolves to nothing, so nothing about the
- *    framing changes.
+ *  - fixtures-broken/shot-unknown.html — `data-shot="extreme"` and
+ *    `data-shot="constructor"` each settle at the same transform as an
+ *    attribute-less step focusing the same subject, which is the fit default
+ *    (0.70, `medium`'s own fraction). Equality against a control needs no
+ *    hand-derived constant, and it is the honest statement of the fallback: an
+ *    unknown name resolves to nothing, so nothing about the framing changes.
+ *    `constructor` is the case a plain-object table gets wrong rather than
+ *    unknown — the name table has a null prototype so an inherited name is a
+ *    miss, not a function that skips the report and reaches the fit as `NaN`.
  *
- * Both pages must report their mistake exactly once — through `console.warn`,
+ * Each page must report every mistake exactly once — through `console.warn`,
  * never `console.error` — and must keep working: the counts are re-asserted
  * after a viewport resize, which re-measures every shot (§5.3) and so re-runs
  * both diagnostics' code paths through the warn-once channel.
@@ -185,51 +188,73 @@ test.describe('§16 an explicit data-zoom outranks a named framing, and the name
   })
 })
 
-test.describe('§16 an unknown data-shot name falls back to the fit default, and is reported', () => {
+test.describe('§16 an unrecognized data-shot name falls back to the fit default, and is reported', () => {
   test.describe.configure({ mode: 'serial' })
 
   let page: Page
   let geo: Geometry
   let record: Console
 
+  /** shot-unknown.html's order: the two bad names, then the silent control. */
+  const CONTROL = 2
+
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage()
     record = recordConsole(page)
     await page.goto(fixture('shot-unknown.html'))
     geo = await chapterGeometry(page)
-    expect(geo.ids).toEqual(['unknown', 'unnamed'])
+    expect(geo.ids).toEqual(['unknown', 'inherited', 'unnamed'])
   })
 
   test.afterAll(async () => {
     await page.close()
   })
 
-  test('the invented name frames exactly as the attribute-less step does', async () => {
-    await settleAtChapterStart(page, geo, 0)
-    const unknown = await cameraMatrix(page)
-    await settleAtChapterStart(page, geo, 1)
+  /**
+   * Chapter `i` against the control's own framing — the whole fallback claim,
+   * stated without a hand-derived constant.
+   */
+  const framesLikeTheControl = async (i: number): Promise<void> => {
+    await settleAtChapterStart(page, geo, i)
+    const named = await cameraMatrix(page)
+    await settleAtChapterStart(page, geo, CONTROL)
     const unnamed = await cameraMatrix(page)
 
     // Identity is what an unresolved camera leaves behind, and two identities
     // would match each other — so the framing has to be a real one first.
-    expect(unknown.a).toBeGreaterThan(1)
-    expect(unknown.a).toBeCloseTo(unnamed.a, 6)
-    expect(unknown.e).toBeCloseTo(unnamed.e, 6)
-    expect(unknown.f).toBeCloseTo(unnamed.f, 6)
+    expect(named.a).toBeGreaterThan(1)
+    expect(named.a).toBeCloseTo(unnamed.a, 6)
+    expect(named.e).toBeCloseTo(unnamed.e, 6)
+    expect(named.f).toBeCloseTo(unnamed.f, 6)
+  }
+
+  test('the invented name frames exactly as the attribute-less step does', async () => {
+    await framesLikeTheControl(0)
   })
 
-  test('the unknown name is reported exactly once, and a resize does not repeat it', async () => {
+  test('a prototype-inherited name frames exactly as the attribute-less step does', async () => {
+    // The one assertion a plain-object table fails: `constructor` would read
+    // back Object.prototype's own function, and `NaN * fit` parts this chapter
+    // from the control rather than landing on it.
+    await framesLikeTheControl(1)
+  })
+
+  test('each bad name is reported exactly once, and a resize does not repeat them', async () => {
     geo = await resizeAndResettle(page, 0)
     const after = await cameraMatrix(page)
 
-    // Still framed, still by the fallback: the resize reframes both chapters
+    // Still framed, still by the fallback: the resize reframes every chapter
     // together, so they stay equal to each other.
     expect(after.a).toBeGreaterThan(1)
-    await settleAtChapterStart(page, geo, 1)
+    await settleAtChapterStart(page, geo, CONTROL)
     expect((await cameraMatrix(page)).a).toBeCloseTo(after.a, 6)
 
-    expect(scrollyWarnings(record)).toHaveLength(1)
-    expect(scrollyWarnings(record)[0]).toContain('data-shot="extreme"')
+    // One report per offending name, never one per bad name per re-measure:
+    // `warnOnce` keys on the whole message and the message embeds the name.
+    const warnings = scrollyWarnings(record)
+    expect(warnings).toHaveLength(2)
+    expect(warnings.filter(w => w.includes('data-shot="extreme"'))).toHaveLength(1)
+    expect(warnings.filter(w => w.includes('data-shot="constructor"'))).toHaveLength(1)
   })
 
   test('the page never errored and kept transitioning', () => {
