@@ -273,29 +273,92 @@ function targetRect(rig, target) {
 	return boxOf(new DOMPoint(box.x, box.y).matrixTransform(toCamera), new DOMPoint(box.x + box.width, box.y + box.height).matrixTransform(toCamera));
 }
 /**
-* Resolve every focused step's shot. A `data-focus` selector matching
-* nothing warns once and is treated as absent (hold, never a throw or a
-* jump to identity — §15.3).
+* §16: disambiguate on the FIRST CHARACTER — a digit or `-` means raw
+* coordinates, anything else is a selector. Dead simple on purpose, and that
+* pins two traps: `".5 0 10 10"` and `"+50 0 200 100"` take the SELECTOR path
+* (and fail soft as "matches no element"), because an author writes `0.5`, not
+* `.5`. Sniffing further would buy those two values at the cost of the rule
+* itself — an author could no longer tell which path a value takes by looking
+* at its first character.
+*/
+function parseFocus(value) {
+	var _value$;
+	const first = (_value$ = value[0]) !== null && _value$ !== void 0 ? _value$ : "";
+	if (first !== "-" && !(first >= "0" && first <= "9")) return {
+		kind: "selector",
+		selector: value
+	};
+	const parts = value.trim().split(/\s+/).map(Number);
+	const [x, y, w, h] = parts;
+	if (parts.length !== 4 || !parts.every(Number.isFinite) || w <= 0 || h <= 0) return {
+		kind: "malformed",
+		value
+	};
+	return {
+		kind: "box",
+		box: {
+			x,
+			y,
+			w,
+			h
+		}
+	};
+}
+/**
+* A selector string the CSS engine cannot even parse gets the disposition
+* every other unresolvable focus gets — no match — rather than the
+* DOMException `querySelector` throws, which would propagate out of
+* `Scrolly.init` and take the whole story down (§15.6: fail-soft always, a
+* warning page keeps working). Not hypothetical: the first-character rule
+* deliberately routes `".5 0 10 10"` and `"+50 0 200 100"` here, and neither
+* is valid CSS.
+*/
+function queryFocus(selector) {
+	try {
+		return document.querySelector(selector);
+	} catch {
+		return null;
+	}
+}
+/**
+* The subject box a `data-focus` frames, in the camera's own untransformed
+* space. Null is the fail-soft disposition §15.3 pins for every value that
+* resolves to no box — absent, malformed coordinates, or a selector matching
+* nothing: warn once (§15.6) and let the caller hold.
+*/
+function focusBox(rig, el) {
+	const value = el.dataset.focus;
+	if (!value) return null;
+	const spec = parseFocus(value);
+	if (spec.kind === "box") return spec.box;
+	if (spec.kind === "malformed") {
+		warnOnce(`scrolly: data-focus="${value}" is not four finite numbers x y w h`);
+		return null;
+	}
+	const target = queryFocus(spec.selector);
+	if (!target) {
+		warnOnce(`scrolly: data-focus="${value}" matches no element`);
+		return null;
+	}
+	return targetRect(rig, target);
+}
+/**
+* Resolve every focused step's shot. A `data-focus` that resolves to no box —
+* a selector matching nothing, or malformed coordinates — warns once and is
+* treated as absent (hold, never a throw or a jump to identity — §15.3).
 */
 function measureShots(rig, root, steps) {
 	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("scrolly: data-camera has no data-focus anywhere — the camera never moves");
 	const stage = stageRect(rig);
 	const resolve = (el) => {
 		var _el$dataset$zoom;
-		const selector = el.dataset.focus;
-		if (!selector) return null;
-		const target = document.querySelector(selector);
-		if (!target) {
-			warnOnce(`scrolly: data-focus="${selector}" matches no element`);
-			return null;
-		}
-		const t = targetRect(rig, target);
-		if (!t || !stage) return null;
+		const box = focusBox(rig, el);
+		if (!box || !stage) return null;
 		const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
 		return {
-			cx: t.x + t.w / 2,
-			cy: t.y + t.h / 2,
-			k: Number.isFinite(zoom) ? zoom : fitZoom(t.w, t.h, stage.w, stage.h)
+			cx: box.x + box.w / 2,
+			cy: box.y + box.h / 2,
+			k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h)
 		};
 	};
 	const establishing = resolve(root);

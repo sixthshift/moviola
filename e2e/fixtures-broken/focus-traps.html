@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Same Start, Different Roads — a scrolly example</title>
+<title>focus-traps</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -196,102 +195,75 @@
 }
 </style>
 <!-- /scrolly:css -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
+
+  /*
+   * §16 the two PINNED TRAPS of the first-character rule, in a real browser.
+   * Both values look like coordinate boxes and neither is one — `data-focus`
+   * reads exactly one character, and `.` and `+` are not `-` or a digit — so
+   * both take the SELECTOR path:
+   *
+   *   open   data-focus="120 340 400 300"   valid — flies toward `land`
+   *   dot    data-focus=".5 0 10 10"        selector: a class token starting
+   *                                        with a digit
+   *   plus   data-focus="+50 0 200 100"     selector: a leading combinator
+   *   land   data-focus="200 100 300 200"   valid
+   *
+   * Neither trap is even parseable as CSS, so `querySelector` throws on both.
+   * That must NOT escape: an unparseable selector is a typo like any other and
+   * gets the pinned disposition — "matches no element", one warn each, the
+   * camera holding the shot it already arrived at, the story still running
+   * (§15.6 fail-soft). Nothing else in the page can warn, so the count is
+   * exactly two.
+   */
+  .lead, .tail { height: 100vh; }
+  .scrolly > .step { min-height: 100vh; }
+  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .step p { max-width: 30rem; }
+</style>
 </head>
 <body>
 
-<header>
-  <p class="kicker">A scrolly example</p>
-  <h1>Same Start, Different Roads</h1>
-  <p class="note">Illustrative data, built to demonstrate scrolly's choreography for
-     particle-flow stories — the cohort, neighborhoods, and outcomes below are
-     invented for this demo, not drawn from any real study. The shape of the gap
-     mirrors patterns documented in actual economic-mobility research.</p>
-  <div class="hint">scroll ↓</div>
-</header>
+<div class="lead"><p>Scroll down: two values that only look like coordinates.</p></div>
 
-<article class="scrolly" data-layout="side-right" data-offset="0.5" id="story" data-morph>
-
-  <figure aria-hidden="true">
-    <svg id="art" viewBox="0 0 600 440" preserveAspectRatio="xMidYMid meet">
-      <g id="dots"></g>
-      <g id="labels"></g>
+<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
+  <figure>
+    <svg viewBox="0 0 1000 800">
+      <g data-camera>
+        <rect x="0" y="0" width="1000" height="800" fill="#eef2f7"/>
+        <rect x="120" y="340" width="400" height="300" fill="#3377ee"/>
+        <rect x="200" y="100" width="300" height="200" fill="#e33333"/>
+        <circle cx="820" cy="640" r="70" fill="#c9d4e2"/>
+      </g>
     </svg>
   </figure>
 
-  <section class="step" id="start">
-    <div>
-      <h2>Two hundred boys, one starting line.</h2>
-      <p>Picture two hundred boys, all born the same year to families earning
-         roughly the same income. On paper their prospects look identical: the
-         same starting resources, the same economy, the same decade to grow up
-         in.</p>
-    </div>
+  <section class="step" id="open" data-focus="120 340 400 300">
+    <p>A valid coordinate box, so the story has somewhere to arrive before the
+    traps get their turn.</p>
   </section>
 
-  <section class="step" id="neighborhood">
-    <div>
-      <h2>Where they grow up already splits them.</h2>
-      <p>By age ten, geography has pulled them apart. A sizable share of these
-         boys spent their childhoods in neighborhoods with concentrated poverty
-         — fewer nearby jobs, thinner social networks, under-resourced schools
-         — while the rest grew up somewhere with far more built-in
-         opportunity.</p>
-    </div>
+  <section class="step" id="dot" data-focus=".5 0 10 10">
+    <p>A leading dot makes this a selector, not a box: authors write
+    <code>0.5</code>, not <code>.5</code>. It matches nothing, and the page
+    keeps working.</p>
   </section>
 
-  <section class="step" id="crosscut">
-    <div>
-      <h2>Race compounds the neighborhood gap.</h2>
-      <p>Split the same cohort by race and the imbalance sharpens: in this
-         illustrative sample, Black boys were far more likely than white boys
-         to have spent childhood in a high-poverty neighborhood, even though
-         every boy here started with comparable family income.</p>
-    </div>
+  <section class="step" id="plus" data-focus="+50 0 200 100">
+    <p>A leading plus is the same story — only a digit or a minus sign opts a
+    value into the coordinate form.</p>
   </section>
 
-  <section class="step" id="employment">
-    <div>
-      <h2>Adulthood: who's working.</h2>
-      <p>Follow them into their thirties and ask a simple question — are they
-         employed full-time? Boys who grew up in higher-poverty neighborhoods
-         reach adulthood with lower employment rates across the board, and the
-         gap by race persists even inside the same neighborhood tier.</p>
-    </div>
-  </section>
-
-  <section class="step" id="income">
-    <div>
-      <h2>Where they land economically.</h2>
-      <p>Sort the same men by adult household income relative to where they
-         started: did they climb, hold steady, or fall behind? A larger share
-         fell behind than climbed — and it happened even to boys whose
-         starting numbers looked no different from their peers.</p>
-    </div>
-  </section>
-
-  <section class="step" id="gap">
-    <div>
-      <h2>The reach, made visible.</h2>
-      <p>Line the two racial groups up side by side and stack each by
-         outcome. Despite an identical starting income, Black boys in this
-         illustrative cohort end up crowded into the "fell behind" band far
-         more often than white boys who started at the exact same rung — the
-         reach of that gap, not any difference in effort or starting
-         resources.</p>
-    </div>
+  <section class="step" id="land" data-focus="200 100 300 200">
+    <p>The shot both trap chapters were holding, reached exactly as if they had
+    carried no attribute at all.</p>
   </section>
 
 </article>
 
-<footer>
-  <p>Every regrouping above is a full redraw driven by
-     <code>story.on('stepenter', …)</code> — scroll up, jump around, the
-     dots always land in the same place for the same step. The redraw itself
-     is instant; <code>data-morph</code> is what makes each dot travel
-     between its old and new spot instead of snapping, via the browser's own
-     View Transitions.</p>
-</footer>
-
+<div class="tail"></div>
 <!-- scrolly:js -->
 <script>/*!
 * scrolly — the scrollytelling framework
@@ -335,192 +307,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-(() => {
-  'use strict'
-
-  // ---- seeded PRNG (mulberry32, fixed literal seed) ------------------------
-  // Two page loads produce byte-identical dot attributes and positions.
-  function mulberry32 (seed) {
-    let a = seed
-    return function () {
-      a |= 0
-      a = (a + 0x6D2B79F5) | 0
-      let t = Math.imul(a ^ (a >>> 15), 1 | a)
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-    }
-  }
-
-  const SEED = 1337
-  const N = 200
-  const rng = mulberry32(SEED)
-
-  // ---- cohort generation ----------------------------------------------------
-  // Each dot's attributes are drawn once, in a fixed order, from the seeded
-  // stream — that's the only randomness in this file. Every step's drawing is
-  // a pure function of these fixed attributes plus the step id.
-  const dots = []
-  for (let i = 0; i < N; i++) {
-    const race = rng() < 0.5 ? 'B' : 'W'
-    const nRoll = rng()
-    const lowProb = race === 'B' ? 0.62 : 0.34
-    const neighborhood = nRoll < lowProb ? 'low' : 'high'
-    const eRoll = rng()
-    const employProb = neighborhood === 'low' ? 0.58 : 0.82
-    const employment = eRoll < employProb ? 'employed' : 'unemployed'
-    const iRoll = rng()
-    const climbCut = neighborhood === 'low' ? (race === 'B' ? 0.12 : 0.22) : (race === 'B' ? 0.28 : 0.40)
-    const steadyCut = neighborhood === 'low' ? (race === 'B' ? 0.55 : 0.66) : (race === 'B' ? 0.70 : 0.82)
-    const income = iRoll < climbCut ? 'climbed' : (iRoll < steadyCut ? 'steady' : 'fell')
-    const jx = (rng() - 0.5) * 9
-    const jy = (rng() - 0.5) * 9
-    dots.push({ i, race, neighborhood, employment, income, jx, jy })
-  }
-
-  // ---- SVG scaffolding (built once; never rebuilt per step) -----------------
-  const SVG_NS = 'http://www.w3.org/2000/svg'
-  const dotsGroup = document.getElementById('dots')
-  const labelsGroup = document.getElementById('labels')
-  const dotEls = dots.map(d => {
-    const el = document.createElementNS(SVG_NS, 'circle')
-    el.setAttribute('r', '3.4')
-    el.setAttribute('cx', '300')
-    el.setAttribute('cy', '220')
-    el.setAttribute('fill', '#98a2b3')
-    el.style.viewTransitionName = `dot-${d.i}`
-    dotsGroup.appendChild(el)
-    return el
-  })
-
-  // ---- layout: pack a bucket's dots into its rectangle, in index order ------
-  function layoutBucket (items, area) {
-    const n = items.length
-    if (n === 0) return []
-    const cols = Math.max(1, Math.round(Math.sqrt(n * (area.w / area.h))))
-    const rows = Math.ceil(n / cols)
-    const cellW = area.w / cols
-    const cellH = area.h / rows
-    return items.map((d, rank) => {
-      const col = rank % cols
-      const row = Math.floor(rank / cols)
-      return {
-        d,
-        x: area.x + (col + 0.5) * cellW + d.jx,
-        y: area.y + (row + 0.5) * cellH + d.jy
-      }
-    })
-  }
-
-  // ---- per-step choreography: bucket assignment + area + color, all pure ---
-  const COL2 = [{ x: 20, w: 270 }, { x: 310, w: 270 }]
-  const COL3 = [{ x: 20, w: 173 }, { x: 213, w: 173 }, { x: 406, w: 173 }]
-  const ROW2 = [{ y: 55, h: 170 }, { y: 245, h: 170 }]
-  const ROW3 = [{ y: 55, h: 106 }, { y: 176, h: 106 }, { y: 297, h: 106 }]
-
-  const NEUTRAL = '#98a2b3'
-  const RACE_COLOR = { B: '#e07a5f', W: '#4f86c6' }
-  const NEIGHBORHOOD_COLOR = { low: '#e08e45', high: '#4f86c6' }
-  const INCOME_COLOR = { climbed: '#3fa34d', steady: '#e0a839', fell: '#c0392b' }
-
-  const STEPS = {
-    start: {
-      bucketOf: () => 'all',
-      colorOf: () => NEUTRAL,
-      buckets: [
-        { key: 'all', area: { x: 20, y: 55, w: 560, h: 360 }, label: 'all 200 boys · same starting income' }
-      ]
-    },
-    neighborhood: {
-      bucketOf: d => d.neighborhood,
-      colorOf: d => NEIGHBORHOOD_COLOR[d.neighborhood],
-      buckets: [
-        { key: 'low', area: { x: COL2[0].x, y: 55, w: COL2[0].w, h: 360 }, label: 'high-poverty neighborhood' },
-        { key: 'high', area: { x: COL2[1].x, y: 55, w: COL2[1].w, h: 360 }, label: 'low-poverty neighborhood' }
-      ]
-    },
-    crosscut: {
-      bucketOf: d => `${d.neighborhood}-${d.race}`,
-      colorOf: d => RACE_COLOR[d.race],
-      buckets: [
-        { key: 'low-B', area: { x: COL2[0].x, y: ROW2[0].y, w: COL2[0].w, h: ROW2[0].h }, label: 'high-poverty · Black' },
-        { key: 'low-W', area: { x: COL2[0].x, y: ROW2[1].y, w: COL2[0].w, h: ROW2[1].h }, label: 'high-poverty · white' },
-        { key: 'high-B', area: { x: COL2[1].x, y: ROW2[0].y, w: COL2[1].w, h: ROW2[0].h }, label: 'low-poverty · Black' },
-        { key: 'high-W', area: { x: COL2[1].x, y: ROW2[1].y, w: COL2[1].w, h: ROW2[1].h }, label: 'low-poverty · white' }
-      ]
-    },
-    employment: {
-      bucketOf: d => d.employment,
-      colorOf: d => RACE_COLOR[d.race],
-      buckets: [
-        { key: 'employed', area: { x: COL2[0].x, y: 55, w: COL2[0].w, h: 360 }, label: 'employed full-time' },
-        { key: 'unemployed', area: { x: COL2[1].x, y: 55, w: COL2[1].w, h: 360 }, label: 'not employed full-time' }
-      ]
-    },
-    income: {
-      bucketOf: d => d.income,
-      colorOf: d => RACE_COLOR[d.race],
-      buckets: [
-        { key: 'climbed', area: { x: COL3[0].x, y: 55, w: COL3[0].w, h: 360 }, label: 'climbed' },
-        { key: 'steady', area: { x: COL3[1].x, y: 55, w: COL3[1].w, h: 360 }, label: 'held steady' },
-        { key: 'fell', area: { x: COL3[2].x, y: 55, w: COL3[2].w, h: 360 }, label: 'fell behind' }
-      ]
-    },
-    gap: {
-      bucketOf: d => `${d.race}-${d.income}`,
-      colorOf: d => INCOME_COLOR[d.income],
-      buckets: [
-        { key: 'B-climbed', area: { x: COL2[0].x, y: ROW3[0].y, w: COL2[0].w, h: ROW3[0].h }, label: 'Black · climbed' },
-        { key: 'B-steady', area: { x: COL2[0].x, y: ROW3[1].y, w: COL2[0].w, h: ROW3[1].h }, label: 'Black · steady' },
-        { key: 'B-fell', area: { x: COL2[0].x, y: ROW3[2].y, w: COL2[0].w, h: ROW3[2].h }, label: 'Black · fell behind' },
-        { key: 'W-climbed', area: { x: COL2[1].x, y: ROW3[0].y, w: COL2[1].w, h: ROW3[0].h }, label: 'white · climbed' },
-        { key: 'W-steady', area: { x: COL2[1].x, y: ROW3[1].y, w: COL2[1].w, h: ROW3[1].h }, label: 'white · steady' },
-        { key: 'W-fell', area: { x: COL2[1].x, y: ROW3[2].y, w: COL2[1].w, h: ROW3[2].h }, label: 'white · fell behind' }
-      ]
-    }
-  }
-
-  const STEP_ORDER = ['start', 'neighborhood', 'crosscut', 'employment', 'income', 'gap']
-
-  // ---- draw: given a step id alone, render every dot's full state -----------
-  // No accumulation, no direction branching — calling this twice in a row
-  // with the same id, from any prior state, always lands identically.
-  function drawStep (id) {
-    const cfg = STEPS[id]
-    if (!cfg) return
-
-    const grouped = new Map()
-    for (const d of dots) {
-      const key = cfg.bucketOf(d)
-      if (!grouped.has(key)) grouped.set(key, [])
-      grouped.get(key).push(d)
-    }
-
-    for (const bucket of cfg.buckets) {
-      const items = grouped.get(bucket.key) || []
-      for (const { d, x, y } of layoutBucket(items, bucket.area)) {
-        const el = dotEls[d.i]
-        el.setAttribute('cx', x.toFixed(1))
-        el.setAttribute('cy', y.toFixed(1))
-        el.setAttribute('fill', cfg.colorOf(d))
-      }
-    }
-
-    labelsGroup.textContent = ''
-    for (const bucket of cfg.buckets) {
-      const t = document.createElementNS(SVG_NS, 'text')
-      t.setAttribute('x', String(bucket.area.x + bucket.area.w / 2))
-      t.setAttribute('y', String(bucket.area.y - 10))
-      t.textContent = bucket.label
-      labelsGroup.appendChild(t)
-    }
-  }
-
-  drawStep(STEP_ORDER[0])
-
-  const story = Scrolly.init('#story')
-  story.on('stepenter', ({ id }) => drawStep(id))
-})()
+  Scrolly.init()
 </script>
-
 </body>
 </html>

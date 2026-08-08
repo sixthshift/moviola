@@ -91,6 +91,83 @@ function targetRect(rig: CameraRig, target: Element): Rect | null {
   )
 }
 
+/**
+ * §16 what a `data-focus` value asks for. The coordinate form carries a box
+ * in the camera's own untransformed space, which is the same space
+ * `targetRect` measures a selector's target into — so the two forms meet at
+ * exactly the point framing is decided and cannot drift apart.
+ */
+export type FocusSpec =
+  | { kind: 'box'; box: Rect }
+  | { kind: 'selector'; selector: string }
+  | { kind: 'malformed'; value: string }
+
+/**
+ * §16: disambiguate on the FIRST CHARACTER — a digit or `-` means raw
+ * coordinates, anything else is a selector. Dead simple on purpose, and that
+ * pins two traps: `".5 0 10 10"` and `"+50 0 200 100"` take the SELECTOR path
+ * (and fail soft as "matches no element"), because an author writes `0.5`, not
+ * `.5`. Sniffing further would buy those two values at the cost of the rule
+ * itself — an author could no longer tell which path a value takes by looking
+ * at its first character.
+ */
+export function parseFocus(value: string): FocusSpec {
+  const first = value[0] ?? ''
+  if (first !== '-' && !(first >= '0' && first <= '9')) return { kind: 'selector', selector: value }
+  // `Number`, not `parseFloat`: a half-numeric token ("30q") is an authoring
+  // mistake to report, never a prefix to salvage.
+  const parts = value.trim().split(/\s+/).map(Number)
+  // The tuple cast is sound because the arity check below gates every use of
+  // the destructured values.
+  const [x, y, w, h] = parts as [number, number, number, number]
+  if (parts.length !== 4 || !parts.every(Number.isFinite) || w <= 0 || h <= 0) {
+    return { kind: 'malformed', value }
+  }
+  return { kind: 'box', box: { x, y, w, h } }
+}
+
+/**
+ * A selector string the CSS engine cannot even parse gets the disposition
+ * every other unresolvable focus gets — no match — rather than the
+ * DOMException `querySelector` throws, which would propagate out of
+ * `Scrolly.init` and take the whole story down (§15.6: fail-soft always, a
+ * warning page keeps working). Not hypothetical: the first-character rule
+ * deliberately routes `".5 0 10 10"` and `"+50 0 200 100"` here, and neither
+ * is valid CSS.
+ */
+function queryFocus(selector: string): Element | null {
+  try {
+    return document.querySelector(selector)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The subject box a `data-focus` frames, in the camera's own untransformed
+ * space. Null is the fail-soft disposition §15.3 pins for every value that
+ * resolves to no box — absent, malformed coordinates, or a selector matching
+ * nothing: warn once (§15.6) and let the caller hold.
+ */
+function focusBox(rig: CameraRig, el: HTMLElement): Rect | null {
+  const value = el.dataset.focus
+  if (!value) return null
+
+  const spec = parseFocus(value)
+  if (spec.kind === 'box') return spec.box
+  if (spec.kind === 'malformed') {
+    warnOnce(`scrolly: data-focus="${value}" is not four finite numbers x y w h`)
+    return null
+  }
+
+  const target = queryFocus(spec.selector)
+  if (!target) {
+    warnOnce(`scrolly: data-focus="${value}" matches no element`)
+    return null
+  }
+  return targetRect(rig, target)
+}
+
 export interface Shots {
   /** The root's own shot (§15.3: the establishing shot while no step is active). */
   establishing: Shot | null
@@ -122,9 +199,9 @@ export interface Shots {
 }
 
 /**
- * Resolve every focused step's shot. A `data-focus` selector matching
- * nothing warns once and is treated as absent (hold, never a throw or a
- * jump to identity — §15.3).
+ * Resolve every focused step's shot. A `data-focus` that resolves to no box —
+ * a selector matching nothing, or malformed coordinates — warns once and is
+ * treated as absent (hold, never a throw or a jump to identity — §15.3).
  */
 export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLElement[]): Shots {
   // §15.6(d): a rig with no data-focus anywhere is a graphic that will
@@ -136,21 +213,17 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
 
   const stage = stageRect(rig)
 
+  // Both `data-focus` forms share every line below the fork, so a raw box and
+  // a measured bbox cannot frame differently: one fit default, one `data-zoom`
+  // override, one shot shape.
   const resolve = (el: HTMLElement): Shot | null => {
-    const selector = el.dataset.focus
-    if (!selector) return null
-    const target = document.querySelector(selector)
-    if (!target) {
-      warnOnce(`scrolly: data-focus="${selector}" matches no element`)
-      return null
-    }
-    const t = targetRect(rig, target)
-    if (!t || !stage) return null
+    const box = focusBox(rig, el)
+    if (!box || !stage) return null
     const zoom = Number.parseFloat(el.dataset.zoom ?? '')
     return {
-      cx: t.x + t.w / 2,
-      cy: t.y + t.h / 2,
-      k: Number.isFinite(zoom) ? zoom : fitZoom(t.w, t.h, stage.w, stage.h),
+      cx: box.x + box.w / 2,
+      cy: box.y + box.h / 2,
+      k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h),
     }
   }
 
