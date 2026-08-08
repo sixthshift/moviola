@@ -59,6 +59,7 @@ export class Story {
     this.graphic = root.querySelector(':scope > figure')
     this.steps = [...root.querySelectorAll<HTMLElement>(':scope > .step')]
     this.shown = this._resolveShows()
+    this._warnStructure()
     this._progressIds = this.steps
       .map((s, index) => ({ id: s.id, index }))
       .filter(({ id }) => VALID_IDENT.test(id))
@@ -218,6 +219,34 @@ export class Story {
       }
       return { el, keys }
     })
+  }
+
+  /**
+   * §15.6 structure diagnostics — the three markup shapes that leave a story
+   * silently inert. Reported once per story from the init path, and never
+   * acted on: a step-less story is already a no-op in _update(), and a
+   * figure-less camera simply never resolves a rig, so the warn is the whole
+   * fix. Nesting and emptiness are one question with two answers — an author
+   * who wrapped their steps in a layout div needs to hear about the wrapper,
+   * not that the story is empty.
+   */
+  private _warnStructure(): void {
+    if (this.steps.length === 0) {
+      const nested = this.root.querySelectorAll('.step').length
+      warnOnce(
+        nested > 0
+          ? `scrolly: found ${nested} nested .step descendants — steps must be direct children of .scrolly`
+          : 'scrolly: .scrolly has no .step elements — nothing to activate'
+      )
+    }
+    // §16.1: this.shown is figure-scoped, so a [data-show] outside one is
+    // silently inert — breaking that silence is the point. data-scrub is
+    // excluded: it attaches to any element and works figure-free by design.
+    if (!this.graphic && this.root.querySelector('[data-camera], [data-show]')) {
+      warnOnce(
+        'scrolly: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing'
+      )
+    }
   }
 
   private _detail(i: number): StepDetail {

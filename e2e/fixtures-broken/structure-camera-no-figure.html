@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>structure-camera-no-figure</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,28 +196,32 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §15.6 structure diagnostic — a camera rig with no frame to compose
+   * against. The <svg data-camera> is a direct child of the root instead of
+   * living inside a `:scope > figure`, so resolveRig() never finds a stage,
+   * the camera never measures, and measureShots' own "no data-focus anywhere"
+   * warn cannot fire either: exactly one warn, about the missing figure.
+   *
+   * The steps ARE direct children, so the nesting/emptiness check stays quiet.
+   */
+  .scrolly > .step { min-height: 100vh; display: grid; align-content: center; }
+  #stage { width: 200px; height: 200px; display: block; }
 </style>
 </head>
 <body>
 
 <article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
-  <figure>
-    <div class="panel"></div>
-  </figure>
+  <svg id="stage" data-camera viewBox="0 0 200 200">
+    <rect x="20" y="20" width="60" height="60" fill="#3377ee" data-focus="20 20 60 60"></rect>
+  </svg>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <section class="step" id="a" data-focus="#stage rect"><p>step a — the camera has nowhere to point.</p></section>
+  <section class="step" id="b"><p>step b — still no stage.</p></section>
+  <section class="step" id="c"><p>step c — the page reads fine regardless.</p></section>
 
 </article>
 <!-- scrolly:js -->
@@ -262,8 +267,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-window.addEventListener('wheel', function () {})
+  Scrolly.init()
 </script>
 </body>
 </html>

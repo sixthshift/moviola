@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>structure-nested-steps</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,15 +196,20 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §15.6 structure diagnostic — the layout-wrapper mistake. The three .step
+   * elements are real, but they sit inside an intermediate <div>, so the
+   * runtime's `:scope > .step` finds none of them and the story is inert.
+   *
+   * The figure is present and plain (no data-camera/data-show), so the
+   * figure-less-motion diagnostic cannot fire: exactly one warn, naming the
+   * nested count and "direct children".
+   */
+  .steps > .step { min-height: 100vh; display: grid; align-content: center; }
+  .panel { width: 200px; height: 200px; background: #3377ee; }
 </style>
 </head>
 <body>
@@ -213,10 +219,11 @@
     <div class="panel"></div>
   </figure>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
+  <div class="steps">
+    <section class="step" id="a"><p>step a — wrapped, so the runtime never sees it.</p></section>
+    <section class="step" id="b"><p>step b — wrapped too.</p></section>
+    <section class="step" id="c"><p>step c — and so is this one.</p></section>
+  </div>
 
 </article>
 <!-- scrolly:js -->
@@ -262,8 +269,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-window.addEventListener('wheel', function () {})
+  Scrolly.init()
 </script>
 </body>
 </html>

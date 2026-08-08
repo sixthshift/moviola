@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>structure-scrub-no-figure</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,29 +196,41 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §15.6 silence control — [data-scrub] is deliberately NOT part of the
+   * figure-less diagnostic: scrub attaches to any element and scrubs against
+   * --story-progress without a graphic frame, so this story is correct as
+   * written and must stay silent. The scrub is valueless (whole-story
+   * progress) rather than keyed to a chapter, so no chapter lookup can warn.
+   */
+  .scrolly > .step { min-height: 100vh; display: grid; align-content: center; padding: 2rem; }
+
+  #meter {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 6px;
+    background: #3377ee;
+    animation-name: grow;
+  }
+
+  @keyframes grow {
+    from { width: 0; }
+    to { width: 100vw; }
+  }
 </style>
 </head>
 <body>
 
-<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
-  <figure>
-    <div class="panel"></div>
-  </figure>
+<article class="scrolly" id="story" data-offset="0.5">
+  <div id="meter" data-scrub></div>
 
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
-
+  <section class="step" id="a"><p>step a — the meter scrubs on story progress.</p></section>
+  <section class="step" id="b"><p>step b — no figure anywhere in this story.</p></section>
+  <section class="step" id="c"><p>step c — and the console stays quiet.</p></section>
 </article>
 <!-- scrolly:js -->
 <script>/*!
@@ -262,8 +275,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-window.addEventListener('wheel', function () {})
+  Scrolly.init()
 </script>
 </body>
 </html>

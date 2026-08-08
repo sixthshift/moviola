@@ -95,6 +95,16 @@ export declare class Story {
      * order needs to be told that rather than shown an empty graphic.
      */
     private _resolveShows;
+    /**
+     * §15.6 structure diagnostics — the three markup shapes that leave a story
+     * silently inert. Reported once per story from the init path, and never
+     * acted on: a step-less story is already a no-op in _update(), and a
+     * figure-less camera simply never resolves a rig, so the warn is the whole
+     * fix. Nesting and emptiness are one question with two answers — an author
+     * who wrapped their steps in a layout div needs to hear about the wrapper,
+     * not that the story is empty.
+     */
+    private _warnStructure;
     private _detail;
     on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;
     destroy(): void;

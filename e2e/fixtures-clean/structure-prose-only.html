@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<title>structure-prose-only</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -195,29 +196,24 @@
 </style>
 <!-- /scrolly:css -->
 <style>
-
   * { box-sizing: border-box; }
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
-  .panel, #cv { width: 200px; height: 200px; display: block; }
-  .scrolly[data-active-step="s1"] .panel { background: #e33333; }
-  .scrolly[data-active-step="s2"] .panel { background: #33aa77; }
-  .scrolly[data-active-step="s3"] .panel { background: #3377ee; }
-  .scrolly[data-active-step="s4"] .panel { background: #eeee33; }
 
+  /*
+   * §15.6 silence control — a graphic-free story is a legitimate shape: three
+   * direct-child steps, no figure, no data-camera/data-show/data-scrub. The
+   * step classes still drive CSS, and the console stays completely quiet.
+   */
+  .scrolly > .step { min-height: 100vh; display: grid; align-content: center; padding: 2rem; }
+  .scrolly > .step.is-active { background: #eef4ff; }
 </style>
 </head>
 <body>
 
-<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
-  <figure>
-    <div class="panel"></div>
-  </figure>
-
-  <section class="step" id="s1"><p>one</p></section>
-  <section class="step" id="s2"><p>two</p></section>
-  <section class="step" id="s3"><p>three</p></section>
-  <section class="step" id="s4"><p>four</p></section>
-
+<article class="scrolly" id="story" data-offset="0.5">
+  <section class="step" id="a"><p>step a — prose only, and that is fine.</p></section>
+  <section class="step" id="b"><p>step b — is-active still lands on each step.</p></section>
+  <section class="step" id="c"><p>step c — nothing here needs a graphic frame.</p></section>
 </article>
 <!-- scrolly:js -->
 <script>/*!
@@ -262,8 +258,7 @@
 </script>
 <!-- /scrolly:js -->
 <script>
-const [story] = Scrolly.init()
-window.addEventListener('wheel', function () {})
+  Scrolly.init()
 </script>
 </body>
 </html>
