@@ -87,7 +87,7 @@ var lerp = (a, b, t) => a + (b - a) * t;
 * `worldWidth` is the stage's own width in the same untransformed camera
 * units as `cx`/`cy`, pinning view width to `w ≡ worldWidth / k`. That pin is
 * load-bearing: pan distance and view width have to be commensurable, and
-* feeding the closed form a normalized `1/k` against a world-unit pan is what
+* feeding the analytic form a normalized `1/k` against a world-unit pan is what
 * produces absurd mid-flight zoom-outs. It carries a default only because
 * every three-argument caller reaches a `worldWidth`-independent branch —
 * identical shots, zero pan distance, or an exact endpoint — where no value
@@ -118,11 +118,18 @@ function interpolateShot(from, to, t, worldWidth = 1) {
 }
 /**
 * Default framing (§15.3): no `data-zoom` means "fit" — frame the target's
-* box at ~70% of the stage, whichever axis is tighter. Degenerate
+* box at `fraction` of the stage, whichever axis is tighter. Degenerate
 * zero-size boxes guard with max(1, …) rather than dividing by zero.
+*
+* The fraction is a parameter because §16's named framings differ from the
+* unnamed default in nothing else, and it keeps its historical 0.7 as the
+* default so those two spellings of "fit" stay one number in one place: a
+* caller that resolves a name (src/camera.ts) hands the fraction over, and a
+* caller with nothing to say — including one whose name resolved to nothing —
+* omits it and gets the default framing rather than `NaN`.
 */
-function fitZoom(targetW, targetH, stageW, stageH) {
-	return .7 * Math.min(stageW / Math.max(1, targetW), stageH / Math.max(1, targetH));
+function fitZoom(targetW, targetH, stageW, stageH, fraction = .7) {
+	return fraction * Math.min(stageW / Math.max(1, targetW), stageH / Math.max(1, targetH));
 }
 /**
 * Compose a shot into the CSS transform applied to `[data-camera]`: move the
@@ -343,6 +350,24 @@ function focusBox(rig, el) {
 	return targetRect(rig, target);
 }
 /**
+* §16 `data-shot` names a FRAMING — the fraction of the stage the subject's
+* box is fitted to — and never a timing. Mapping the name to that number is
+* the whole of this module's part in it; geometry.ts's `fitZoom` owns the
+* arithmetic the number feeds, so this stays a readable table of authoring
+* policy with no fit math around it. `medium` is the unnamed default's own
+* fraction, which is what makes `data-shot="medium"` and no attribute the
+* same framing.
+*
+* A missing or unrecognized name reads as `undefined` and lands on `fitZoom`'s
+* own default — the fallback framing has one home, in the module that owns
+* fit, rather than a second copy of 0.7 here.
+*/
+var SHOT_FRACTIONS = {
+	wide: .5,
+	medium: .7,
+	close: .9
+};
+/**
 * Resolve every focused step's shot. A `data-focus` that resolves to no box —
 * a selector matching nothing, or malformed coordinates — warns once and is
 * treated as absent (hold, never a throw or a jump to identity — §15.3).
@@ -351,14 +376,14 @@ function measureShots(rig, root, steps) {
 	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("scrolly: data-camera has no data-focus anywhere — the camera never moves");
 	const stage = stageRect(rig);
 	const resolve = (el) => {
-		var _el$dataset$zoom;
+		var _el$dataset$zoom, _el$dataset$shot;
 		const box = focusBox(rig, el);
 		if (!box || !stage) return null;
 		const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
 		return {
 			cx: box.x + box.w / 2,
 			cy: box.y + box.h / 2,
-			k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h)
+			k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h, SHOT_FRACTIONS[(_el$dataset$shot = el.dataset.shot) !== null && _el$dataset$shot !== void 0 ? _el$dataset$shot : ""])
 		};
 	};
 	const establishing = resolve(root);

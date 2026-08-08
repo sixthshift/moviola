@@ -87,14 +87,14 @@ const lerp = (a: number, b: number, t: number): number => a + (b - a) * t
  * `worldWidth` is the stage's own width in the same untransformed camera
  * units as `cx`/`cy`, pinning view width to `w ≡ worldWidth / k`. That pin is
  * load-bearing: pan distance and view width have to be commensurable, and
- * feeding the closed form a normalized `1/k` against a world-unit pan is what
+ * feeding the analytic form a normalized `1/k` against a world-unit pan is what
  * produces absurd mid-flight zoom-outs. It carries a default only because
  * every three-argument caller reaches a `worldWidth`-independent branch —
  * identical shots, zero pan distance, or an exact endpoint — where no value
  * of it can reach the result.
  */
 export function interpolateShot(from: Shot, to: Shot, t: number, worldWidth = 1): Shot {
-  // The endpoints short-circuit instead of round-tripping the closed form, so
+  // The endpoints short-circuit instead of round-tripping the analytic form, so
   // a chapter boundary lands on its authored shot bit-exactly (and a
   // reduced-motion cut, which rounds `t`, only ever takes these two paths).
   if (t <= 0) return { ...from }
@@ -142,12 +142,24 @@ export function interpolateShot(from: Shot, to: Shot, t: number, worldWidth = 1)
 
 /**
  * Default framing (§15.3): no `data-zoom` means "fit" — frame the target's
- * box at ~70% of the stage, whichever axis is tighter. Degenerate
+ * box at `fraction` of the stage, whichever axis is tighter. Degenerate
  * zero-size boxes guard with max(1, …) rather than dividing by zero.
+ *
+ * The fraction is a parameter because §16's named framings differ from the
+ * unnamed default in nothing else, and it keeps its historical 0.7 as the
+ * default so those two spellings of "fit" stay one number in one place: a
+ * caller that resolves a name (src/camera.ts) hands the fraction over, and a
+ * caller with nothing to say — including one whose name resolved to nothing —
+ * omits it and gets the default framing rather than `NaN`.
  */
-export function fitZoom(targetW: number, targetH: number, stageW: number, stageH: number): number {
-  const FRAME = 0.7
-  return FRAME * Math.min(stageW / Math.max(1, targetW), stageH / Math.max(1, targetH))
+export function fitZoom(
+  targetW: number,
+  targetH: number,
+  stageW: number,
+  stageH: number,
+  fraction = 0.7
+): number {
+  return fraction * Math.min(stageW / Math.max(1, targetW), stageH / Math.max(1, targetH))
 }
 
 /**

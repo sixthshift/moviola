@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>morph-regroup</title>
+<title>shot-framings</title>
 <!-- scrolly:css -->
 <style>/*!
  * scrolly.css — structural layer only.
@@ -200,45 +200,63 @@
   body { margin: 0; font: 16px/1.4 sans-serif; background: #fff; color: #111; }
 
   /*
-   * §15.4 data-morph fixture: four named squares re-sort into a different
-   * left-to-right order every step. Each keeps a stable view-transition-name
-   * across the whole story, so the runtime's atomic data-active-step write
-   * (§5.2) — wrapped in a View Transition because the root carries
-   * data-morph — makes the browser fly each square to its new slot instead
-   * of a plain cut. The order itself is plain CSS driven off
-   * [data-active-step]; scrolly never touches layout math.
+   * §16 `data-shot` named framings, the clean case: ONE subject — the rect
+   * #subject — focused by both chapters, framed two ways:
+   *
+   *   wide   data-focus="#subject" data-shot="wide"    fraction 0.50
+   *   close  data-focus="#subject" data-shot="close"   fraction 0.90
+   *
+   * Same subject and same stage on both sides, so the only thing that can
+   * differ between the two settled transforms is the fit fraction, and their
+   * scale ratio must be 0.90 / 0.50 = 1.8 whatever this page's own geometry
+   * happens to be. Nothing here is a diagnostic trigger — both chapters carry
+   * a resolving `data-focus`, neither carries `data-zoom`, both names are in
+   * the table, and there is no `data-show`/`data-scrub` — so the page must
+   * print zero `scrolly:` warnings.
+   *
+   * Chapters are two viewports tall on purpose. `wide`'s chapter is a real
+   * flight (to `close`), so a sample taken a hair past its own start has
+   * already moved off the wide framing; a long chapter makes that hair a
+   * smaller fraction of the span, keeping the measured ratio inside the
+   * tolerance e2e/shot-framings.spec.ts asserts.
+   *
+   * The leading spacer exists so the first chapter's own start is reachable at
+   * a positive scroll offset — the trigger line sits at 0.5 * innerHeight.
    */
-  .rack { display: flex; gap: 12px; }
-  .dot { width: 60px; height: 60px; border-radius: 8px; }
-  .dot-a { background: #e33333; view-transition-name: dot-a; order: var(--order-a, 1); }
-  .dot-b { background: #33aa77; view-transition-name: dot-b; order: var(--order-b, 2); }
-  .dot-c { background: #3377ee; view-transition-name: dot-c; order: var(--order-c, 3); }
-  .dot-d { background: #eeaa33; view-transition-name: dot-d; order: var(--order-d, 4); }
-
-  .scrolly[data-active-step="s1"] .rack { --order-a: 1; --order-b: 2; --order-c: 3; --order-d: 4; }
-  .scrolly[data-active-step="s2"] .rack { --order-a: 4; --order-b: 3; --order-c: 2; --order-d: 1; }
-  .scrolly[data-active-step="s3"] .rack { --order-a: 2; --order-b: 4; --order-c: 1; --order-d: 3; }
-  .scrolly[data-active-step="s4"] .rack { --order-a: 3; --order-b: 1; --order-c: 4; --order-d: 2; }
+  .lead, .tail { height: 100vh; }
+  .scrolly > .step { min-height: 200vh; }
+  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .step p { max-width: 30rem; }
 </style>
 </head>
 <body>
 
-<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right" data-morph>
+<div class="lead"><p>Scroll down: one subject, two named framings.</p></div>
+
+<article class="scrolly" id="story" data-offset="0.5" data-layout="side-right">
   <figure>
-    <div class="rack">
-      <div class="dot dot-a"></div>
-      <div class="dot dot-b"></div>
-      <div class="dot dot-c"></div>
-      <div class="dot dot-d"></div>
-    </div>
+    <svg viewBox="0 0 1000 800">
+      <g data-camera>
+        <rect x="0" y="0" width="1000" height="800" fill="#eef2f7"/>
+        <rect x="380" y="300" width="240" height="200" fill="#3377ee"/>
+        <rect id="subject" x="440" y="350" width="120" height="100" fill="#12305e"/>
+      </g>
+    </svg>
   </figure>
 
-  <section class="step" id="s1"><p>one — a, b, c, d</p></section>
-  <section class="step" id="s2"><p>two — d, c, b, a</p></section>
-  <section class="step" id="s3"><p>three — c, a, d, b</p></section>
-  <section class="step" id="s4"><p>four — b, d, a, c</p></section>
+  <section class="step" id="wide" data-focus="#subject" data-shot="wide">
+    <p><code>data-shot="wide"</code> fits the subject to half the stage —
+    the same subject, given room around it.</p>
+  </section>
+
+  <section class="step" id="close" data-focus="#subject" data-shot="close">
+    <p><code>data-shot="close"</code> fits that same subject to 90% of the
+    stage. Nothing changed but the framing.</p>
+  </section>
 
 </article>
+
+<div class="tail"></div>
 <!-- scrolly:js -->
 <script>/*!
 * scrolly — the scrollytelling framework

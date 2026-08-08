@@ -168,6 +168,21 @@ function focusBox(rig: CameraRig, el: HTMLElement): Rect | null {
   return targetRect(rig, target)
 }
 
+/**
+ * §16 `data-shot` names a FRAMING — the fraction of the stage the subject's
+ * box is fitted to — and never a timing. Mapping the name to that number is
+ * the whole of this module's part in it; geometry.ts's `fitZoom` owns the
+ * arithmetic the number feeds, so this stays a readable table of authoring
+ * policy with no fit math around it. `medium` is the unnamed default's own
+ * fraction, which is what makes `data-shot="medium"` and no attribute the
+ * same framing.
+ *
+ * A missing or unrecognized name reads as `undefined` and lands on `fitZoom`'s
+ * own default — the fallback framing has one home, in the module that owns
+ * fit, rather than a second copy of 0.7 here.
+ */
+const SHOT_FRACTIONS: Record<string, number> = { wide: 0.5, medium: 0.7, close: 0.9 }
+
 export interface Shots {
   /** The root's own shot (§15.3: the establishing shot while no step is active). */
   establishing: Shot | null
@@ -223,7 +238,9 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
     return {
       cx: box.x + box.w / 2,
       cy: box.y + box.h / 2,
-      k: Number.isFinite(zoom) ? zoom : fitZoom(box.w, box.h, stage.w, stage.h),
+      k: Number.isFinite(zoom)
+        ? zoom
+        : fitZoom(box.w, box.h, stage.w, stage.h, SHOT_FRACTIONS[el.dataset.shot ?? '']),
     }
   }
 
