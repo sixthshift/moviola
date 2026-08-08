@@ -66,8 +66,9 @@ author CSS reacts (transitions, crossfades, anything)
 1. **`is-ready` is stamped last** in the Story constructor, and all hiding
    CSS is scoped under `.scrolly.is-ready`. A page whose JS never runs stays
    fully readable (SPEC §8.1).
-2. **Zero runtime dependencies** and the SPEC §3 size budgets: ≤ 4 KB gzip
-   JS, ≤ 2 KB gzip CSS — enforced by `test/unit/size.test.ts` on `dist/`.
+2. **Zero runtime dependencies** and the SPEC §3 size budgets: ≤ 4608 B gzip
+   JS (4.5 KiB — raised from 4096 B by change order CO-1 in v0.5, SPEC §16.5),
+   ≤ 2048 B gzip CSS — enforced by `test/unit/size.test.ts` on `dist/`.
 3. **Structural CSS only** in `scrolly.css`: geometry and visibility
    mechanics, never typography/color (themes own those; enforced by
    `test/unit/themes.test.ts`).

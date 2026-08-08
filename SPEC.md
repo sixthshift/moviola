@@ -58,7 +58,7 @@ Primary adopters, in order:
 | Requirement | Bar | Status |
 |---|---|---|
 | Zero runtime dependencies | hard | ✅ |
-| Size budget | ≤ 4 KB gzipped JS, ≤ 2 KB gzipped CSS | ✅ (measured on `dist/` by `test/unit/size.test.ts`) |
+| Size budget | ≤ 4608 B gzipped JS (4.5 KiB — raised from 4096 B by change order CO-1, §16.5), ≤ 2048 B gzipped CSS | ✅ (measured on `dist/` by `test/unit/size.test.ts`) |
 | Works from `file://` | classic script, no modules required | ✅ |
 | Browser baseline | last-2-years evergreen (IntersectionObserver, CSS grid, custom properties, `:scope`, `100dvh` with `vh` fallback) | ✅ |
 | No-JS degradation | page remains fully readable (§8.1) | ✅ |
@@ -701,7 +701,8 @@ is scroll-down-scroll-up-squint; these close it:
 this section records the four surfaces that landed on top of it, as shipped,
 and is the normative text wherever the two disagree. Two of §15.3's deferred
 questions are resolved here — raw-coordinate focus (§16.2) and easing/apex
-control (§16.4) — and each is marked at its §15.3 entry.
+control (§16.4) — and each is marked at its §15.3 entry. §16.5 is not a surface:
+it records the one conformance bar that moved to let them land.
 
 ### 16.1 Ranges in `data-show` ✅
 
@@ -880,3 +881,19 @@ framings a run actually produced; its forward-versus-reverse pass is the
 continuity report that pins a flight as a pure function of scroll position; and
 `scrolly-director.js` is the authoring viewfinder for the chapter progress a
 flight is scrubbed by.
+
+### 16.5 Size budget — change order CO-1 ✅
+
+**The JS bar is 4608 B gzipped (4.5 KiB), superseding 4096 B, from v0.5 on. The
+CSS bar did not move and stays at 2048 B.** §15.7 recorded at proposal time that
+§3's bars would hold with no amendment, and named moving the camera to a separate
+opt-in file as the contingency if implementation ever threatened them. Three of
+§16's surfaces landed against the exhausted JS bar at once, and the owner's
+change order CO-1 answered with the raise instead of the split — the bytes over
+the cut, optimisation later.
+
+The bar moved by human amendment; nothing moved under the check.
+`test/unit/size.test.ts` asserts 4608 B literally and names CO-1 in its header,
+§3's conformance table states the same figure, and so does the corresponding
+invariant in `ARCHITECTURE.md` — the normative bar, the contributor-facing one
+and the enforcement all read alike.
