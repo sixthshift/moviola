@@ -162,7 +162,7 @@ const recordConsole = (page: Page): Console => {
   return record
 }
 
-const scrollyWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 /*
  * The clean fixture: `#anchor` is authored at x=120 y=340 w=400 h=300, and
@@ -237,7 +237,7 @@ test.describe('§16 a coordinate box is the subject, exactly as a selector’s b
     for (const i of [0, 1, 2, 3]) await settleAt(page, geo, i, 0)
     await settleAt(page, geo, 0, 0)
 
-    expect(scrollyWarnings(record)).toEqual([])
+    expect(moviolaWarnings(record)).toEqual([])
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
   })
@@ -306,8 +306,8 @@ test.describe('§16 a malformed coordinate box mid-story holds the arrived shot'
     }
   })
 
-  test('exactly three distinct scrolly: warns, one per malformed value', async () => {
-    const warns = scrollyWarnings(record)
+  test('exactly three distinct moviola: warns, one per malformed value', async () => {
+    const warns = moviolaWarnings(record)
     expect(warns).toHaveLength(3)
     expect(new Set(warns).size).toBe(3)
     for (const { value } of MALFORMED) {
@@ -333,7 +333,7 @@ test.describe('§16 a malformed coordinate box mid-story holds the arrived shot'
     geo = await chapterGeometry(page)
     await settleAt(page, geo, 3, 0.5)
 
-    expect(scrollyWarnings(record)).toHaveLength(3)
+    expect(moviolaWarnings(record)).toHaveLength(3)
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
   })
@@ -369,8 +369,8 @@ test.describe('§16 a malformed FIRST shot writes no --camera-transform at all',
       expect(await cameraTransformProp(page), `intro at t=${t}`).toBe('')
     }
 
-    expect(scrollyWarnings(record)).toHaveLength(1)
-    expect(scrollyWarnings(record)[0]).toContain('data-focus="120 340 400"')
+    expect(moviolaWarnings(record)).toHaveLength(1)
+    expect(moviolaWarnings(record)[0]).toContain('data-focus="120 340 400"')
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
 
@@ -396,7 +396,7 @@ test.describe('§16 a malformed FIRST shot writes no --camera-transform at all',
 
     // The malformed establishing value is still reported exactly once, and the
     // story runs on regardless.
-    expect(scrollyWarnings(record)).toHaveLength(1)
+    expect(moviolaWarnings(record)).toHaveLength(1)
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
 

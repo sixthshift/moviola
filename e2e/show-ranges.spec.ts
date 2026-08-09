@@ -63,7 +63,7 @@ const recordConsole = (page: Page): Console => {
   return record
 }
 
-const scrollyWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 /*
  * The clean fixture: steps a, b, c and one element per well-formed span form.
@@ -157,7 +157,7 @@ test.describe('§16.1 data-show ranges drive is-shown', () => {
     await settleOn(page, 'c')
     await settleOn(page, 'a')
 
-    expect(scrollyWarnings(record)).toEqual([])
+    expect(moviolaWarnings(record)).toEqual([])
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
   })
@@ -188,20 +188,20 @@ test.describe('§16.1 data-show range diagnostics', () => {
     await page.close()
   })
 
-  test('one "matches no step" warn and one "reversed" warn, each prefixed scrolly:', async () => {
+  test('one "matches no step" warn and one "reversed" warn, each prefixed moviola:', async () => {
     const dangling = record.warnings.filter(w => w.includes('matches no step'))
     const reversed = record.warnings.filter(w => w.includes('reversed'))
 
     expect(dangling).toHaveLength(1)
     expect(reversed).toHaveLength(1)
-    expect(dangling[0]).toMatch(/^scrolly:/)
-    expect(reversed[0]).toMatch(/^scrolly:/)
+    expect(dangling[0]).toMatch(/^moviola:/)
+    expect(reversed[0]).toMatch(/^moviola:/)
     expect(dangling[0]).toContain('data-show="nope.."')
     expect(reversed[0]).toContain('data-show="c..a"')
     // exactly two diagnostics in total: the range token is never ALSO
     // reported as a dangling bare id, and the reversed span is reported once
     // rather than per endpoint
-    expect(scrollyWarnings(record)).toHaveLength(2)
+    expect(moviolaWarnings(record)).toHaveLength(2)
   })
 
   test('never console.error and never a page error', () => {
@@ -236,6 +236,6 @@ test.describe('§16.1 data-show range diagnostics', () => {
 
     expect(record.warnings.filter(w => w.includes('matches no step'))).toHaveLength(1)
     expect(record.warnings.filter(w => w.includes('reversed'))).toHaveLength(1)
-    expect(scrollyWarnings(record)).toHaveLength(2)
+    expect(moviolaWarnings(record)).toHaveLength(2)
   })
 })

@@ -1,41 +1,41 @@
 /**
- * Scrolly.init()          → Story[] for every .scrolly on the page
- * Scrolly.init(target)    → Story for a selector or element
+ * Moviola.init()          → Story[] for every .moviola on the page
+ * Moviola.init(target)    → Story for a selector or element
  * Idempotent per element: re-init returns the existing Story.
  */
 declare function init(): Story[];
 
-declare function init(target: string | HTMLElement, opts?: ScrollyOptions): Story;
+declare function init(target: string | HTMLElement, opts?: MoviolaOptions): Story;
+
+declare const Moviola: {
+    version: string;
+    init: typeof init;
+};
+export default Moviola;
+
+export declare interface MoviolaEventMap {
+    stepenter: StepEventDetail;
+    stepexit: StepEventDetail;
+    progress: ProgressDetail;
+}
+
+export declare type MoviolaEventName = keyof MoviolaEventMap;
+
+/**
+ * Public type surface. Everything moviola emits or accepts is described here;
+ * the runtime contract itself (classes, attributes, CSS variables) lives in
+ * SPEC §5–§7.
+ */
+export declare interface MoviolaOptions {
+    /** Trigger line as a fraction of viewport height. `data-offset` on the element wins. */
+    offset?: number;
+}
 
 export declare interface ProgressDetail extends StepDetail {
     /** 0→1 through the active step's chapter (its top to the next step's top). */
     progress: number;
     /** 0→1 through the whole story. */
     storyProgress: number;
-}
-
-declare const Scrolly: {
-    version: string;
-    init: typeof init;
-};
-export default Scrolly;
-
-export declare interface ScrollyEventMap {
-    stepenter: StepEventDetail;
-    stepexit: StepEventDetail;
-    progress: ProgressDetail;
-}
-
-export declare type ScrollyEventName = keyof ScrollyEventMap;
-
-/**
- * Public type surface. Everything scrolly emits or accepts is described here;
- * the runtime contract itself (classes, attributes, CSS variables) lives in
- * SPEC §5–§7.
- */
-export declare interface ScrollyOptions {
-    /** Trigger line as a fraction of viewport height. `data-offset` on the element wins. */
-    offset?: number;
 }
 
 export declare interface StepDetail {
@@ -78,7 +78,7 @@ export declare class Story {
     /** §15's writes — the core hands it the moments, never the state (see motion.ts). */
     private _motion;
     private _destroyed;
-    constructor(root: HTMLElement, opts?: ScrollyOptions);
+    constructor(root: HTMLElement, opts?: MoviolaOptions);
     private _engage;
     private _tick;
     private _update;
@@ -106,7 +106,7 @@ export declare class Story {
      */
     private _warnStructure;
     private _detail;
-    on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void;
+    on<K extends MoviolaEventName>(name: K, fn: (detail: MoviolaEventMap[K]) => void): () => void;
     destroy(): void;
 }
 

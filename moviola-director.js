@@ -1,10 +1,10 @@
 /**
- * scrolly-director.js — the authoring overlay (SPEC §15.6.2).
+ * moviola-director.js — the authoring overlay (SPEC §15.6.2).
  *
  * Opt-in dev tool, not part of the shipped library (like themes/*.css):
- * one <script src="scrolly-director.js"> draws the trigger line, a chapter
- * rail (click-to-jump), and a live state chip over whichever `.scrolly`
- * story is nearest the viewport. Zero diffs to scrolly's core files;
+ * one <script src="moviola-director.js"> draws the trigger line, a chapter
+ * rail (click-to-jump), and a live state chip over whichever `.moviola`
+ * story is nearest the viewport. Zero diffs to moviola's core files;
  * self-contained and file://-safe. Toggle with the 'd' key, guarded
  * against typing contexts the same way src/keyboard.ts guards its own
  * stepping.
@@ -22,7 +22,7 @@
   let lastStory = null
   let rafId = null
 
-  const stories = () => [...document.querySelectorAll('.scrolly')]
+  const stories = () => [...document.querySelectorAll('.moviola')]
 
   const storyOffset = story => {
     const raw = story.dataset.offset
@@ -62,29 +62,29 @@
 
   const build = () => {
     const el = document.createElement('div')
-    el.setAttribute('data-scrolly-director', '')
+    el.setAttribute('data-moviola-director', '')
 
     const line = document.createElement('div')
-    line.setAttribute('data-scrolly-director-line', '')
+    line.setAttribute('data-moviola-director-line', '')
     line.style.cssText =
       'position:fixed;left:0;right:0;height:0;border-top:2px dashed #f0a;' +
       'z-index:2147483000;pointer-events:none;'
 
     const label = document.createElement('span')
-    label.setAttribute('data-scrolly-director-label', '')
+    label.setAttribute('data-moviola-director-label', '')
     label.style.cssText =
       'position:absolute;left:4px;top:2px;font:11px/1.4 monospace;' +
       'color:#f0a;background:#000;padding:0 4px;'
     line.appendChild(label)
 
     const rail = document.createElement('div')
-    rail.setAttribute('data-scrolly-director-rail', '')
+    rail.setAttribute('data-moviola-director-rail', '')
     rail.style.cssText =
       'position:fixed;top:8px;right:8px;z-index:2147483000;font:11px/1.4 monospace;' +
       'background:#000;color:#fff;padding:4px;max-height:40vh;overflow:auto;'
 
     const chip = document.createElement('div')
-    chip.setAttribute('data-scrolly-director-chip', '')
+    chip.setAttribute('data-moviola-director-chip', '')
     chip.style.cssText =
       'position:fixed;bottom:8px;right:8px;z-index:2147483000;font:11px/1.4 monospace;' +
       'background:#000;color:#0f0;padding:4px;white-space:pre;'
@@ -115,7 +115,7 @@
 
   const renderChip = (view, story) => {
     if (!story) {
-      view.chip.textContent = 'scrolly-director: no story'
+      view.chip.textContent = 'moviola-director: no story'
       return
     }
     const lines = []

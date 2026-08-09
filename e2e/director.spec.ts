@@ -1,5 +1,5 @@
 /*
- * SPEC §15.6.2 — scrolly-director.js, the authoring overlay: trigger line,
+ * SPEC §15.6.2 — moviola-director.js, the authoring overlay: trigger line,
  * chapter rail, state chip. Loaded via addScriptTag so the shared fixtures
  * stay byte-untouched; the director is a dev-only add-on, never baked into
  * a page (see ticket M207 — zero diffs to core files).
@@ -8,11 +8,11 @@ import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 
 const FIXTURE = `file://${import.meta.dirname}/fixture.html`
-const DIRECTOR = path.join(import.meta.dirname, '../scrolly-director.js')
+const DIRECTOR = path.join(import.meta.dirname, '../moviola-director.js')
 
-const line = (page: Page) => page.locator('[data-scrolly-director-line]')
-const rail = (page: Page) => page.locator('[data-scrolly-director-rail]')
-const chip = (page: Page) => page.locator('[data-scrolly-director-chip]')
+const line = (page: Page) => page.locator('[data-moviola-director-line]')
+const rail = (page: Page) => page.locator('[data-moviola-director-rail]')
+const chip = (page: Page) => page.locator('[data-moviola-director-chip]')
 
 const lineTop = (page: Page) => line(page).evaluate(el => el.getBoundingClientRect().top)
 
@@ -99,7 +99,7 @@ test("'d' toggles the overlay off, leaving zero injected nodes", async ({ page }
 
   await page.keyboard.press('d')
 
-  await expect(page.locator('[data-scrolly-director]')).toHaveCount(0)
+  await expect(page.locator('[data-moviola-director]')).toHaveCount(0)
   await expect(line(page)).toHaveCount(0)
   await expect(rail(page)).toHaveCount(0)
   await expect(chip(page)).toHaveCount(0)
@@ -131,5 +131,5 @@ test('loading on a page with zero stories is a no-op — no nodes, no console er
   await page.addScriptTag({ path: DIRECTOR })
   await page.keyboard.press('d')
   expect(errors).toEqual([])
-  expect(await page.locator('[data-scrolly-director]').count()).toBe(0)
+  expect(await page.locator('[data-moviola-director]').count()).toBe(0)
 })

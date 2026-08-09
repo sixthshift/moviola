@@ -1,17 +1,17 @@
-# scrolly
+# moviola
 
-[![CI](https://github.com/sixthshift/scrolly-js/actions/workflows/ci.yml/badge.svg)](https://github.com/sixthshift/scrolly-js/actions/workflows/ci.yml)
+[![CI](https://github.com/sixthshift/moviola/actions/workflows/ci.yml/badge.svg)](https://github.com/sixthshift/moviola/actions/workflows/ci.yml)
 
-**The scrollytelling framework.** You write the DOM, scrolly runs the state
+**The scrollytelling framework.** You write the DOM, moviola runs the state
 machine, effects live in your CSS.
 
 Drop in one script tag and one stylesheet, mark up your story as sections,
-and scrolly turns scroll position into classes, attributes, and CSS custom
+and moviola turns scroll position into classes, attributes, and CSS custom
 properties. It never sets a visual property itself — your CSS does every
 effect. 4.5 KB gzipped, zero dependencies, no build step, runs from
 `file://`.
 
-> **Status: pre-1.0 (v0.0.1), not yet published to npm.** The contract below
+> **Status: pre-1.0 (v0.1.0), not yet published to npm.** The contract below
 > is stable and covered by tests. Until the first publish, install by
 > vendoring the two files (see [Install](#install)).
 
@@ -23,7 +23,7 @@ One story, four scroll positions — the camera pulling back as the reader
 scrolls. Nothing in it is scripted: the camera moves because each step
 carries a `data-focus`, the cards and colours change because CSS reacts to
 `[data-active-step]`, and the only JavaScript on the page is
-`Scrolly.init()`.
+`Moviola.init()`.
 
 Every example is a single self-contained HTML file you can open straight from
 disk — no server, no build:
@@ -38,53 +38,52 @@ Full list in the [Gallery](#gallery).
 
 ## Install
 
-**Vendor the files.** Copy `dist/scrolly.min.js` and `dist/scrolly.css` next
+**Vendor the files.** Copy `dist/moviola.min.js` and `dist/moviola.css` next
 to your page and reference them directly. This is the intended path: the
 library is small enough to commit, and pages stay openable from `file://`.
 
 ```html
-<link rel="stylesheet" href="scrolly.css">
-<script src="scrolly.min.js"></script>
+<link rel="stylesheet" href="moviola.css">
+<script src="moviola.min.js"></script>
 ```
 
 **Or clone and build.** `dist/` is committed, so this is only needed if you
 change `src/`:
 
 ```sh
-git clone https://github.com/sixthshift/scrolly-js.git
-cd scrolly-js && bun install && bun run build
+git clone https://github.com/sixthshift/moviola.git
+cd moviola && bun install && bun run build
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**npm** — the package is `scrolly-js`, not published yet (tracked in
+**npm** — the package is `moviola`, not published yet (tracked in
 [Roadmap](#roadmap)). The manifest is ready, so this works unchanged on the
 day it ships:
 
 ```js
-import Scrolly from 'scrolly-js'   // dist/scrolly.esm.js, types included
+import Moviola from 'moviola'   // dist/moviola.esm.js, types included
 ```
 
-The package name carries a `-js` suffix because plain `scrolly` on npm
-belongs to an unrelated 2014 scrollbar plugin. Nothing you write changes:
-the class is `.scrolly`, the global is `Scrolly`, the events are
-`scrolly:stepenter` and friends — same split reveal.js uses.
+A moviola is the editing bench where a cutter holds the film and scrubs it
+back and forth by hand. That is what this library makes of a web page: no
+clock, no playback, just a reel and a reader's thumb on it.
 
 What's in `dist/`:
 
 | File | |
 |---|---|
-| `scrolly.min.js` | classic `<script>`, sets `window.Scrolly` — the canonical artifact |
-| `scrolly.css` | structural stylesheet (pinning, layouts, mobile collapse) |
-| `scrolly.esm.js` | ES module, no global side effect |
-| `scrolly.d.ts` | TypeScript types |
+| `moviola.min.js` | classic `<script>`, sets `window.Moviola` — the canonical artifact |
+| `moviola.css` | structural stylesheet (pinning, layouts, mobile collapse) |
+| `moviola.esm.js` | ES module, no global side effect |
+| `moviola.d.ts` | TypeScript types |
 
 ## Quick start
 
 ```html
-<link rel="stylesheet" href="scrolly.css">
+<link rel="stylesheet" href="moviola.css">
 
-<article class="scrolly" data-layout="side-right">
+<article class="moviola" data-layout="side-right">
   <figure>
     <img src="map.png" data-show="intro">
     <img src="map-2008.png" data-show="crash recovery">
@@ -94,22 +93,22 @@ What's in `dist/`:
   <section class="step" id="recovery">…prose…</section>
 </article>
 
-<script src="scrolly.min.js"></script>
-<script>Scrolly.init()</script>
+<script src="moviola.min.js"></script>
+<script>Moviola.init()</script>
 ```
 
 The `<figure>` pins to the viewport; the steps scroll past it. As each step
-crosses the trigger line, scrolly updates the state below and your CSS does
+crosses the trigger line, moviola updates the state below and your CSS does
 the rest.
 
 ## The contract
 
-Everything scrolly does is expressed as state your CSS can react to:
+Everything moviola does is expressed as state your CSS can react to:
 
 | Surface | What it carries |
 |---|---|
 | `.step` classes | `is-past` / `is-active` / `is-future` |
-| `.scrolly[data-active-step="id"]` | lets any selector on the page react to any step |
+| `.moviola[data-active-step="id"]` | lets any selector on the page react to any step |
 | `[data-show="id …"]` graphic children | `is-shown` while a listed step is active (crossfade by default) |
 | `--step-progress` / `--story-progress` | 0 → 1 through the active chapter / the whole story |
 | `--progress-<id>` | per-chapter progress that never resets — the scrub timeline |
@@ -121,13 +120,13 @@ That is the whole mental model. The full reference — every attribute, the
 imperative graphics — is in **[docs/api.md](docs/api.md)**.
 
 Referential mistakes never break the page: a token matching nothing fails
-soft and logs one `scrolly:`-prefixed warning.
+soft and logs one `moviola:`-prefixed warning.
 
 ## Recipes
 
 The full set lives in [docs/recipes.md](docs/recipes.md). These two are whole
 stories rather than fragments — paste either into a page that already loads
-`scrolly.css` and `scrolly.min.js` and it runs — and each ships as a live
+`moviola.css` and `moviola.min.js` and it runs — and each ships as a live
 fixture (`e2e/fixtures-clean/recipe-*.html`) the e2e suite scrolls end to
 end, so a recipe that stops working cannot stay published.
 
@@ -137,7 +136,7 @@ A raster gives a selector nothing to point at, which is what raw-coordinate
 `data-focus` is for: each shot names a box of the image itself.
 
 ```html
-<article class="scrolly" data-layout="side-right">
+<article class="moviola" data-layout="side-right">
   <figure>
     <svg viewBox="0 0 320 200" width="100%" height="100%">
       <g data-camera>
@@ -165,7 +164,7 @@ space, so `0 0 320 200` is the whole `viewBox`.
   .needle[data-scrub] { animation-name: sweep }
   @keyframes sweep { from { transform: translateX(0) } to { transform: translateX(294px) } }
 </style>
-<article class="scrolly" data-layout="side-right">
+<article class="moviola" data-layout="side-right">
   <figure>
     <div class="dial"><div class="needle" data-scrub="rising"></div></div>
   </figure>
@@ -175,7 +174,7 @@ space, so `0 0 320 200` is the whole `viewBox`.
 </article>
 ```
 
-You own `animation-name` and nothing else: scrolly stamps `--t` from
+You own `animation-name` and nothing else: moviola stamps `--t` from
 `var(--progress-rising)` and normalizes the duration, so the `@keyframes` are
 the whole timeline. Drop the value — plain `data-scrub` — to scrub against
 `--story-progress` instead of one chapter.
@@ -183,8 +182,8 @@ the whole timeline. Drop the value — plain `data-scrub` — to scrub against
 ## Gallery
 
 Each example is a self-contained `file://`-openable page. "Zero author JS"
-means the only script on the page is `Scrolly.init()` — everything moving is
-CSS reacting to scrolly's state, verified by
+means the only script on the page is `Moviola.init()` — everything moving is
+CSS reacting to moviola's state, verified by
 `scripts/validate-story.mjs --tier1`, which drives every chapter forward, in
 reverse, and out of order and checks that a chapter frames the same graphic
 whichever way the reader reached it.
@@ -201,18 +200,18 @@ whichever way the reader reached it.
 
 ## Themes
 
-Typography and color presets, opt-in, loaded after `scrolly.css`:
+Typography and color presets, opt-in, loaded after `moviola.css`:
 
 ```html
-<link rel="stylesheet" href="scrolly.css">
+<link rel="stylesheet" href="moviola.css">
 <link rel="stylesheet" href="themes/editorial.css">
 ```
 
 - [`themes/editorial.css`](themes/editorial.css) — warm serif (Georgia/Iowan Old Style).
 - [`themes/system.css`](themes/system.css) — tight neutral `system-ui`.
 
-Themes only set typography, color, and the `--scrolly-card-bg` /
-`--scrolly-card-fg` knobs — never geometry. Write your own if neither fits;
+Themes only set typography, color, and the `--moviola-card-bg` /
+`--moviola-card-fg` knobs — never geometry. Write your own if neither fits;
 the contract is the classes and custom properties, not these files.
 
 ## Browser support
@@ -227,7 +226,7 @@ rather than break:
   into a cut at the chapter midpoint, and skips morphs entirely.
 
 A page whose JavaScript never runs stays fully readable — all hiding CSS is
-scoped under `.scrolly.is-ready`, which the runtime stamps last.
+scoped under `.moviola.is-ready`, which the runtime stamps last.
 
 Keyboard: `←`/`→` step between chapters while a story is on screen (smooth,
 reduced-motion aware). Vertical scroll keys are never touched.
@@ -236,7 +235,7 @@ reduced-motion aware). Vertical scroll keys are never touched.
 
 Neither costs the library a byte:
 
-- [`scrolly-director.js`](scrolly-director.js) — the viewfinder. Load it like
+- [`moviola-director.js`](moviola-director.js) — the viewfinder. Load it like
   a theme with one extra script tag while you author, press `d`, and it draws
   the trigger line, a clickable chapter rail, and a live chip of the state
   your CSS is reacting to.
@@ -250,7 +249,7 @@ Neither costs the library a byte:
 | | |
 |---|---|
 | [docs/api.md](docs/api.md) | full reference — every attribute, variable, and event |
-| [docs/recipes.md](docs/recipes.md) | "does scrolly do X?" — progress bars, maps, video scrub, D3 builds |
+| [docs/recipes.md](docs/recipes.md) | "does moviola do X?" — progress bars, maps, video scrub, D3 builds |
 | [docs/philosophy.md](docs/philosophy.md) | why it's shaped this way, and what it deliberately isn't |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | how the repo implements it |
 | [SPEC.md](SPEC.md) | the normative contract |
@@ -258,7 +257,7 @@ Neither costs the library a byte:
 
 ## Roadmap
 
-- first npm publish as `scrolly-js`, plus jsdelivr/unpkg
+- first npm publish as `moviola`, plus jsdelivr/unpkg
 - `full` layout variant
 
 ## License

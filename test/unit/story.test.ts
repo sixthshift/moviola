@@ -7,7 +7,7 @@
  * contract.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import Scrolly from '../../src/index'
+import Moviola from '../../src/index'
 import type { StepEventDetail } from '../../src/types'
 
 /* ---- test doubles -------------------------------------------------------- */
@@ -77,7 +77,7 @@ let graphicBC: HTMLElement
 
 const buildStory = () => {
   document.body.innerHTML = `
-    <article class="scrolly">
+    <article class="moviola">
       <figure>
         <div id="ga" data-show="a"></div>
         <div id="gbc" data-show="b c"></div>
@@ -86,7 +86,7 @@ const buildStory = () => {
       <section class="step" id="b"></section>
       <section class="step"></section>
     </article>`
-  root = document.querySelector('.scrolly') as HTMLElement
+  root = document.querySelector('.moviola') as HTMLElement
   steps = [...document.querySelectorAll<HTMLElement>('.step')]
   graphicA = document.getElementById('ga') as HTMLElement
   graphicBC = document.getElementById('gbc') as HTMLElement
@@ -116,7 +116,7 @@ afterEach(() => {
 describe('init', () => {
   test('stamps every step is-future and the root is-ready', () => {
     scrollToStep(-1)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(steps.every(s => s.classList.contains('is-future'))).toBe(true)
     expect(root.classList.contains('is-ready')).toBe(true)
     expect(root.hasAttribute('data-active-step')).toBe(false)
@@ -124,30 +124,30 @@ describe('init', () => {
 
   test('is idempotent per element', () => {
     scrollToStep(-1)
-    const a = Scrolly.init(root)
-    const b = Scrolly.init(root)
+    const a = Moviola.init(root)
+    const b = Moviola.init(root)
     expect(a).toBe(b)
   })
 
-  test('init() with no target returns a Story per .scrolly', () => {
+  test('init() with no target returns a Story per .moviola', () => {
     scrollToStep(-1)
-    const stories = Scrolly.init()
+    const stories = Moviola.init()
     expect(stories).toHaveLength(1)
-    expect(stories[0]).toBe(Scrolly.init(root))
+    expect(stories[0]).toBe(Moviola.init(root))
   })
 
   test('throws on a selector that matches nothing', () => {
-    expect(() => Scrolly.init('#nope')).toThrow(/no element matches/)
+    expect(() => Moviola.init('#nope')).toThrow(/no element matches/)
   })
 
   test('data-offset on the element beats opts.offset beats the 0.5 default', () => {
     scrollToStep(-1)
-    expect(Scrolly.init(root, { offset: 0.3 }).offset).toBe(0.3)
+    expect(Moviola.init(root, { offset: 0.3 }).offset).toBe(0.3)
 
     buildStory()
     root.dataset.offset = '0.25'
     scrollToStep(-1)
-    expect(Scrolly.init(root, { offset: 0.3 }).offset).toBe(0.25)
+    expect(Moviola.init(root, { offset: 0.3 }).offset).toBe(0.25)
   })
 })
 
@@ -156,7 +156,7 @@ describe('init', () => {
 describe('state machine (§5)', () => {
   test('activating the middle step: past/active/future + data-active-step + data-show', () => {
     scrollToStep(1)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(steps[0]?.className).toBe('step is-past')
     expect(steps[1]?.className).toBe('step is-active')
     expect(steps[2]?.className).toBe('step is-future')
@@ -167,7 +167,7 @@ describe('state machine (§5)', () => {
 
   test('a step without an id is addressed by its index', () => {
     scrollToStep(2)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(root.getAttribute('data-active-step')).toBe('2')
     // data-show matches ids, and this step's generated id is "2" — not "c"
     expect(graphicBC.classList.contains('is-shown')).toBe(false)
@@ -175,7 +175,7 @@ describe('state machine (§5)', () => {
 
   test('progress custom properties are written on init', () => {
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(root.style.getPropertyValue('--step-progress')).toBe('0.0000')
     expect(root.style.getPropertyValue('--story-progress')).toBe('0.0000')
   })
@@ -186,7 +186,7 @@ describe('state machine (§5)', () => {
 describe('events (§7.1)', () => {
   test('stepexit fires before stepenter, with direction', async () => {
     scrollToStep(0)
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     const order: string[] = []
     story.on('stepenter', d => order.push(`enter:${d.id}:${d.direction}`))
     story.on('stepexit', d => order.push(`exit:${d.id}:${d.direction}`))
@@ -202,18 +202,18 @@ describe('events (§7.1)', () => {
   test('events bubble as plain CustomEvents', () => {
     scrollToStep(-1)
     const seen: StepEventDetail[] = []
-    document.addEventListener('scrolly:stepenter', e =>
+    document.addEventListener('moviola:stepenter', e =>
       seen.push((e as CustomEvent<StepEventDetail>).detail)
     )
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(seen).toHaveLength(1)
     expect(seen[0]?.id).toBe('a')
   })
 
   test('on() returns a working unsubscribe', async () => {
     scrollToStep(0)
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     const fn = vi.fn()
     const off = story.on('stepenter', fn)
     off()
@@ -232,13 +232,13 @@ describe('events (§7.1)', () => {
 describe('--progress-<id> (§15.2)', () => {
   const buildProgressStory = () => {
     document.body.innerHTML = `
-      <article class="scrolly">
+      <article class="moviola">
         <figure></figure>
         <section class="step" id="intro"></section>
         <section class="step" id="not valid"></section>
         <section class="step"></section>
       </article>`
-    root = document.querySelector('.scrolly') as HTMLElement
+    root = document.querySelector('.moviola') as HTMLElement
     steps = [...document.querySelectorAll<HTMLElement>('.step')]
   }
 
@@ -246,7 +246,7 @@ describe('--progress-<id> (§15.2)', () => {
 
   test('a valid id gets a variable; an invalid ident and an id-less step get none', () => {
     scrollToStep(0) // intro's top exactly on the trigger
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(root.style.getPropertyValue('--progress-intro')).toBe('0.0000')
     expect(root.style.getPropertyValue('--progress-not valid')).toBe('')
     expect(root.style.cssText).not.toContain('--progress-2')
@@ -254,7 +254,7 @@ describe('--progress-<id> (§15.2)', () => {
 
   test('tracks --step-progress while its chapter is active', async () => {
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     IOStub.instances[0]?.fire(true)
 
     setRect(steps[0] as HTMLElement, 300, 1200) // nudge into the chapter
@@ -268,7 +268,7 @@ describe('--progress-<id> (§15.2)', () => {
 
   test('holds 1 once its chapter has fully passed', async () => {
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     IOStub.instances[0]?.fire(true)
 
     scrollToStep(1) // the second step is active now; intro is behind it
@@ -280,7 +280,7 @@ describe('--progress-<id> (§15.2)', () => {
 
   test('destroy removes every --progress-* variable', () => {
     scrollToStep(0)
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     story.destroy()
     expect(root.style.getPropertyValue('--progress-intro')).toBe('')
   })
@@ -296,7 +296,7 @@ describe('data-scrub (§15.2)', () => {
   // (and correctly) deduped, which would break their unrelated assertions.
   const buildScrubStory = () => {
     document.body.innerHTML = `
-      <article class="scrolly">
+      <article class="moviola">
         <figure>
           <div id="whole" data-scrub></div>
           <div id="chapter" data-scrub="intro"></div>
@@ -304,7 +304,7 @@ describe('data-scrub (§15.2)', () => {
         <section class="step" id="intro"></section>
         <section class="step"></section>
       </article>`
-    root = document.querySelector('.scrolly') as HTMLElement
+    root = document.querySelector('.moviola') as HTMLElement
     steps = [...document.querySelectorAll<HTMLElement>('.step')]
   }
 
@@ -312,19 +312,19 @@ describe('data-scrub (§15.2)', () => {
 
   test('a valueless data-scrub stamps --t from --story-progress', () => {
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     const el = document.getElementById('whole') as HTMLElement
     expect(el.style.getPropertyValue('--t')).toBe('var(--story-progress)')
   })
 
   test('an id-bound data-scrub stamps --t from the matching --progress-<id>', () => {
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     const el = document.getElementById('chapter') as HTMLElement
     expect(el.style.getPropertyValue('--t')).toBe('var(--progress-intro)')
   })
 
-  test('a dangling id gets no stamp and warns once, prefixed "scrolly:"', () => {
+  test('a dangling id gets no stamp and warns once, prefixed "moviola:"', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const dangling = document.createElement('div')
     dangling.id = 'dangling'
@@ -332,16 +332,16 @@ describe('data-scrub (§15.2)', () => {
     ;(root.querySelector('figure') as HTMLElement).appendChild(dangling)
 
     scrollToStep(0)
-    Scrolly.init(root)
+    Moviola.init(root)
     expect(dangling.style.getPropertyValue('--t')).toBe('')
     expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0]?.[0]).toMatch(/^scrolly:/)
+    expect(warn.mock.calls[0]?.[0]).toMatch(/^moviola:/)
     warn.mockRestore()
   })
 
   test('destroy removes every --t stamp', () => {
     scrollToStep(0)
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     story.destroy()
     expect((document.getElementById('whole') as HTMLElement).style.getPropertyValue('--t')).toBe('')
     expect((document.getElementById('chapter') as HTMLElement).style.getPropertyValue('--t')).toBe(
@@ -358,7 +358,7 @@ describe('data-morph (§15.4)', () => {
   test('stepexit/stepenter fire synchronously; the morph write lands independently, later', async () => {
     scrollToStep(0)
     root.dataset.morph = ''
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     const { pending } = stubViewTransition()
 
     const order: string[] = []
@@ -384,7 +384,7 @@ describe('data-morph (§15.4)', () => {
   test('a step-change mid-morph skips the running transition; latest wins, no queue', async () => {
     scrollToStep(0)
     root.dataset.morph = ''
-    Scrolly.init(root)
+    Moviola.init(root)
     const { pending, transitions } = stubViewTransition()
     IOStub.instances[0]?.fire(true)
 
@@ -408,7 +408,7 @@ describe('data-morph (§15.4)', () => {
   test('progress variables keep updating every frame while a morph write is still pending', async () => {
     scrollToStep(0)
     root.dataset.morph = ''
-    Scrolly.init(root)
+    Moviola.init(root)
     stubViewTransition()
     IOStub.instances[0]?.fire(true)
 
@@ -430,7 +430,7 @@ describe('data-morph (§15.4)', () => {
   test('no View Transitions API: data-morph is inert, the batch lands exactly as before', async () => {
     scrollToStep(0)
     root.dataset.morph = ''
-    Scrolly.init(root) // no stub installed — happy-dom has no startViewTransition
+    Moviola.init(root) // no stub installed — happy-dom has no startViewTransition
     IOStub.instances[0]?.fire(true)
 
     scrollToStep(1)
@@ -445,7 +445,7 @@ describe('data-morph (§15.4)', () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }))
     scrollToStep(0)
     root.dataset.morph = ''
-    Scrolly.init(root)
+    Moviola.init(root)
     IOStub.instances[0]?.fire(true)
 
     scrollToStep(1)
@@ -459,7 +459,7 @@ describe('data-morph (§15.4)', () => {
   test('RED-TEAM: destroy() during an in-flight morph leaves a clean DOM', async () => {
     scrollToStep(0)
     root.dataset.morph = ''
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     const { pending, transitions } = stubViewTransition()
     IOStub.instances[0]?.fire(true)
 
@@ -504,24 +504,24 @@ describe('diagnostics (§15.6)', () => {
   describe('data-show dangling token', () => {
     const buildShowStory = (tokens: string) => {
       document.body.innerHTML = `
-        <article class="scrolly">
+        <article class="moviola">
           <figure><div id="g" data-show="${tokens}"></div></figure>
           <section class="step" id="a"></section>
           <section class="step" id="b"></section>
         </article>`
-      root = document.querySelector('.scrolly') as HTMLElement
+      root = document.querySelector('.moviola') as HTMLElement
       steps = [...document.querySelectorAll<HTMLElement>('.step')]
     }
 
-    test('a token matching no step id warns once, prefixed "scrolly:"', () => {
+    test('a token matching no step id warns once, prefixed "moviola:"', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       buildShowStory('a m205-nope')
       scrollToStep(0)
-      Scrolly.init(root)
+      Moviola.init(root)
 
       const matches = warn.mock.calls.filter(c => String(c[0]).includes('m205-nope'))
       expect(matches).toHaveLength(1)
-      expect(matches[0]?.[0]).toMatch(/^scrolly:/)
+      expect(matches[0]?.[0]).toMatch(/^moviola:/)
       expect(matches[0]?.[0]).toContain('data-show="m205-nope"')
     })
 
@@ -531,15 +531,15 @@ describe('diagnostics (§15.6)', () => {
     test('a token matching an index-fallback id (no real id on that step) does not warn', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       document.body.innerHTML = `
-        <article class="scrolly">
+        <article class="moviola">
           <figure><div id="g" data-show="1"></div></figure>
           <section class="step" id="a"></section>
           <section class="step"></section>
         </article>`
-      root = document.querySelector('.scrolly') as HTMLElement
+      root = document.querySelector('.moviola') as HTMLElement
       steps = [...document.querySelectorAll<HTMLElement>('.step')]
       scrollToStep(1)
-      Scrolly.init(root)
+      Moviola.init(root)
 
       expect(warn).not.toHaveBeenCalled()
       expect((document.getElementById('g') as HTMLElement).classList.contains('is-shown')).toBe(
@@ -552,7 +552,7 @@ describe('diagnostics (§15.6)', () => {
 
       buildShowStory('a')
       scrollToStep(0)
-      Scrolly.init(root)
+      Moviola.init(root)
       const clean = {
         activeStep: root.getAttribute('data-active-step'),
         classes: steps.map(s => s.className),
@@ -563,7 +563,7 @@ describe('diagnostics (§15.6)', () => {
 
       buildShowStory('a m205-dangling-fail-soft')
       scrollToStep(0)
-      Scrolly.init(root)
+      Moviola.init(root)
       const withDangling = {
         activeStep: root.getAttribute('data-active-step'),
         classes: steps.map(s => s.className),
@@ -588,7 +588,7 @@ describe('diagnostics (§15.6)', () => {
       })
 
       document.body.innerHTML = `
-        <article class="scrolly">
+        <article class="moviola">
           <figure>
             <div id="whole" data-scrub></div>
             <div id="chapter" data-scrub="intro"></div>
@@ -596,14 +596,14 @@ describe('diagnostics (§15.6)', () => {
           <section class="step" id="intro"></section>
           <section class="step"></section>
         </article>`
-      root = document.querySelector('.scrolly') as HTMLElement
+      root = document.querySelector('.moviola') as HTMLElement
       steps = [...document.querySelectorAll<HTMLElement>('.step')]
       scrollToStep(0)
-      Scrolly.init(root)
+      Moviola.init(root)
       const withoutDangling = snapshot()
 
       document.body.innerHTML = `
-        <article class="scrolly">
+        <article class="moviola">
           <figure>
             <div id="whole" data-scrub></div>
             <div id="chapter" data-scrub="intro"></div>
@@ -612,10 +612,10 @@ describe('diagnostics (§15.6)', () => {
           <section class="step" id="intro"></section>
           <section class="step"></section>
         </article>`
-      root = document.querySelector('.scrolly') as HTMLElement
+      root = document.querySelector('.moviola') as HTMLElement
       steps = [...document.querySelectorAll<HTMLElement>('.step')]
       scrollToStep(0)
-      Scrolly.init(root)
+      Moviola.init(root)
       const withDangling = snapshot()
 
       expect(withDangling).toEqual(withoutDangling)
@@ -625,19 +625,19 @@ describe('diagnostics (§15.6)', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
       document.body.innerHTML = `
-        <article class="scrolly" id="s1">
+        <article class="moviola" id="s1">
           <figure><div data-scrub="m205-shared-nope"></div></figure>
           <section class="step" id="a"></section>
         </article>
-        <article class="scrolly" id="s2">
+        <article class="moviola" id="s2">
           <figure><div data-scrub="m205-shared-nope"></div></figure>
           <section class="step" id="a"></section>
         </article>`
       const r1 = document.getElementById('s1') as HTMLElement
       const r2 = document.getElementById('s2') as HTMLElement
 
-      Scrolly.init(r1)
-      Scrolly.init(r2)
+      Moviola.init(r1)
+      Moviola.init(r2)
 
       const matches = warn.mock.calls.filter(c => String(c[0]).includes('m205-shared-nope'))
       expect(matches).toHaveLength(1) // one instance's warn suppresses the other's identical message
@@ -647,20 +647,20 @@ describe('diagnostics (§15.6)', () => {
   describe('data-camera with zero data-focus anywhere (§15.6 d)', () => {
     const buildCameraStory = (rootFocus?: string, stepFocus?: string) => {
       document.body.innerHTML = `
-        <article class="scrolly"${rootFocus ? ` data-focus="${rootFocus}"` : ''}>
+        <article class="moviola"${rootFocus ? ` data-focus="${rootFocus}"` : ''}>
           <figure><svg><g data-camera></g></svg></figure>
           <section class="step" id="one"${stepFocus ? ` data-focus="${stepFocus}"` : ''}></section>
           <section class="step" id="two"></section>
         </article>`
-      root = document.querySelector('.scrolly') as HTMLElement
+      root = document.querySelector('.moviola') as HTMLElement
       steps = [...document.querySelectorAll<HTMLElement>('.step')]
     }
 
-    test('warns once, prefixed "scrolly:", and stays deduped across a resize re-measure', () => {
+    test('warns once, prefixed "moviola:", and stays deduped across a resize re-measure', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       buildCameraStory()
       scrollToStep(-1)
-      Scrolly.init(root)
+      Moviola.init(root)
       IOStub.instances[0]?.fire(true) // engage: resize listener only attaches while engaged
 
       window.dispatchEvent(new Event('resize'))
@@ -670,14 +670,14 @@ describe('diagnostics (§15.6)', () => {
         String(c[0]).includes('data-camera has no data-focus')
       )
       expect(matches).toHaveLength(1)
-      expect(matches[0]?.[0]).toMatch(/^scrolly:/)
+      expect(matches[0]?.[0]).toMatch(/^moviola:/)
     })
 
     test('no warning when the root has data-focus', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       buildCameraStory('#one')
       scrollToStep(-1)
-      Scrolly.init(root)
+      Moviola.init(root)
 
       expect(
         warn.mock.calls.some(c => String(c[0]).includes('data-camera has no data-focus'))
@@ -688,7 +688,7 @@ describe('diagnostics (§15.6)', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
       buildCameraStory(undefined, '#one')
       scrollToStep(-1)
-      Scrolly.init(root)
+      Moviola.init(root)
 
       expect(
         warn.mock.calls.some(c => String(c[0]).includes('data-camera has no data-focus'))
@@ -702,7 +702,7 @@ describe('diagnostics (§15.6)', () => {
 describe('destroy (§7.2/§7.3)', () => {
   test('reverses every DOM mutation', () => {
     scrollToStep(1)
-    const story = Scrolly.init(root)
+    const story = Moviola.init(root)
     story.destroy()
 
     expect(root.classList.contains('is-ready')).toBe(false)
@@ -715,9 +715,9 @@ describe('destroy (§7.2/§7.3)', () => {
 
   test('re-init after destroy creates a fresh Story', () => {
     scrollToStep(0)
-    const a = Scrolly.init(root)
+    const a = Moviola.init(root)
     a.destroy()
-    const b = Scrolly.init(root)
+    const b = Moviola.init(root)
     expect(b).not.toBe(a)
     expect(root.classList.contains('is-ready')).toBe(true)
   })

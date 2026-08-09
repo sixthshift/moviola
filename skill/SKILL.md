@@ -1,18 +1,18 @@
 ---
-name: scrolly
+name: moviola
 description: >-
   Build scrollytelling pages — scroll-driven stories where a pinned graphic
   changes as prose steps scroll past (NYT/Pudding-style explainers, data
   stories, product narratives, annotated walkthroughs). Use whenever the user
   asks for scrollytelling, a scroll-driven story/explainer, a sticky-graphic
   narrative, or "slides but you scroll". Produces a single self-contained
-  HTML file using the scrolly library (zero dependencies, works offline from
+  HTML file using the moviola library (zero dependencies, works offline from
   file://).
 ---
 
-# Building scrollytelling pages with scrolly
+# Building scrollytelling pages with moviola
 
-scrolly is a state machine over scroll: you write plain HTML (a pinned
+moviola is a state machine over scroll: you write plain HTML (a pinned
 `<figure>` + prose steps), and the library stamps state onto the DOM as the
 reader scrolls. **All effects are CSS reacting to that state** — you rarely
 write JavaScript beyond one init line.
@@ -20,8 +20,8 @@ write JavaScript beyond one init line.
 ## Output format
 
 Produce ONE self-contained HTML file:
-1. Inline the entire contents of `assets/scrolly.css` in a `<style>` tag.
-2. Inline the entire contents of `assets/scrolly.js` in a `<script>` tag
+1. Inline the entire contents of `assets/moviola.css` in a `<style>` tag.
+2. Inline the entire contents of `assets/moviola.js` in a `<script>` tag
    (before `</body>`).
 3. Never reference external URLs — images should be data URIs, inline SVG,
    or CSS-drawn. The file must open from `file://` with no network.
@@ -29,7 +29,7 @@ Produce ONE self-contained HTML file:
 ## Document model (this exact shape)
 
 ```html
-<article class="scrolly" data-layout="side-right">
+<article class="moviola" data-layout="side-right">
   <figure>
     <!-- the pinned graphic: arbitrary HTML, stacked for crossfades -->
     <svg data-show="intro">…</svg>
@@ -40,13 +40,13 @@ Produce ONE self-contained HTML file:
   <section class="step" id="crash"><p>…prose…</p></section>
   <section class="step" id="recovery"><p>…prose…</p></section>
 </article>
-<script>Scrolly.init()</script>
+<script>Moviola.init()</script>
 ```
 
 Rules:
 - `figure` must be a direct child; steps must be direct children with class
   `step`. Content elsewhere on the page flows normally — stories embed in
-  articles, and a page can hold several `.scrolly` stories.
+  articles, and a page can hold several `.moviola` stories.
 - Every step gets an `id` — ids name states for `data-show` and
   `data-active-step`, and are deep-linkable anchors.
 - Keep each step's content in ONE block element (wrap in a `<div>` if more)
@@ -59,7 +59,7 @@ Rules:
 |---|---|---|
 | `is-past` / `is-active` / `is-future` | each step | text entrance/dim effects |
 | `is-shown` | graphic children with `data-show` | crossfades (default: 0.4s opacity) |
-| `data-active-step="id"` | the `.scrolly` root | restyle ANYTHING per step: `.scrolly[data-active-step="crash"] .dot { fill: red }` |
+| `data-active-step="id"` | the `.moviola` root | restyle ANYTHING per step: `.moviola[data-active-step="crash"] .dot { fill: red }` |
 | `--step-progress` (0→1 through active step) | root, inherits everywhere | scrubbed animation: `transform: scaleX(var(--step-progress))` |
 | `--story-progress` (0→1 whole story) | root | progress bars, parallax |
 
@@ -77,7 +77,7 @@ reach for these before writing any `stepenter` callback:
 | `data-morph` | the root | wraps step-change writes in a View Transition; name elements with `view-transition-name` to have them travel instead of cross-fade |
 
 A dangling `data-focus`/`data-scrub` reference never breaks the page — it
-holds state and logs a `scrolly:`-prefixed `console.warn` once.
+holds state and logs a `moviola:`-prefixed `console.warn` once.
 
 ### Camera rig
 
@@ -113,7 +113,7 @@ enough that the flight between them reads as a move.
 ### Morph regroup
 
 ```html
-<article class="scrolly" data-morph>
+<article class="moviola" data-morph>
 ```
 ```js
 dotEls.forEach((el, i) => { el.style.viewTransitionName = `dot-${i}` })
@@ -136,7 +136,7 @@ handled; do not write mobile CSS for the story structure.
 ## JS API (only for imperative graphics — D3, maps, video)
 
 ```js
-const story = Scrolly.init('#my-story')   // or Scrolly.init() for all
+const story = Moviola.init('#my-story')   // or Moviola.init() for all
 story.on('stepenter', ({ id, direction }) => { /* set graphic state */ })
 story.on('stepexit',  ({ id, direction }) => { … })
 story.on('progress',  ({ id, progress, storyProgress }) => { /* scrub */ })
@@ -147,7 +147,7 @@ a delta) — reverse scrolling then works for free.
 
 ## Patterns
 
-- **Chapter theming**: `.scrolly[data-active-step="x"] { --accent: … }` —
+- **Chapter theming**: `.moviola[data-active-step="x"] { --accent: … }` —
   shift page mood per chapter. High impact, zero JS.
 - **Stepped chart build**: one chart in the figure, series/annotations tagged
   `data-show="step2 step3"` (elements stay visible across listed steps) or
@@ -171,4 +171,4 @@ a delta) — reverse scrolling then works for free.
   must read as a complete story linearly (screen readers/print see it that
   way).
 - Dark or light theme both fine, but text over graphics needs contrast —
-  overlay steps get card backgrounds via `--scrolly-card-bg`/`-fg`.
+  overlay steps get card backgrounds via `--moviola-card-bg`/`-fg`.

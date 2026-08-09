@@ -83,7 +83,7 @@ const recordConsole = (page: Page): Console => {
   return record
 }
 
-const scrollyWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 test.describe('§16 an unparseable data-focus selector fails soft', () => {
   test.describe.configure({ mode: 'serial' })
@@ -109,14 +109,14 @@ test.describe('§16 an unparseable data-focus selector fails soft', () => {
 
   test('the story survives both traps: no page error, no console.error', () => {
     // The regression this pins: an unguarded querySelector throws out of
-    // measureShots -> Motion's constructor -> Scrolly.init, so the whole story
+    // measureShots -> Motion's constructor -> Moviola.init, so the whole story
     // dies at init and the page reports a single uncaught DOMException.
     expect(record.pageErrors).toEqual([])
     expect(record.errors).toEqual([])
   })
 
   test('each trap warns exactly once, as "matches no element", naming its own value', () => {
-    const warns = scrollyWarnings(record)
+    const warns = moviolaWarnings(record)
     expect(warns).toHaveLength(2)
     expect(new Set(warns).size).toBe(2)
     for (const value of TRAP_VALUES) {
@@ -125,7 +125,7 @@ test.describe('§16 an unparseable data-focus selector fails soft', () => {
       expect(own[0]).toContain('matches no element')
     }
     // Every one of them is a warning, never a louder channel.
-    expect(record.warnings.filter(w => w.startsWith('scrolly:'))).toHaveLength(2)
+    expect(record.warnings.filter(w => w.startsWith('moviola:'))).toHaveLength(2)
   })
 
   test('the state machine still advances through and past both trap chapters', async () => {
@@ -173,7 +173,7 @@ test.describe('§16 an unparseable data-focus selector fails soft', () => {
     await settleAt(page, geo, 2, 0.5)
     await settleAt(page, geo, 1, 0.5)
 
-    expect(scrollyWarnings(record)).toHaveLength(2)
+    expect(moviolaWarnings(record)).toHaveLength(2)
     expect(record.pageErrors).toEqual([])
     expect(record.errors).toEqual([])
   })

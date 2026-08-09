@@ -1,9 +1,9 @@
 /*
- * The byte-identity chain: dist/scrolly.min.js is the canonical build, and
+ * The byte-identity chain: dist/moviola.min.js is the canonical build, and
  * every embedded copy of the library — the marker blocks in examples/*.html
  * and the files in skill/assets/ — must match it exactly. The §14 validator
  * identifies "the lib" inside a page by byte-equality with
- * dist/scrolly.min.js, so any drift here silently breaks tier
+ * dist/moviola.min.js, so any drift here silently breaks tier
  * classification. `bun run build` re-syncs.
  */
 import { readdirSync, readFileSync } from 'node:fs'
@@ -13,8 +13,8 @@ import { describe, expect, test } from 'vitest'
 const root = path.join(import.meta.dirname, '../..')
 const read = (p: string) => readFileSync(path.join(root, p), 'utf8')
 
-const distCss = read('dist/scrolly.css')
-const distJs = read('dist/scrolly.min.js')
+const distCss = read('dist/moviola.css')
+const distJs = read('dist/moviola.min.js')
 
 const extract = (html: string, mark: string, tag: string): string => {
   const m = html.match(
@@ -40,19 +40,19 @@ describe('marker blocks embed the built library byte-identically', () => {
     for (const name of readdirSync(path.join(root, dir)).filter(f => f.endsWith('.html'))) {
       test(`${dir}/${name}`, () => {
         const html = read(`${dir}/${name}`)
-        expect(extract(html, 'scrolly:css', 'style')).toBe(distCss)
-        expect(extract(html, 'scrolly:js', 'script')).toBe(distJs)
+        expect(extract(html, 'moviola:css', 'style')).toBe(distCss)
+        expect(extract(html, 'moviola:js', 'script')).toBe(distJs)
       })
     }
   }
 })
 
 describe('skill assets mirror dist', () => {
-  test('skill/assets/scrolly.js ≡ dist/scrolly.min.js', () => {
-    expect(read('skill/assets/scrolly.js')).toBe(distJs)
+  test('skill/assets/moviola.js ≡ dist/moviola.min.js', () => {
+    expect(read('skill/assets/moviola.js')).toBe(distJs)
   })
 
-  test('skill/assets/scrolly.css ≡ dist/scrolly.css', () => {
-    expect(read('skill/assets/scrolly.css')).toBe(distCss)
+  test('skill/assets/moviola.css ≡ dist/moviola.css', () => {
+    expect(read('skill/assets/moviola.css')).toBe(distCss)
   })
 })

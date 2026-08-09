@@ -27,7 +27,7 @@ const FIXTURES = {
 } as const
 
 type Visit = {
-  /** `scrolly:`-prefixed console warnings, in the order they were printed. */
+  /** `moviola:`-prefixed console warnings, in the order they were printed. */
   warnings: string[]
   errors: string[]
   pageErrors: string[]
@@ -42,7 +42,7 @@ const visit = async (browser: Browser, rel: string): Promise<Visit> => {
   const errors: string[] = []
   const pageErrors: string[] = []
   page.on('console', msg => {
-    if (msg.type() === 'warning' && msg.text().startsWith('scrolly:')) warnings.push(msg.text())
+    if (msg.type() === 'warning' && msg.text().startsWith('moviola:')) warnings.push(msg.text())
     if (msg.type() === 'error') errors.push(msg.text())
   })
   page.on('pageerror', err => pageErrors.push(err.message))
@@ -57,7 +57,7 @@ const visit = async (browser: Browser, rel: string): Promise<Visit> => {
   }
 
   const isReady = await page.evaluate(
-    () => document.querySelector('.scrolly')?.classList.contains('is-ready') === true
+    () => document.querySelector('.moviola')?.classList.contains('is-ready') === true
   )
   await page.close()
   return { warnings, errors, pageErrors, isReady }
@@ -96,7 +96,7 @@ test.describe('§15.6 structure diagnostics', () => {
     // with no figure the rig never resolves, so the camera's own "no
     // data-focus anywhere" diagnostic cannot fire behind this one
     expect(warnings).toHaveLength(1)
-    expect(warnings[0]).toMatch(/^scrolly:/)
+    expect(warnings[0]).toMatch(/^moviola:/)
   })
 
   test('data-show without a figure: the same one warn about the missing frame', () => {

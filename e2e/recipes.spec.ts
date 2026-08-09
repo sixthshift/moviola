@@ -4,7 +4,7 @@
  * Each recipe's markup exists twice on purpose — once inside a README fence,
  * once verbatim inside `e2e/fixtures-clean/recipe-*.html` — and this spec is
  * what makes the second copy worth having: a published recipe that stops
- * initializing, or that starts tripping a `scrolly:` diagnostic, fails here
+ * initializing, or that starts tripping a `moviola:` diagnostic, fails here
  * instead of in a reader's browser.
  *
  * What is asserted is deliberately narrow: silence, and a story that really
@@ -46,7 +46,7 @@ const recordConsole = (page: Page): Recorded => {
   return record
 }
 
-const scrollyWarnings = (record: Recorded) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Recorded) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 /*
  * Top to bottom in quarter-viewport stops, two frames each (the runtime
@@ -59,7 +59,7 @@ const scrollyWarnings = (record: Recorded) => record.warnings.filter(w => w.star
 const scrollWholeStory = (page: Page): Promise<string[]> =>
   page.evaluate(async () => {
     const frame = () => new Promise(r => requestAnimationFrame(r))
-    const story = document.querySelector('.scrolly') as HTMLElement
+    const story = document.querySelector('.moviola') as HTMLElement
     const bottom = () => document.documentElement.scrollHeight - window.innerHeight
     const visited: string[] = []
     const stop = async (y: number) => {
@@ -79,7 +79,7 @@ type StoryState = { ready: boolean; active: string | null; storyProgress: number
 
 const storyState = (page: Page): Promise<StoryState> =>
   page.evaluate(() => {
-    const story = document.querySelector('.scrolly') as HTMLElement
+    const story = document.querySelector('.moviola') as HTMLElement
     return {
       ready: story.classList.contains('is-ready'),
       active: story.getAttribute('data-active-step'),
@@ -91,7 +91,7 @@ const storyState = (page: Page): Promise<StoryState> =>
 
 const settled = (page: Page) =>
   page.waitForFunction(() => {
-    const story = document.querySelector('.scrolly')
+    const story = document.querySelector('.moviola')
     return story?.classList.contains('is-ready') && story.getAttribute('data-active-step') !== null
   })
 
@@ -129,8 +129,8 @@ for (const recipe of RECIPES) {
       expect(bottom.storyProgress).toBeGreaterThan(top.storyProgress)
     })
 
-    test('nothing on the console: no scrolly: warn, no error, no page throw', () => {
-      expect(scrollyWarnings(record)).toEqual([])
+    test('nothing on the console: no moviola: warn, no error, no page throw', () => {
+      expect(moviolaWarnings(record)).toEqual([])
       expect(record.errors).toEqual([])
       expect(record.pageErrors).toEqual([])
     })
@@ -139,7 +139,7 @@ for (const recipe of RECIPES) {
 
 /*
  * The camera recipe's whole claim is that a raster can be the stage — that
- * `<svg><image>` under `[data-camera]` is scrolly's answer to "can the camera
+ * `<svg><image>` under `[data-camera]` is moviola's answer to "can the camera
  * work on a photo". A page that framed nothing would satisfy every assertion
  * above, so this one insists the transform resolved.
  */
@@ -157,7 +157,7 @@ test('the photo recipe puts a resolved camera transform on its stage', async ({ 
   expect(transform).not.toBe('none')
   expect(transform).not.toBe('')
 
-  expect(scrollyWarnings(record)).toEqual([])
+  expect(moviolaWarnings(record)).toEqual([])
   expect(record.pageErrors).toEqual([])
 
   await page.close()

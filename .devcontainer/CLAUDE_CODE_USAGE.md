@@ -40,7 +40,7 @@ clauded      # claude --dangerously-skip-permissions (alias)
 ## Volumes and persistence
 
 - `claude-config` → `/root/.claude` — auth/settings, survives rebuilds
-- `scrolly-node-modules` → `/workspace/node_modules` — container-private so Linux and macOS native binaries don't collide
+- `moviola-node-modules` → `/workspace/node_modules` — container-private so Linux and macOS native binaries don't collide
 
 ## Departures from standard
 

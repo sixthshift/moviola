@@ -102,7 +102,7 @@ const recordConsole = (page: Page): Console => {
   return record
 }
 
-const scrollyWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 test.describe('§16 data-shot resolves to the pinned fit fractions in the browser', () => {
   test.describe.configure({ mode: 'serial' })
@@ -149,7 +149,7 @@ test.describe('§16 data-shot resolves to the pinned fit fractions in the browse
   })
 
   test('a story of well-formed shot names says nothing on the console', () => {
-    expect(scrollyWarnings(record)).toEqual([])
+    expect(moviolaWarnings(record)).toEqual([])
     expect(record.errors).toEqual([])
     expect(record.pageErrors).toEqual([])
   })

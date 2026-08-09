@@ -11,11 +11,11 @@ const dist = (f: string) => readFileSync(path.join(import.meta.dirname, '../../d
 const gzipped = (f: string) => gzipSync(dist(f)).length
 
 describe('SPEC §3 size budget', () => {
-  test('dist/scrolly.min.js ≤ 4608 B gzipped', () => {
-    expect(gzipped('scrolly.min.js')).toBeLessThanOrEqual(4608)
+  test('dist/moviola.min.js ≤ 4608 B gzipped', () => {
+    expect(gzipped('moviola.min.js')).toBeLessThanOrEqual(4608)
   })
 
-  test('dist/scrolly.css ≤ 2048 B gzipped', () => {
-    expect(gzipped('scrolly.css')).toBeLessThanOrEqual(2048)
+  test('dist/moviola.css ≤ 2048 B gzipped', () => {
+    expect(gzipped('moviola.css')).toBeLessThanOrEqual(2048)
   })
 })

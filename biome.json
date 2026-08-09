@@ -41,7 +41,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/scrolly.css"],
+      "includes": ["src/moviola.css"],
       "linter": {
         "rules": {
           "suspicious": {

@@ -66,7 +66,7 @@ function firstStory(report: Report): StoryReport {
 // nothing about the original path or basename survives the copy.
 function runValidatorOnRandomizedCopy(fixtureRelPath: string) {
   const src = path.join(import.meta.dirname, fixtureRelPath)
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-validator-'))
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moviola-validator-'))
   const dest = path.join(tmpDir, `${crypto.randomUUID()}.html`)
   fs.copyFileSync(src, dest)
   try {
@@ -149,7 +149,7 @@ test('fixtures-clean/wheel-in-comment: passes — "wheel" in a comment never tri
 
 test('--report: writes a self-contained storyboard with one <img> per step per direction and no external refs', () => {
   const src = path.join(import.meta.dirname, 'fixtures-clean/wheel-in-comment.html')
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-validator-'))
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moviola-validator-'))
   const dest = path.join(tmpDir, `${crypto.randomUUID()}.html`)
   const reportPath = path.join(tmpDir, 'report.html')
   fs.copyFileSync(src, dest)
@@ -187,7 +187,7 @@ test('--report: writes a self-contained storyboard with one <img> per step per d
 
 test('--report: stdout and exit code are byte-identical to a run without the flag', () => {
   const src = path.join(import.meta.dirname, 'fixtures-clean/wheel-in-comment.html')
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-validator-'))
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moviola-validator-'))
   const dest = path.join(tmpDir, `${crypto.randomUUID()}.html`)
   const reportPath = path.join(tmpDir, 'report.html')
   fs.copyFileSync(src, dest)

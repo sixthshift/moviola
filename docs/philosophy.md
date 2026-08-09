@@ -1,4 +1,4 @@
-# Why scrolly is shaped like this
+# Why moviola is shaped like this
 
 The design argument. Nothing here is needed to use the library — start with
 the [README](../README.md) for that.
@@ -6,18 +6,18 @@ the [README](../README.md) for that.
 ## reveal.js, for scroll
 
 reveal.js did this for slides: a document model, a tiny runtime, themes — and
-your eyes do the QA. scrolly is that same contract for scroll-driven stories.
+your eyes do the QA. moviola is that same contract for scroll-driven stories.
 No parser, no build step, no measuring API. One script tag, one stylesheet,
 and markup you could have written by hand.
 
-The consequence is that scrolly has almost no API surface to learn. What it
+The consequence is that moviola has almost no API surface to learn. What it
 has instead is a **contract**: a fixed set of classes, one attribute, and a
 handful of custom properties. Everything you can express with CSS, you can
-express in a scrolly story, and scrolly never has to know you did it.
+express in a moviola story, and moviola never has to know you did it.
 
 ## The reader holds the film
 
-scrolly has no clock. Nothing plays on its own: every state, and every frame
+moviola has no clock. Nothing plays on its own: every state, and every frame
 between two states, is a function of scroll position. That is why scrolling
 back up rewinds instead of replaying, why a deep link into the middle of a
 story renders the middle of the story, and why there is no such thing as
@@ -38,12 +38,12 @@ driving, no requestAnimationFrame tween loop of its own.
 Two things follow. The library stays small enough to inline (4.5 KB gzipped,
 zero dependencies), because it isn't carrying an effects engine. And your
 effects are debuggable in devtools as CSS, by anyone who knows CSS, without
-learning scrolly's opinion about easing.
+learning moviola's opinion about easing.
 
 The motion layer is the same bet taken one step further: `data-scrub` stamps
 one custom property and lets the browser's own `@keyframes` machinery do the
 interpolation. The camera composes a transform and hands it to you as a
-variable. In both cases scrolly computes *where you are*, never *what that
+variable. In both cases moviola computes *where you are*, never *what that
 should look like*.
 
 ## Compared to a callback library
@@ -51,7 +51,7 @@ should look like*.
 Tools like scrollama solve the hard part of scrollytelling — "tell me when
 step 3 is active" — and hand you a JavaScript callback. That is exactly right
 when your graphic is imperative: a D3 chart, a canvas scene, a map that needs
-`flyTo`. scrolly keeps that door open, and its `on('stepenter')` signature is
+`flyTo`. moviola keeps that door open, and its `on('stepenter')` signature is
 deliberately familiar.
 
 The bet is that most stories don't need it. A crossfading image sequence, a
@@ -63,7 +63,7 @@ subtly wrong in the reverse direction. Expressed as CSS reacting to
 `[data-active-step]`, reverse is free: there is no transition to undo,
 because there was no transition — just a different selector matching.
 
-## What scrolly deliberately is not
+## What moviola deliberately is not
 
 - **Not a parser or compiler.** There is no markdown, no AST, no build step.
   The document you author is the document that ships.

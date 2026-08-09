@@ -1,4 +1,4 @@
-# scrolly Development Container
+# moviola Development Container
 #
 # Scaffolded by the `devcontainer` skill — versions and conventions live there,
 # not here. Debian bookworm-slim + Bun, runs as root inside the container.

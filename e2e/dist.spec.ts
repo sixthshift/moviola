@@ -13,24 +13,24 @@ import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 
 const root = path.join(import.meta.dirname, '..')
-const ORIGIN = 'http://scrolly.test'
+const ORIGIN = 'http://moviola.test'
 
 const fixture = (scriptTag: string) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/dist/scrolly.css">
+<link rel="stylesheet" href="/dist/moviola.css">
 <style>
   body { margin: 0; }
   #spacer { height: 2000px; }
-  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  .moviola > .step { min-height: 0; height: 1000px; margin: 0; }
   #b { margin-bottom: 500px; }
 </style>
 </head>
 <body>
 <div id="spacer"></div>
 
-<article id="story" class="scrolly" data-layout="side-right">
+<article id="story" class="moviola" data-layout="side-right">
   <figure>
     <div data-show="a" id="ga">graphic A</div>
     <div data-show="b c" id="gbc">graphic BC</div>
@@ -48,11 +48,11 @@ ${scriptTag}
 `
 
 const builds = {
-  min: `<script src="/dist/scrolly.min.js"></script>
-    <script>window.__story = Scrolly.init('#story')</script>`,
+  min: `<script src="/dist/moviola.min.js"></script>
+    <script>window.__story = Moviola.init('#story')</script>`,
   esm: `<script type="module">
-    import Scrolly from '/dist/scrolly.esm.js'
-    window.__story = Scrolly.init('#story')
+    import Moviola from '/dist/moviola.esm.js'
+    window.__story = Moviola.init('#story')
   </script>`,
 }
 
@@ -101,14 +101,14 @@ for (const [name, scriptTag] of Object.entries(builds)) {
 }
 
 test('min.js mangles internal names, never the public contract', () => {
-  const min = readFileSync(path.join(root, 'dist/scrolly.min.js'), 'utf8')
+  const min = readFileSync(path.join(root, 'dist/moviola.min.js'), 'utf8')
   for (const name of ['_engaged', '_onScroll', '_ticking']) {
     expect(min).not.toContain(name)
   }
-  expect(min).toContain('Scrolly')
+  expect(min).toContain('Moviola')
 })
 
 test('esm build exposes a working default export outside a DOM', async () => {
-  const m = await import(path.join(root, 'dist/scrolly.esm.js'))
+  const m = await import(path.join(root, 'dist/moviola.esm.js'))
   expect(typeof m.default.init).toBe('function')
 })

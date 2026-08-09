@@ -25,7 +25,7 @@ Playwright's browser baked in.)
 | `bun run check` | All of the above **plus** a dist-freshness gate |
 
 `node scripts/validate-story.mjs <page.html> [--tier1]` runs the SPEC §14
-story validator against any scrolly page.
+story validator against any moviola page.
 
 ## The rules that matter here
 
@@ -34,7 +34,7 @@ story validator against any scrolly page.
    regenerated files together with your source change — `bun run check`
    fails on any drift.
 2. **Author glue in examples/fixtures stays outside the
-   `<!-- scrolly:js/css -->` markers.** Everything inside them is replaced
+   `<!-- moviola:js/css -->` markers.** Everything inside them is replaced
    by the build and treated as "the lib" by the validator.
 3. **Respect the invariants** listed in
    [ARCHITECTURE.md](ARCHITECTURE.md#invariants-do-not-break) — no-JS

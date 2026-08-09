@@ -5,14 +5,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
-import Scrolly from '../../src/index'
+import Moviola from '../../src/index'
 
 const root = path.join(import.meta.dirname, '../..')
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 
 describe('package manifest', () => {
-  test('Scrolly.version matches package.json', () => {
-    expect(Scrolly.version).toBe(pkg.version)
+  test('Moviola.version matches package.json', () => {
+    expect(Moviola.version).toBe(pkg.version)
   })
 
   test('every exports target exists on disk', () => {

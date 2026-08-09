@@ -1,10 +1,10 @@
 /**
- * Public type surface. Everything scrolly emits or accepts is described here;
+ * Public type surface. Everything moviola emits or accepts is described here;
  * the runtime contract itself (classes, attributes, CSS variables) lives in
  * SPEC §5–§7.
  */
 
-export interface ScrollyOptions {
+export interface MoviolaOptions {
   /** Trigger line as a fraction of viewport height. `data-offset` on the element wins. */
   offset?: number
 }
@@ -27,10 +27,10 @@ export interface ProgressDetail extends StepDetail {
   storyProgress: number
 }
 
-export interface ScrollyEventMap {
+export interface MoviolaEventMap {
   stepenter: StepEventDetail
   stepexit: StepEventDetail
   progress: ProgressDetail
 }
 
-export type ScrollyEventName = keyof ScrollyEventMap
+export type MoviolaEventName = keyof MoviolaEventMap

@@ -36,7 +36,7 @@ const mkStep = (root: HTMLElement, id: string, focus?: string, zoom?: string): H
 
 function buildBase() {
   document.body.innerHTML = `
-    <article id="story" class="scrolly">
+    <article id="story" class="moviola">
       <figure></figure>
     </article>
   `
@@ -152,7 +152,7 @@ describe('measureShots', () => {
     expect(shots.establishing).toBeNull()
 
     expect(console.warn).toHaveBeenCalledTimes(1)
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('scrolly:'))
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('moviola:'))
     expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('data-focus="#missing"'))
   })
 

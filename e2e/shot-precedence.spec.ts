@@ -122,7 +122,7 @@ const recordConsole = (page: Page): Console => {
   return record
 }
 
-const scrollyWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('scrolly:'))
+const moviolaWarnings = (record: Console) => record.warnings.filter(w => w.startsWith('moviola:'))
 
 /** Re-measures every shot (§5.3) — the path a warn-once channel must survive. */
 const resizeAndResettle = async (page: Page, i: number): Promise<Geometry> => {
@@ -177,9 +177,9 @@ test.describe('§16 an explicit data-zoom outranks a named framing, and the name
     // The explicit zoom is a magnification, not a fit: the resize that reframes
     // the sibling leaves the conflicted step exactly where it was authored.
     expect(Math.abs(scale - 2)).toBeLessThanOrEqual(TOLERANCE)
-    expect(scrollyWarnings(record)).toHaveLength(1)
-    expect(scrollyWarnings(record)[0]).toContain('data-shot="close"')
-    expect(scrollyWarnings(record)[0]).toContain('data-zoom="2"')
+    expect(moviolaWarnings(record)).toHaveLength(1)
+    expect(moviolaWarnings(record)[0]).toContain('data-shot="close"')
+    expect(moviolaWarnings(record)[0]).toContain('data-zoom="2"')
   })
 
   test('the page never errored and kept transitioning', () => {
@@ -251,7 +251,7 @@ test.describe('§16 an unrecognized data-shot name falls back to the fit default
 
     // One report per offending name, never one per bad name per re-measure:
     // `warnOnce` keys on the whole message and the message embeds the name.
-    const warnings = scrollyWarnings(record)
+    const warnings = moviolaWarnings(record)
     expect(warnings).toHaveLength(2)
     expect(warnings.filter(w => w.includes('data-shot="extreme"'))).toHaveLength(1)
     expect(warnings.filter(w => w.includes('data-shot="constructor"'))).toHaveLength(1)

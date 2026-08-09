@@ -1,14 +1,14 @@
 /*!
- * scrolly/themes/system.css — opt-in typography, tight neutral system-ui.
+ * moviola/themes/system.css — opt-in typography, tight neutral system-ui.
  *
  * Typography/color only (SPEC §2.4): no geometry, no positioning, no
- * at-rules. Load after scrolly.css. Card knobs feed the structural layer's
- * --scrolly-card-bg / --scrolly-card-fg (SPEC §6.1).
+ * at-rules. Load after moviola.css. Card knobs feed the structural layer's
+ * --moviola-card-bg / --moviola-card-fg (SPEC §6.1).
  */
 
-.scrolly {
-  --scrolly-card-bg: #ffffff;
-  --scrolly-card-fg: #14161a;
+.moviola {
+  --moviola-card-bg: #ffffff;
+  --moviola-card-fg: #14161a;
 }
 
 .step h1,
@@ -31,8 +31,8 @@
   max-width: 30rem;
 }
 
-.scrolly figure figcaption,
-.scrolly figure .caption {
+.moviola figure figcaption,
+.moviola figure .caption {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 0.75rem;
   letter-spacing: 0.03em;

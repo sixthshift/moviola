@@ -130,7 +130,7 @@ export function parseFocus(value: string): FocusSpec {
  * A selector string the CSS engine cannot even parse gets the disposition
  * every other unresolvable focus gets — no match — rather than the
  * DOMException `querySelector` throws, which would propagate out of
- * `Scrolly.init` and take the whole story down (§15.6: fail-soft always, a
+ * `Moviola.init` and take the whole story down (§15.6: fail-soft always, a
  * warning page keeps working). Not hypothetical: the first-character rule
  * deliberately routes `".5 0 10 10"` and `"+50 0 200 100"` here, and neither
  * is valid CSS.
@@ -156,13 +156,13 @@ function focusBox(rig: CameraRig, el: HTMLElement): Rect | null {
   const spec = parseFocus(value)
   if (spec.kind === 'box') return spec.box
   if (spec.kind === 'malformed') {
-    warnOnce(`scrolly: data-focus="${value}" is not four finite numbers x y w h`)
+    warnOnce(`moviola: data-focus="${value}" is not four finite numbers x y w h`)
     return null
   }
 
   const target = queryFocus(spec.selector)
   if (!target) {
-    warnOnce(`scrolly: data-focus="${value}" matches no element`)
+    warnOnce(`moviola: data-focus="${value}" matches no element`)
     return null
   }
   return targetRect(rig, target)
@@ -218,7 +218,7 @@ function resolveZoom(el: HTMLElement, box: Rect, stage: Rect): number {
   if (Number.isFinite(zoom)) {
     if (shot !== undefined) {
       warnOnce(
-        `scrolly: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`
+        `moviola: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`
       )
     }
     return zoom
@@ -229,7 +229,7 @@ function resolveZoom(el: HTMLElement, box: Rect, stage: Rect): number {
   // reported, never repaired.
   const fraction = SHOT_FRACTIONS[shot ?? '']
   if (shot !== undefined && fraction === undefined) {
-    warnOnce(`scrolly: data-shot="${shot}" is not a known shot name — using the medium fit`)
+    warnOnce(`moviola: data-shot="${shot}" is not a known shot name — using the medium fit`)
   }
   return fitZoom(box.w, box.h, stage.w, stage.h, fraction)
 }
@@ -274,7 +274,7 @@ export function measureShots(rig: CameraRig, root: HTMLElement, steps: HTMLEleme
   // never move — almost always a forgotten attribute, not an intentional
   // static shot (a static shot is better served by never adding data-camera).
   if (!root.hasAttribute('data-focus') && !steps.some(s => s.hasAttribute('data-focus'))) {
-    warnOnce('scrolly: data-camera has no data-focus anywhere — the camera never moves')
+    warnOnce('moviola: data-camera has no data-focus anywhere — the camera never moves')
   }
 
   const stage = stageRect(rig)

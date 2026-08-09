@@ -1,5 +1,5 @@
 {
-  "name": "Scrolly Dev Container",
+  "name": "Moviola Dev Container",
   "dockerComposeFile": "docker-compose.dev.yml",
   "service": "dev",
   "workspaceFolder": "/workspace",

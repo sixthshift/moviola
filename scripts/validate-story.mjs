@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /*
- * Story validator — SPEC §14 made executable against an arbitrary scrolly
+ * Story validator — SPEC §14 made executable against an arbitrary moviola
  * HTML file. Checks choreography, never artwork: it drives every step to
  * its trigger position (forward, reverse, and out-of-order) and asserts the
  * lib's own contract (§5) held, using real network interception and real
  * runtime instrumentation rather than any text/name matching.
  *
  * "The lib" inside a page is identified by byte-equality with the canonical
- * build artifact, dist/scrolly.min.js (kept in sync with every embed by
+ * build artifact, dist/moviola.min.js (kept in sync with every embed by
  * scripts/sync-embeds.mjs).
  *
  * Usage: node scripts/validate-story.mjs <file.html> [--tier1] [--report <out.html>]
@@ -146,7 +146,7 @@ function scanSourceForExternalRefs(html) {
 }
 
 // AST-light: strip comments and string literals, then check every remaining
-// statement is a bare Scrolly.init(...) call (optionally destructured/assigned).
+// statement is a bare Moviola.init(...) call (optionally destructured/assigned).
 function isOnlyInitStatements(jsSource) {
   const stripped = jsSource
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -157,7 +157,7 @@ function isOnlyInitStatements(jsSource) {
     .map(s => s.trim())
     .filter(Boolean)
   const initStatement =
-    /^(?:(?:const|let|var)\s+(?:\[[^\]]*\]|\{[^}]*\}|\w+)\s*=\s*)?Scrolly\.init\([^()]*\)$/
+    /^(?:(?:const|let|var)\s+(?:\[[^\]]*\]|\{[^}]*\}|\w+)\s*=\s*)?Moviola\.init\([^()]*\)$/
   return statements.length > 0 && statements.every(s => initStatement.test(s))
 }
 
@@ -273,17 +273,17 @@ function pixelsDiffer(a, b) {
 // ---------------------------------------------------------------------------
 
 function installInstrumentation() {
-  window.__scrollyProbe = { calls: [], errors: [] }
+  window.__moviolaProbe = { calls: [], errors: [] }
 
   window.addEventListener('error', e => {
-    window.__scrollyProbe.errors.push(String(e.error?.message || e.message))
+    window.__moviolaProbe.errors.push(String(e.error?.message || e.message))
   })
   window.addEventListener('unhandledrejection', e => {
-    window.__scrollyProbe.errors.push(String(e.reason?.message || e.reason))
+    window.__moviolaProbe.errors.push(String(e.reason?.message || e.reason))
   })
 
   const record = api => {
-    window.__scrollyProbe.calls.push({ api, stack: new Error().stack || '' })
+    window.__moviolaProbe.calls.push({ api, stack: new Error().stack || '' })
   }
 
   const origAdd = EventTarget.prototype.addEventListener
@@ -357,7 +357,7 @@ function classifyGlue(calls, scriptSources, pageUrl) {
 async function settleAtStep(page, storyIndex, stepIndex) {
   const info = await page.evaluate(
     ([si, i]) => {
-      const root = document.querySelectorAll('.scrolly')[si]
+      const root = document.querySelectorAll('.moviola')[si]
       const step = root.querySelectorAll(':scope > .step')[i]
       const offset = parseFloat(root.dataset.offset || '0.5')
       const rect = step.getBoundingClientRect()
@@ -374,7 +374,7 @@ async function settleAtStep(page, storyIndex, stepIndex) {
   try {
     await page.waitForFunction(
       ([si, id]) =>
-        document.querySelectorAll('.scrolly')[si].getAttribute('data-active-step') === id,
+        document.querySelectorAll('.moviola')[si].getAttribute('data-active-step') === id,
       [storyIndex, info.id],
       { timeout: 3000 }
     )
@@ -392,7 +392,7 @@ async function settleAtStep(page, storyIndex, stepIndex) {
 // statesMatch performs, which only ever look at activeStep/shown/screenshot.
 async function captureState(page, storyIndex, id, { captureRaw = false } = {}) {
   const dom = await page.evaluate(si => {
-    const root = document.querySelectorAll('.scrolly')[si]
+    const root = document.querySelectorAll('.moviola')[si]
     const shown = [...root.querySelectorAll('[data-show].is-shown')]
       .map(el => el.dataset.show)
       .sort()
@@ -519,7 +519,7 @@ function buildReportHtml(file, report, storiesSteps) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>scrolly validator report — ${escapeHtml(path.basename(file))}</title>
+<title>moviola validator report — ${escapeHtml(path.basename(file))}</title>
 <style>
   body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem; background: #fff; color: #111; }
   pre { background: #f4f4f4; padding: 1rem; overflow: auto; border-radius: 0.5rem; }
@@ -531,7 +531,7 @@ function buildReportHtml(file, report, storiesSteps) {
 </style>
 </head>
 <body>
-<h1>scrolly validator report</h1>
+<h1>moviola validator report</h1>
 <p>${escapeHtml(file)}</p>
 <pre>${escapeHtml(JSON.stringify(report, null, 2))}</pre>
 ${sections}
@@ -551,7 +551,7 @@ async function main() {
     process.exit(1)
   }
   const html = fs.readFileSync(file, 'utf8')
-  const libSource = fs.readFileSync(path.join(REPO_ROOT, 'dist/scrolly.min.js'), 'utf8')
+  const libSource = fs.readFileSync(path.join(REPO_ROOT, 'dist/moviola.min.js'), 'utf8')
   const scriptSources = findScriptSources(html, file, libSource)
   const sourceExternalRefs = scanSourceForExternalRefs(html)
 
@@ -597,7 +597,7 @@ async function main() {
   await new Promise(r => setTimeout(r, DWELL_MS))
 
   const roots = await page.evaluate(() =>
-    [...document.querySelectorAll('.scrolly')].map((el, i) => ({
+    [...document.querySelectorAll('.moviola')].map((el, i) => ({
       key: el.id || String(i),
       stepCount: el.querySelectorAll(':scope > .step').length,
     }))
@@ -625,7 +625,7 @@ async function main() {
   }
 
   await new Promise(r => setTimeout(r, DWELL_MS))
-  const probe = await page.evaluate(() => window.__scrollyProbe)
+  const probe = await page.evaluate(() => window.__moviolaProbe)
   await browser.close()
 
   const glueFlags = classifyGlue(probe.calls, scriptSources, pageUrl)

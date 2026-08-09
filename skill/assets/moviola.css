@@ -1,22 +1,22 @@
 /*!
- * scrolly.css — structural layer only.
+ * moviola.css — structural layer only.
  *
  * Owns: sticky frame, layouts, mobile collapse, visibility mechanics.
  * Does not own: your typography, colors, or graphic. Style those yourself,
  * reacting to .is-active / [data-active-step] / --step-progress.
  *
- * Knobs (CSS custom properties, set them on .scrolly or :root):
- *   --scrolly-card-bg   background of step cards in overlay/mobile modes
- *   --scrolly-card-fg   text color of step cards in overlay/mobile modes
+ * Knobs (CSS custom properties, set them on .moviola or :root):
+ *   --moviola-card-bg   background of step cards in overlay/mobile modes
+ *   --moviola-card-fg   text color of step cards in overlay/mobile modes
  */
 
-.scrolly {
+.moviola {
   position: relative;
 }
 
 /* ---- the pinned graphic ------------------------------------------------- */
 
-.scrolly > figure {
+.moviola > figure {
   position: sticky;
   top: 0;
   height: 100vh;
@@ -28,32 +28,32 @@
 }
 
 /* graphic children stack for crossfades */
-.scrolly > figure > * {
+.moviola > figure > * {
   grid-area: 1 / 1;
 }
 
 /* §15.3: the camera is geometry, not presentation — no transition here.
    The value is already scroll-scrubbed (recomputed every frame from cached
    endpoints), so animating it too would fight the reader's own scroll. */
-.scrolly.is-ready [data-camera] {
+.moviola.is-ready [data-camera] {
   transform: var(--camera-transform, none);
 }
 
 /* step-driven visibility — hiding is scoped under .is-ready (stamped by the
    runtime at init) so a page whose JS never ran stays fully readable */
-.scrolly.is-ready [data-show] {
+.moviola.is-ready [data-show] {
   opacity: 0;
   transition: opacity 0.4s ease;
 }
 
-.scrolly.is-ready [data-show].is-shown {
+.moviola.is-ready [data-show].is-shown {
   opacity: 1;
 }
 
 /* §15.2: scrub any element's own @keyframes against its stamped --t
    (0..1, one-time set by the runtime). Duration is normalized — the
    keyframes are the timeline; the author owns animation-name only. */
-.scrolly.is-ready [data-scrub] {
+.moviola.is-ready [data-scrub] {
   animation-duration: 1s;
   animation-play-state: paused;
   animation-fill-mode: both;
@@ -62,7 +62,7 @@
 
 /* ---- steps --------------------------------------------------------------- */
 
-.scrolly > .step {
+.moviola > .step {
   position: relative;
   z-index: 1;
   min-height: 90vh;
@@ -73,43 +73,43 @@
 
 /* ---- side layouts -------------------------------------------------------- */
 
-.scrolly[data-layout="side-right"],
-.scrolly[data-layout="side-left"] {
+.moviola[data-layout="side-right"],
+.moviola[data-layout="side-left"] {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   column-gap: 2rem;
 }
 
-.scrolly[data-layout="side-right"] > figure,
-.scrolly[data-layout="side-left"] > figure {
+.moviola[data-layout="side-right"] > figure,
+.moviola[data-layout="side-left"] > figure {
   grid-row: 1 / span 999;
 }
 
-.scrolly[data-layout="side-right"] > figure {
+.moviola[data-layout="side-right"] > figure {
   grid-column: 2;
 }
-.scrolly[data-layout="side-right"] > .step {
+.moviola[data-layout="side-right"] > .step {
   grid-column: 1;
 }
-.scrolly[data-layout="side-left"] > figure {
+.moviola[data-layout="side-left"] > figure {
   grid-column: 1;
 }
-.scrolly[data-layout="side-left"] > .step {
+.moviola[data-layout="side-left"] > .step {
   grid-column: 2;
 }
 
 /* ---- overlay layout ------------------------------------------------------ */
 
-.scrolly[data-layout="overlay"] {
+.moviola[data-layout="overlay"] {
   display: grid;
 }
 
-.scrolly[data-layout="overlay"] > figure {
+.moviola[data-layout="overlay"] > figure {
   grid-column: 1;
   grid-row: 1 / span 999;
 }
 
-.scrolly[data-layout="overlay"] > .step {
+.moviola[data-layout="overlay"] > .step {
   grid-column: 1;
   justify-self: center;
   width: min(34rem, calc(100% - 2rem));
@@ -117,9 +117,9 @@
 
 /* A step's content reads as a card over the graphic. Keep each step's
    content in a single block (wrap in a div if it's more than one). */
-.scrolly[data-layout="overlay"] > .step > * {
-  background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
-  color: var(--scrolly-card-fg, inherit);
+.moviola[data-layout="overlay"] > .step > * {
+  background: var(--moviola-card-bg, rgba(255, 255, 255, 0.92));
+  color: var(--moviola-card-fg, inherit);
   padding: 1rem 1.25rem;
   border-radius: 0.5rem;
 }
@@ -127,29 +127,29 @@
 /* ---- mobile: side layouts collapse to overlay ---------------------------- */
 
 @media (max-width: 720px) {
-  .scrolly[data-layout="side-right"],
-  .scrolly[data-layout="side-left"] {
+  .moviola[data-layout="side-right"],
+  .moviola[data-layout="side-left"] {
     grid-template-columns: minmax(0, 1fr);
     column-gap: 0;
   }
 
-  .scrolly[data-layout="side-right"] > figure,
-  .scrolly[data-layout="side-left"] > figure,
-  .scrolly[data-layout="side-right"] > .step,
-  .scrolly[data-layout="side-left"] > .step {
+  .moviola[data-layout="side-right"] > figure,
+  .moviola[data-layout="side-left"] > figure,
+  .moviola[data-layout="side-right"] > .step,
+  .moviola[data-layout="side-left"] > .step {
     grid-column: 1;
   }
 
-  .scrolly[data-layout="side-right"] > .step,
-  .scrolly[data-layout="side-left"] > .step {
+  .moviola[data-layout="side-right"] > .step,
+  .moviola[data-layout="side-left"] > .step {
     justify-self: center;
     width: min(34rem, calc(100% - 2rem));
   }
 
-  .scrolly[data-layout="side-right"] > .step > *,
-  .scrolly[data-layout="side-left"] > .step > * {
-    background: var(--scrolly-card-bg, rgba(255, 255, 255, 0.92));
-    color: var(--scrolly-card-fg, inherit);
+  .moviola[data-layout="side-right"] > .step > *,
+  .moviola[data-layout="side-left"] > .step > * {
+    background: var(--moviola-card-bg, rgba(255, 255, 255, 0.92));
+    color: var(--moviola-card-fg, inherit);
     padding: 1rem 1.25rem;
     border-radius: 0.5rem;
   }
@@ -158,32 +158,32 @@
 /* ---- accessibility & print ----------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .scrolly.is-ready [data-show] {
+  .moviola.is-ready [data-show] {
     transition: none;
   }
 
   /* every scrub becomes a cut at the chapter midpoint (§15.2) */
-  .scrolly.is-ready [data-scrub] {
+  .moviola.is-ready [data-scrub] {
     animation-delay: calc(round(var(--t, 0)) * -1s);
   }
 }
 
 @media print {
-  .scrolly > figure {
+  .moviola > figure {
     position: static;
     height: auto;
     overflow: visible;
   }
 
-  .scrolly > figure > * {
+  .moviola > figure > * {
     grid-area: auto;
   }
 
-  .scrolly.is-ready [data-show] {
+  .moviola.is-ready [data-show] {
     opacity: 1;
   }
 
-  .scrolly > .step {
+  .moviola > .step {
     min-height: 0;
   }
 }

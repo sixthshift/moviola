@@ -122,7 +122,7 @@ export class Motion {
       if (!id) el.style.setProperty('--t', 'var(--story-progress)')
       else if (bound.has(id)) el.style.setProperty('--t', `var(--progress-${id})`)
       else {
-        warnOnce(`scrolly: data-scrub="${id}" matches no chapter`)
+        warnOnce(`moviola: data-scrub="${id}" matches no chapter`)
         continue
       }
       this._scrubs.push(el)

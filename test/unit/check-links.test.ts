@@ -16,7 +16,7 @@ import path from 'node:path'
 import { afterAll, describe, expect, test } from 'vitest'
 
 const SCRIPT = path.join(import.meta.dirname, '../../scripts/check-links.mjs')
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrolly-links-'))
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moviola-links-'))
 
 afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }))
 
@@ -65,7 +65,7 @@ describe('check-links', () => {
   test('fenced code is still exempt, wrapped or not', () => {
     const { code } = check(
       'fenced',
-      '```html\n<link rel="stylesheet"\n      href="scrolly.css">\n```\n'
+      '```html\n<link rel="stylesheet"\n      href="moviola.css">\n```\n'
     )
     expect(code).toBe(0)
   })

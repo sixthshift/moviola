@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scrolly Development Shell Configuration
+# Moviola Development Shell Configuration
 
 alias ll='ls -lah'
 alias la='ls -A'

@@ -1,14 +1,14 @@
 /*!
- * scrolly/themes/editorial.css — opt-in typography, warm serif.
+ * moviola/themes/editorial.css — opt-in typography, warm serif.
  *
  * Typography/color only (SPEC §2.4): no geometry, no positioning, no
- * at-rules. Load after scrolly.css. Card knobs feed the structural layer's
- * --scrolly-card-bg / --scrolly-card-fg (SPEC §6.1).
+ * at-rules. Load after moviola.css. Card knobs feed the structural layer's
+ * --moviola-card-bg / --moviola-card-fg (SPEC §6.1).
  */
 
-.scrolly {
-  --scrolly-card-bg: #f7f0e4;
-  --scrolly-card-fg: #2c2116;
+.moviola {
+  --moviola-card-bg: #f7f0e4;
+  --moviola-card-fg: #2c2116;
 }
 
 .step h1,
@@ -31,8 +31,8 @@
   max-width: 38rem;
 }
 
-.scrolly figure figcaption,
-.scrolly figure .caption {
+.moviola figure figcaption,
+.moviola figure .caption {
   font-family: Georgia, "Iowan Old Style", serif;
   font-style: italic;
   font-size: 0.85rem;

@@ -26,17 +26,17 @@ declare global {
 }
 
 const root = path.join(import.meta.dirname, '..')
-const ORIGIN = 'http://scrolly-motion.test'
+const ORIGIN = 'http://moviola-motion.test'
 
 const HTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/dist/scrolly.css">
+<link rel="stylesheet" href="/dist/moviola.css">
 <style>
   body { margin: 0; }
   #spacer { height: 2000px; }
-  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  .moviola > .step { min-height: 0; height: 1000px; margin: 0; }
   #ga, #over {
     position: relative; left: 0px; width: 10px; height: 10px;
     animation-name: ride; animation-timing-function: linear;
@@ -49,7 +49,7 @@ const HTML = `<!doctype html>
 </head>
 <body>
 <div id="spacer"></div>
-<article id="story" class="scrolly" data-layout="side-right">
+<article id="story" class="moviola" data-layout="side-right">
   <figure>
     <div id="ga" data-show="scene" data-scrub="scene"></div>
     <div id="over" data-scrub="scene"></div>
@@ -57,15 +57,15 @@ const HTML = `<!doctype html>
   <section class="step" id="scene"><p>scene</p></section>
 </article>
 <div style="height: 1000px"></div>
-<script src="/dist/scrolly.min.js"></script>
-<script>window.__story = Scrolly.init('#story')</script>
+<script src="/dist/moviola.min.js"></script>
+<script>window.__story = Moviola.init('#story')</script>
 </body>
 </html>
 `
 
 const NOJS_HTML = HTML.replace(
-  `<script src="/dist/scrolly.min.js"></script>
-<script>window.__story = Scrolly.init('#story')</script>
+  `<script src="/dist/moviola.min.js"></script>
+<script>window.__story = Moviola.init('#story')</script>
 `,
   ''
 )
@@ -225,12 +225,12 @@ const CAMERA_HTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/dist/scrolly.css">
+<link rel="stylesheet" href="/dist/moviola.css">
 <style>
   body { margin: 0; }
   #spacer { height: 2000px; }
-  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
-  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .moviola > .step { min-height: 0; height: 1000px; margin: 0; }
+  .moviola > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -240,7 +240,7 @@ const CAMERA_HTML = `<!doctype html>
   console.warn = (...args) => { window.__warnings.push(args.join(' ')); warn(...args) }
 </script>
 <div id="spacer"></div>
-<article id="story" class="scrolly" data-layout="side-right">
+<article id="story" class="moviola" data-layout="side-right">
   <figure>
     <svg viewBox="0 0 1000 1000">
       <g data-camera>
@@ -255,8 +255,8 @@ const CAMERA_HTML = `<!doctype html>
   <section class="step" id="three" data-focus="#missing"><p>three</p></section>
 </article>
 <div style="height: 1000px"></div>
-<script src="/dist/scrolly.min.js"></script>
-<script>window.__story = Scrolly.init('#story')</script>
+<script src="/dist/moviola.min.js"></script>
+<script>window.__story = Moviola.init('#story')</script>
 </body>
 </html>
 `
@@ -340,7 +340,7 @@ test.describe('§15.3 the declarative camera', () => {
     const warnings = await camPage.evaluate(() => window.__warnings)
     const dangling = warnings.filter((w: string) => w.includes('data-focus="#missing"'))
     expect(dangling.length).toBeGreaterThan(0)
-    expect(dangling.every((w: string) => w.startsWith('scrolly:'))).toBe(true)
+    expect(dangling.every((w: string) => w.startsWith('moviola:'))).toBe(true)
   })
 
   // §15.6: measureShots re-runs on every resize (§5.3) — the warning must not
@@ -423,12 +423,12 @@ const holdFixture = (middleStep: string) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/dist/scrolly.css">
+<link rel="stylesheet" href="/dist/moviola.css">
 <style>
   body { margin: 0; }
   #spacer { height: 2000px; }
-  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
-  .scrolly > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .moviola > .step { min-height: 0; height: 1000px; margin: 0; }
+  .moviola > figure svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 </style>
 </head>
 <body>
@@ -438,7 +438,7 @@ const holdFixture = (middleStep: string) => `<!doctype html>
   console.warn = (...args) => { window.__warnings.push(args.join(' ')); warn(...args) }
 </script>
 <div id="spacer"></div>
-<article id="story" class="scrolly" data-layout="side-right">
+<article id="story" class="moviola" data-layout="side-right">
   <figure>
     <svg viewBox="0 0 1000 1000">
       <g data-camera>
@@ -453,8 +453,8 @@ const holdFixture = (middleStep: string) => `<!doctype html>
   <section class="step" id="two" data-focus="#b"><p>two</p></section>
 </article>
 <div style="height: 1000px"></div>
-<script src="/dist/scrolly.min.js"></script>
-<script>window.__story = Scrolly.init('#story')</script>
+<script src="/dist/moviola.min.js"></script>
+<script>window.__story = Moviola.init('#story')</script>
 </body>
 </html>
 `
@@ -565,25 +565,25 @@ const MORPH_HTML = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/dist/scrolly.css">
+<link rel="stylesheet" href="/dist/moviola.css">
 <style>
   body { margin: 0; }
   #spacer { height: 2000px; }
-  .scrolly > .step { min-height: 0; height: 1000px; margin: 0; }
+  .moviola > .step { min-height: 0; height: 1000px; margin: 0; }
   .rack { display: flex; gap: 12px; }
   .dot { width: 60px; height: 60px; }
   .dot-a { background: #e33333; view-transition-name: dot-a; order: var(--order-a, 1); }
   .dot-b { background: #33aa77; view-transition-name: dot-b; order: var(--order-b, 2); }
   .dot-c { background: #3377ee; view-transition-name: dot-c; order: var(--order-c, 3); }
-  .scrolly[data-active-step="one"] .rack { --order-a: 1; --order-b: 2; --order-c: 3; }
-  .scrolly[data-active-step="two"] .rack { --order-a: 3; --order-b: 1; --order-c: 2; }
-  .scrolly[data-active-step="three"] .rack { --order-a: 2; --order-b: 3; --order-c: 1; }
+  .moviola[data-active-step="one"] .rack { --order-a: 1; --order-b: 2; --order-c: 3; }
+  .moviola[data-active-step="two"] .rack { --order-a: 3; --order-b: 1; --order-c: 2; }
+  .moviola[data-active-step="three"] .rack { --order-a: 2; --order-b: 3; --order-c: 1; }
 </style>
 </head>
 <body>
 <script>window.__events = []</script>
 <div id="spacer"></div>
-<article id="story" class="scrolly" data-layout="side-right" data-morph>
+<article id="story" class="moviola" data-layout="side-right" data-morph>
   <figure>
     <div class="rack">
       <div class="dot dot-a"></div>
@@ -596,9 +596,9 @@ const MORPH_HTML = `<!doctype html>
   <section class="step" id="three"><p>three</p></section>
 </article>
 <div style="height: 1000px"></div>
-<script src="/dist/scrolly.min.js"></script>
+<script src="/dist/moviola.min.js"></script>
 <script>
-  window.__story = Scrolly.init('#story')
+  window.__story = Moviola.init('#story')
   window.__story.on('stepenter', d => window.__events.push(['enter', d.id, d.direction]))
   window.__story.on('stepexit', d => window.__events.push(['exit', d.id, d.direction]))
 </script>
@@ -758,7 +758,7 @@ test.describe('§15.4 morph-regroup fixture — the §14 validator', () => {
 
 /*
  * §15.6 gallery sweep — every shipped page, loaded for real and scrolled
- * top to bottom (plus a resize), must never print a `scrolly:` diagnostic.
+ * top to bottom (plus a resize), must never print a `moviola:` diagnostic.
  * This doubles as a referential-integrity check on the gallery itself: a
  * real dangling data-show/data-scrub/data-focus token or an unused
  * data-camera rig in an example is a genuine authoring bug this sweep would
@@ -772,13 +772,13 @@ const galleryPages = [
     .map(f => `examples/${f}`),
 ]
 
-test.describe('§15.6 gallery sweep: zero scrolly: warnings', () => {
+test.describe('§15.6 gallery sweep: zero moviola: warnings', () => {
   for (const rel of galleryPages) {
-    test(`${rel} produces zero scrolly: warnings while scrolling through`, async ({ browser }) => {
+    test(`${rel} produces zero moviola: warnings while scrolling through`, async ({ browser }) => {
       const p = await (await browser.newContext()).newPage()
       const warnings: string[] = []
       p.on('console', msg => {
-        if (msg.type() === 'warning' && msg.text().startsWith('scrolly:')) warnings.push(msg.text())
+        if (msg.type() === 'warning' && msg.text().startsWith('moviola:')) warnings.push(msg.text())
       })
 
       await p.goto(`file://${path.join(root, rel)}`)

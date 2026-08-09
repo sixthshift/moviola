@@ -1,10 +1,10 @@
 /*!
-* scrolly — the scrollytelling framework
+* moviola — the scrollytelling framework
 *
-* You write the DOM, scrolly runs the state machine, effects live in your CSS.
+* You write the DOM, moviola runs the state machine, effects live in your CSS.
 *
 * Document model:
-*   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+*   <article class="moviola" data-layout="side-right" data-offset="0.5">
 *     <figure> …graphic; children tagged data-show="step-id …"… </figure>
 *     <section class="step" id="intro">…</section>
 *     <section class="step" id="crash">…</section>
@@ -16,7 +16,7 @@
 *   root             → [data-active-step="…"], --step-progress, --story-progress
 *
 * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
-*   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+*   moviola:stepenter · moviola:stepexit · moviola:progress
 */
 //#region src/geometry.ts
 /**
@@ -315,7 +315,7 @@ function parseFocus(value) {
 * A selector string the CSS engine cannot even parse gets the disposition
 * every other unresolvable focus gets — no match — rather than the
 * DOMException `querySelector` throws, which would propagate out of
-* `Scrolly.init` and take the whole story down (§15.6: fail-soft always, a
+* `Moviola.init` and take the whole story down (§15.6: fail-soft always, a
 * warning page keeps working). Not hypothetical: the first-character rule
 * deliberately routes `".5 0 10 10"` and `"+50 0 200 100"` here, and neither
 * is valid CSS.
@@ -339,12 +339,12 @@ function focusBox(rig, el) {
 	const spec = parseFocus(value);
 	if (spec.kind === "box") return spec.box;
 	if (spec.kind === "malformed") {
-		warnOnce(`scrolly: data-focus="${value}" is not four finite numbers x y w h`);
+		warnOnce(`moviola: data-focus="${value}" is not four finite numbers x y w h`);
 		return null;
 	}
 	const target = queryFocus(spec.selector);
 	if (!target) {
-		warnOnce(`scrolly: data-focus="${value}" matches no element`);
+		warnOnce(`moviola: data-focus="${value}" matches no element`);
 		return null;
 	}
 	return targetRect(rig, target);
@@ -399,11 +399,11 @@ function resolveZoom(el, box, stage) {
 	const shot = el.dataset.shot;
 	const zoom = Number.parseFloat((_el$dataset$zoom = el.dataset.zoom) !== null && _el$dataset$zoom !== void 0 ? _el$dataset$zoom : "");
 	if (Number.isFinite(zoom)) {
-		if (shot !== void 0) warnOnce(`scrolly: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`);
+		if (shot !== void 0) warnOnce(`moviola: data-shot="${shot}" ignored — data-zoom="${el.dataset.zoom}" on the same element wins`);
 		return zoom;
 	}
 	const fraction = SHOT_FRACTIONS[shot !== null && shot !== void 0 ? shot : ""];
-	if (shot !== void 0 && fraction === void 0) warnOnce(`scrolly: data-shot="${shot}" is not a known shot name — using the medium fit`);
+	if (shot !== void 0 && fraction === void 0) warnOnce(`moviola: data-shot="${shot}" is not a known shot name — using the medium fit`);
 	return fitZoom(box.w, box.h, stage.w, stage.h, fraction);
 }
 /**
@@ -412,7 +412,7 @@ function resolveZoom(el, box, stage) {
 * treated as absent (hold, never a throw or a jump to identity — §15.3).
 */
 function measureShots(rig, root, steps) {
-	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("scrolly: data-camera has no data-focus anywhere — the camera never moves");
+	if (!root.hasAttribute("data-focus") && !steps.some((s) => s.hasAttribute("data-focus"))) warnOnce("moviola: data-camera has no data-focus anywhere — the camera never moves");
 	const stage = stageRect(rig);
 	const resolve = (el) => {
 		const box = focusBox(rig, el);
@@ -450,14 +450,14 @@ function measureShots(rig, root, steps) {
 //#endregion
 //#region src/events.ts
 function emit(root, name, detail) {
-	root.dispatchEvent(new CustomEvent(`scrolly:${name}`, {
+	root.dispatchEvent(new CustomEvent(`moviola:${name}`, {
 		detail,
 		bubbles: true
 	}));
 }
 /** Listen on the story root; returns an unsubscribe function. */
 function subscribe(root, name, fn) {
-	const type = `scrolly:${name}`;
+	const type = `moviola:${name}`;
 	const handler = (e) => fn(e.detail);
 	root.addEventListener(type, handler);
 	return () => root.removeEventListener(type, handler);
@@ -564,7 +564,7 @@ var Motion = class {
 			if (!id) el.style.setProperty("--t", "var(--story-progress)");
 			else if (bound.has(id)) el.style.setProperty("--t", `var(--progress-${id})`);
 			else {
-				warnOnce(`scrolly: data-scrub="${id}" matches no chapter`);
+				warnOnce(`moviola: data-scrub="${id}" matches no chapter`);
 				continue;
 			}
 			this._scrubs.push(el);
@@ -574,7 +574,7 @@ var Motion = class {
 //#endregion
 //#region src/story.ts
 /**
-* The Story runtime — one instance per `.scrolly` element. Owns the
+* The Story runtime — one instance per `.moviola` element. Owns the
 * IntersectionObserver-gated scroll loop and every §5–§7 DOM state write; the
 * math it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts,
 * and the §15 motion writes (scrub stamps, camera, morph) in motion.ts.
@@ -583,7 +583,7 @@ var OFFSET = .5;
 var stepId = (el, i) => el.id || String(i);
 var VALID_IDENT = /^[A-Za-z0-9_-]+$/;
 var instances = /* @__PURE__ */ new WeakMap();
-/** `Scrolly.init()` is idempotent per element: re-init returns the existing Story. */
+/** `Moviola.init()` is idempotent per element: re-init returns the existing Story. */
 function getOrCreateStory(el, opts) {
 	var _instances$get;
 	return (_instances$get = instances.get(el)) !== null && _instances$get !== void 0 ? _instances$get : new Story(el, opts);
@@ -716,7 +716,7 @@ var Story = class {
 		return (this.graphic ? [...this.graphic.querySelectorAll("[data-show]")] : []).map((el) => {
 			var _el$dataset$show;
 			const { keys, issues } = resolveShow(((_el$dataset$show = el.dataset.show) !== null && _el$dataset$show !== void 0 ? _el$dataset$show : "").split(/\s+/).filter(Boolean), stepKeys);
-			for (const { token, reason } of issues) warnOnce(reason === "reversed" ? `scrolly: data-show="${token}" is a reversed range` : `scrolly: data-show="${token}" matches no step id`);
+			for (const { token, reason } of issues) warnOnce(reason === "reversed" ? `moviola: data-show="${token}" is a reversed range` : `moviola: data-show="${token}" matches no step id`);
 			return {
 				el,
 				keys
@@ -735,9 +735,9 @@ var Story = class {
 	_warnStructure() {
 		if (this.steps.length === 0) {
 			const nested = this.root.querySelectorAll(".step").length;
-			warnOnce(nested > 0 ? `scrolly: found ${nested} nested .step descendants — steps must be direct children of .scrolly` : "scrolly: .scrolly has no .step elements — nothing to activate");
+			warnOnce(nested > 0 ? `moviola: found ${nested} nested .step descendants — steps must be direct children of .moviola` : "moviola: .moviola has no .step elements — nothing to activate");
 		}
-		if (!this.graphic && this.root.querySelector("[data-camera], [data-show]")) warnOnce("scrolly: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing");
+		if (!this.graphic && this.root.querySelector("[data-camera], [data-show]")) warnOnce("moviola: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing");
 	}
 	_detail(i) {
 		const step = this.steps[i];
@@ -777,12 +777,12 @@ var Story = class {
 //#endregion
 //#region src/index.ts
 /*!
-* scrolly — the scrollytelling framework
+* moviola — the scrollytelling framework
 *
-* You write the DOM, scrolly runs the state machine, effects live in your CSS.
+* You write the DOM, moviola runs the state machine, effects live in your CSS.
 *
 * Document model:
-*   <article class="scrolly" data-layout="side-right" data-offset="0.5">
+*   <article class="moviola" data-layout="side-right" data-offset="0.5">
 *     <figure> …graphic; children tagged data-show="step-id …"… </figure>
 *     <section class="step" id="intro">…</section>
 *     <section class="step" id="crash">…</section>
@@ -794,17 +794,17 @@ var Story = class {
 *   root             → [data-active-step="…"], --step-progress, --story-progress
 *
 * Events (bubbling CustomEvents, detail = { step, id, index, direction }):
-*   scrolly:stepenter · scrolly:stepexit · scrolly:progress
+*   moviola:stepenter · moviola:stepexit · moviola:progress
 */
 function init(target, opts) {
-	if (target === void 0) return [...document.querySelectorAll(".scrolly")].map((el) => getOrCreateStory(el));
+	if (target === void 0) return [...document.querySelectorAll(".moviola")].map((el) => getOrCreateStory(el));
 	const el = typeof target === "string" ? document.querySelector(target) : target;
-	if (!el) throw new Error(`scrolly: no element matches ${target}`);
+	if (!el) throw new Error(`moviola: no element matches ${target}`);
 	return getOrCreateStory(el, opts);
 }
-var Scrolly = {
+var Moviola = {
 	version: "0.1.0",
 	init
 };
 //#endregion
-export { Scrolly as default };
+export { Moviola as default };

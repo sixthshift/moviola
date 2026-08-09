@@ -13,45 +13,45 @@ const banner = readFileSync('src/index.ts', 'utf8').match(/^\/\*![\s\S]*?\*\//)?
 /**
  * Everything `vite build` must produce beyond the esm lib-mode bundle:
  *
- *  - dist/scrolly.min.js — the canonical runtime artifact. Vite's iife
+ *  - dist/moviola.min.js — the canonical runtime artifact. Vite's iife
  *    lib-mode output is an in-memory intermediate only (never written to
  *    dist); esbuild minifies it here with mangleProps /^_/ (internal names
  *    only, never the public contract). Still a classic script attaching
- *    window.Scrolly. The readable implementation reference is src/.
- *  - dist/scrolly.css    — copied verbatim; the CSS is deliberately not
+ *    window.Moviola. The readable implementation reference is src/.
+ *  - dist/moviola.css    — copied verbatim; the CSS is deliberately not
  *    imported by the JS (one <link>, one <script>, zero coupling).
- *  - dist/scrolly.d.ts   — normalize the bundled-declaration filename.
+ *  - dist/moviola.d.ts   — normalize the bundled-declaration filename.
  *  - embed re-sync       — scripts/sync-embeds.mjs re-injects
- *    dist/scrolly.min.js into examples, e2e fixtures, and skill/assets so
+ *    dist/moviola.min.js into examples, e2e fixtures, and skill/assets so
  *    the byte-identity chain never drifts.
  */
-const scrollyArtifacts = (): Plugin => ({
-  name: 'scrolly:artifacts',
+const moviolaArtifacts = (): Plugin => ({
+  name: 'moviola:artifacts',
   apply: 'build',
   enforce: 'post', // closeBundle must run after vite-plugin-dts has written its file
   async generateBundle(_options, bundle) {
-    const iife = bundle['scrolly.iife.js']
+    const iife = bundle['moviola.iife.js']
     if (iife?.type !== 'chunk') return // fires once, on the iife output pass
     const { code } = await transform(iife.code, {
       minify: true,
       mangleProps: /^_/,
       target: 'es2019',
     })
-    this.emitFile({ type: 'asset', fileName: 'scrolly.min.js', source: code })
+    this.emitFile({ type: 'asset', fileName: 'moviola.min.js', source: code })
     this.emitFile({
       type: 'asset',
-      fileName: 'scrolly.css',
-      source: readFileSync('src/scrolly.css', 'utf8'),
+      fileName: 'moviola.css',
+      source: readFileSync('src/moviola.css', 'utf8'),
     })
-    // The iife lib-mode chunk only exists to derive scrolly.min.js above —
+    // The iife lib-mode chunk only exists to derive moviola.min.js above —
     // dropping it from the bundle here (before Rollup writes output) keeps
     // it out of dist entirely.
-    delete bundle['scrolly.iife.js']
+    delete bundle['moviola.iife.js']
   },
   async closeBundle() {
-    const bundledDts = path.resolve('dist/scrolly.esm.d.ts')
-    if (existsSync(bundledDts)) renameSync(bundledDts, path.resolve('dist/scrolly.d.ts'))
-    if (!existsSync(path.resolve('dist/scrolly.d.ts'))) {
+    const bundledDts = path.resolve('dist/moviola.esm.d.ts')
+    if (existsSync(bundledDts)) renameSync(bundledDts, path.resolve('dist/moviola.d.ts'))
+    if (!existsSync(path.resolve('dist/moviola.d.ts'))) {
       throw new Error('build: no bundled declaration file was emitted')
     }
     // absolute URL: Vite bundles this config to a temp file, so a relative
@@ -65,12 +65,12 @@ export default defineConfig({
   build: {
     lib: {
       entry: 'src/index.ts',
-      name: 'Scrolly',
+      name: 'Moviola',
       formats: ['es', 'iife'],
-      fileName: format => (format === 'es' ? 'scrolly.esm.js' : 'scrolly.iife.js'),
+      fileName: format => (format === 'es' ? 'moviola.esm.js' : 'moviola.iife.js'),
     },
     // iife stays unminified here — it's only the in-memory intermediate the
-    // plugin's esbuild pass above derives scrolly.min.js from; it's deleted
+    // plugin's esbuild pass above derives moviola.min.js from; it's deleted
     // from the bundle before dist is written (see generateBundle).
     minify: false,
     target: 'es2019',
@@ -79,7 +79,7 @@ export default defineConfig({
       output: { exports: 'default', banner },
     },
   },
-  plugins: [dts({ bundleTypes: true, include: ['src'] }), scrollyArtifacts()],
+  plugins: [dts({ bundleTypes: true, include: ['src'] }), moviolaArtifacts()],
   test: {
     include: ['test/unit/**/*.test.ts'],
     environment: 'node',

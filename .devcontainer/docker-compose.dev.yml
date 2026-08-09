@@ -1,7 +1,7 @@
 # Scaffolded by the `devcontainer` skill.
 services:
   dev:
-    container_name: scrolly-dev
+    container_name: moviola-dev
     # PID-1 init (tini) reaps the child processes browsers leave behind —
     # without it, every crashed/killed Chromium accumulates as a zombie.
     init: true
@@ -14,7 +14,7 @@ services:
       # and this Debian container don't fight over one bind-mounted dir:
       # native binaries are platform-specific, and `bun install` only
       # materializes the current platform's. postCreateCommand repopulates it.
-      - scrolly-node-modules:/workspace/node_modules
+      - moviola-node-modules:/workspace/node_modules
       - claude-config:/root/.claude
       # Commit identity + signing config. SSH keys are deliberately NOT
       # mounted — git auth uses SSH agent forwarding (VS Code forwards
@@ -36,7 +36,7 @@ services:
     working_dir: /workspace
 
 volumes:
-  scrolly-node-modules:
+  moviola-node-modules:
     driver: local
   claude-config:
     driver: local

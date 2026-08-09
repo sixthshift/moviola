@@ -1,25 +1,25 @@
 {
-  "name": "scrolly-js",
+  "name": "moviola",
   "version": "0.1.0",
-  "description": "The scrollytelling framework — you write the DOM, scrolly runs the state machine, effects live in your CSS.",
+  "description": "The scrollytelling framework — you write the DOM, moviola runs the state machine, effects live in your CSS.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sixthshift/scrolly-js.git"
+    "url": "git+https://github.com/sixthshift/moviola.git"
   },
-  "homepage": "https://github.com/sixthshift/scrolly-js#readme",
+  "homepage": "https://github.com/sixthshift/moviola#readme",
   "bugs": {
-    "url": "https://github.com/sixthshift/scrolly-js/issues"
+    "url": "https://github.com/sixthshift/moviola/issues"
   },
-  "main": "./dist/scrolly.esm.js",
-  "types": "./dist/scrolly.d.ts",
+  "main": "./dist/moviola.esm.js",
+  "types": "./dist/moviola.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/scrolly.d.ts",
-      "default": "./dist/scrolly.esm.js"
+      "types": "./dist/moviola.d.ts",
+      "default": "./dist/moviola.esm.js"
     },
-    "./scrolly.css": "./dist/scrolly.css",
+    "./moviola.css": "./dist/moviola.css",
     "./dist/*": "./dist/*"
   },
   "files": [

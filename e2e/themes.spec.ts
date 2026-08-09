@@ -36,7 +36,7 @@ const snapshot = async (browser: Browser, themeFile: string | null): Promise<Sna
     const h2 = document.querySelector('.step h2') as HTMLElement
     const p = document.querySelector('.step p') as HTMLElement
     const caption = document.querySelector('figure .caption') as HTMLElement
-    const figure = document.querySelector('.scrolly > figure') as HTMLElement
+    const figure = document.querySelector('.moviola > figure') as HTMLElement
     return {
       h2Font: getComputedStyle(h2).fontFamily,
       pFont: getComputedStyle(p).fontFamily,

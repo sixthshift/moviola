@@ -15,7 +15,7 @@ declare global {
   interface Window {
     __events: [string, string, string][]
     __story: { destroy(): void }
-    Scrolly: { init(target: string): unknown }
+    Moviola: { init(target: string): unknown }
   }
 }
 
@@ -187,7 +187,7 @@ test('§5.1/§15.2 RED-TEAM: --progress-<id> is correct after the story is scrol
 })
 
 test('§7.2 init is idempotent per element', async () => {
-  const same = await page.evaluate(() => window.Scrolly.init('#story') === window.__story)
+  const same = await page.evaluate(() => window.Moviola.init('#story') === window.__story)
   expect(same).toBe(true)
 })
 
@@ -212,7 +212,7 @@ test('§7.2/§7.3 destroy restores the DOM; re-init works fresh', async () => {
   expect(after.stepProgress).toBe('')
 
   const fresh = await page.evaluate(() => {
-    const s = window.Scrolly.init('#story')
+    const s = window.Moviola.init('#story')
     return (
       s !== window.__story &&
       (document.querySelector('#story') as HTMLElement).classList.contains('is-ready')

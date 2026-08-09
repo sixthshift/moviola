@@ -1,6 +1,6 @@
 # Recipes
 
-The official answer to "does scrolly do X?" — most expected scrollytelling
+The official answer to "does moviola do X?" — most expected scrollytelling
 features are one small pattern over the contract, not library features. Every
 recipe here fits in ~15 lines; if you find one that can't, that's a library
 gap — file an issue.
@@ -17,7 +17,7 @@ All recipes assume the quick-start document model from the README.
          transform: scaleX(var(--story-progress, 0)); }
 </style>
 ```
-Put `.bar` inside the `.scrolly` element (custom properties are set there).
+Put `.bar` inside the `.moviola` element (custom properties are set there).
 
 ## Image flipbook / crossfade sequence
 
@@ -36,8 +36,8 @@ The default behavior — stack images, tag each with its step:
 Any CSS can react to the active step via the root attribute:
 
 ```css
-.scrolly[data-active-step="crash"] { background: #1a0d0d; }
-.scrolly[data-active-step="crash"] h2 { color: crimson; }
+.moviola[data-active-step="crash"] { background: #1a0d0d; }
+.moviola[data-active-step="crash"] h2 { color: crimson; }
 ```
 
 ## Text entrance effects
@@ -113,7 +113,7 @@ This is the fix for the classic all-videos-autoplay-at-once bug.
 </style>
 ```
 ```css
-.scrolly[data-active-step="crash"] .dots a[href="#crash"] { background: crimson; }
+.moviola[data-active-step="crash"] .dots a[href="#crash"] { background: crimson; }
 ```
 Step `id`s are native anchors, so the links work with zero JS; the attribute
 selector lights up the current dot.
@@ -161,7 +161,7 @@ Redraw the full state on every `stepenter` as usual; `data-morph` upgrades
 the snap into a native FLIP-style travel for any element you name:
 
 ```html
-<article class="scrolly" data-morph>
+<article class="moviola" data-morph>
 ```
 ```js
 dotEls.forEach((el, i) => { el.style.viewTransitionName = `dot-${i}` })
@@ -173,6 +173,6 @@ between two calls, never the redraw logic itself.
 
 ## Ruled out
 
-Horizontal-scroll sections: scrolly observes scroll, it never owns it.
+Horizontal-scroll sections: moviola observes scroll, it never owns it.
 Hijacking the wheel to move sideways breaks reader trust, accessibility, and
 the entire premise. Use more steps instead.

@@ -7,7 +7,7 @@
 //
 // Code fences (```…```) are blanked before scanning: fenced blocks are
 // illustrative HTML/CSS snippets showing what an *author's own* page
-// should contain (e.g. `<link href="scrolly.css">`), not real references
+// should contain (e.g. `<link href="moviola.css">`), not real references
 // from this repo's docs — flagging them would be noise, not a defect.
 //
 // Usage: node scripts/check-links.mjs [file ...]

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scrolly — the scrollytelling framework</title>
-<link rel="stylesheet" href="dist/scrolly.css">
+<title>moviola — the scrollytelling framework</title>
+<link rel="stylesheet" href="dist/moviola.css">
 <style>
   /* ---- demo page styling (not part of the lib) ---- */
   :root {
@@ -12,8 +12,8 @@
     --fg: #e8ebf0;
     --muted: #8b93a1;
     --card: #171c24;
-    --scrolly-card-bg: rgba(23, 28, 36, 0.92);
-    --scrolly-card-fg: var(--fg);
+    --moviola-card-bg: rgba(23, 28, 36, 0.92);
+    --moviola-card-fg: var(--fg);
   }
 
   * { box-sizing: border-box; }
@@ -66,17 +66,17 @@
 
   /* ---- the story ---- */
 
-  .scrolly {
+  .moviola {
     padding: 0 clamp(1rem, 4vw, 4rem);
     /* the accent color is driven by whichever step is active — pure CSS */
     --accent: #7c9eff;
   }
 
-  .scrolly[data-active-step="state"]    { --accent: #ffb454; }
-  .scrolly[data-active-step="show"]     { --accent: #5fd7a7; }
-  .scrolly[data-active-step="progress"] { --accent: #ff7eb6; }
-  .scrolly[data-active-step="css"]      { --accent: #c792ea; }
-  .scrolly[data-active-step="api"]      { --accent: #7c9eff; }
+  .moviola[data-active-step="state"]    { --accent: #ffb454; }
+  .moviola[data-active-step="show"]     { --accent: #5fd7a7; }
+  .moviola[data-active-step="progress"] { --accent: #ff7eb6; }
+  .moviola[data-active-step="css"]      { --accent: #c792ea; }
+  .moviola[data-active-step="api"]      { --accent: #7c9eff; }
 
   .step h2 { font-size: 1.6rem; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
   .step p  { color: var(--muted); max-width: 26rem; }
@@ -174,17 +174,17 @@
 <body>
 
 <header>
-  <h1>scrolly</h1>
-  <p>The scrollytelling framework. You write the DOM, scrolly runs the
+  <h1>moviola</h1>
+  <p>The scrollytelling framework. You write the DOM, moviola runs the
      state machine, effects live in your CSS.</p>
   <div class="hint">scroll ↓</div>
 </header>
 
-<article class="scrolly" data-layout="side-right">
+<article class="moviola" data-layout="side-right">
 
   <figure aria-hidden="true">
     <div class="panel" data-show="hello">
-      <div class="wordmark">scrolly</div>
+      <div class="wordmark">moviola</div>
       <div class="caption">this page is built with it</div>
     </div>
 
@@ -279,14 +279,14 @@
   <p>Resize the window under 720px — the story collapses to an overlay
      automatically. That's the whole library: a document model, a state
      machine, and your CSS.</p>
-  <p><code>&lt;script src="scrolly.js"&gt;&lt;/script&gt; · Scrolly.init()</code></p>
+  <p><code>&lt;script src="moviola.js"&gt;&lt;/script&gt; · Moviola.init()</code></p>
 </footer>
 
-<script src="dist/scrolly.min.js"></script>
+<script src="dist/moviola.min.js"></script>
 <script>
-  const [story] = Scrolly.init()
+  const [story] = Moviola.init()
   story.on('stepenter', ({ id, direction }) =>
-    console.log(`scrolly:stepenter → ${id} (${direction})`))
+    console.log(`moviola:stepenter → ${id} (${direction})`))
 </script>
 
 </body>

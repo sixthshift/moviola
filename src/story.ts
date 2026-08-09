@@ -1,5 +1,5 @@
 /**
- * The Story runtime — one instance per `.scrolly` element. Owns the
+ * The Story runtime — one instance per `.moviola` element. Owns the
  * IntersectionObserver-gated scroll loop and every §5–§7 DOM state write; the
  * math it acts on lives in geometry.ts, the plumbing in events.ts/keyboard.ts,
  * and the §15 motion writes (scrub stamps, camera, morph) in motion.ts.
@@ -10,7 +10,7 @@ import { emit, subscribe } from './events'
 import { activeIndex, chapterProgress, resolveShow, stepProgress, storyProgress } from './geometry'
 import { handleKeydown } from './keyboard'
 import { Motion } from './motion'
-import type { ScrollyEventMap, ScrollyEventName, ScrollyOptions, StepDetail } from './types'
+import type { MoviolaEventMap, MoviolaEventName, MoviolaOptions, StepDetail } from './types'
 
 const OFFSET = 0.5
 const stepId = (el: HTMLElement, i: number): string => el.id || String(i)
@@ -20,8 +20,8 @@ const VALID_IDENT = /^[A-Za-z0-9_-]+$/
 
 const instances = new WeakMap<HTMLElement, Story>()
 
-/** `Scrolly.init()` is idempotent per element: re-init returns the existing Story. */
-export function getOrCreateStory(el: HTMLElement, opts?: ScrollyOptions): Story {
+/** `Moviola.init()` is idempotent per element: re-init returns the existing Story. */
+export function getOrCreateStory(el: HTMLElement, opts?: MoviolaOptions): Story {
   return instances.get(el) ?? new Story(el, opts)
 }
 
@@ -53,7 +53,7 @@ export class Story {
   private _motion: Motion
   private _destroyed = false
 
-  constructor(root: HTMLElement, opts: ScrollyOptions = {}) {
+  constructor(root: HTMLElement, opts: MoviolaOptions = {}) {
     this.root = root
     this.offset = parseFloat(root.dataset.offset ?? String(opts.offset ?? OFFSET))
     this.graphic = root.querySelector(':scope > figure')
@@ -213,8 +213,8 @@ export class Story {
       for (const { token, reason } of issues) {
         warnOnce(
           reason === 'reversed'
-            ? `scrolly: data-show="${token}" is a reversed range`
-            : `scrolly: data-show="${token}" matches no step id`
+            ? `moviola: data-show="${token}" is a reversed range`
+            : `moviola: data-show="${token}" matches no step id`
         )
       }
       return { el, keys }
@@ -235,8 +235,8 @@ export class Story {
       const nested = this.root.querySelectorAll('.step').length
       warnOnce(
         nested > 0
-          ? `scrolly: found ${nested} nested .step descendants — steps must be direct children of .scrolly`
-          : 'scrolly: .scrolly has no .step elements — nothing to activate'
+          ? `moviola: found ${nested} nested .step descendants — steps must be direct children of .moviola`
+          : 'moviola: .moviola has no .step elements — nothing to activate'
       )
     }
     // §16.1: this.shown is figure-scoped, so a [data-show] outside one is
@@ -246,7 +246,7 @@ export class Story {
     // that attribute's literal spelling, which belongs to motion.ts alone.)
     if (!this.graphic && this.root.querySelector('[data-camera], [data-show]')) {
       warnOnce(
-        'scrolly: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing'
+        'moviola: [data-camera]/[data-show] needs a :scope > figure — the graphic frame is missing'
       )
     }
   }
@@ -256,7 +256,7 @@ export class Story {
     return { step, id: stepId(step, i), index: i }
   }
 
-  on<K extends ScrollyEventName>(name: K, fn: (detail: ScrollyEventMap[K]) => void): () => void {
+  on<K extends MoviolaEventName>(name: K, fn: (detail: MoviolaEventMap[K]) => void): () => void {
     const unsubscribe = subscribe(this.root, name, fn)
     const off = () => {
       unsubscribe()
