@@ -11,9 +11,12 @@ properties. It never sets a visual property itself — your CSS does every
 effect. 4.5 KB gzipped, zero dependencies, no build step, runs from
 `file://`.
 
-> **Status: pre-1.0 (v0.1.0), not yet published to npm.** The contract below
-> is stable and covered by tests. Until the first publish, install by
-> vendoring the two files (see [Install](#install)).
+A moviola is the editing bench where a cutter holds the film and scrubs it
+back and forth by hand. That is what this library makes of a web page: no
+clock, no playback, just a reel and a reader's thumb on it.
+
+> **Status: pre-1.0 (v0.1.0).** The contract below is stable and covered by
+> tests, but the minor version can still move under you before 1.0.
 
 ## Demo
 
@@ -38,16 +41,32 @@ Full list in the [Gallery](#gallery).
 
 ## Install
 
-**Vendor the files.** Copy `dist/moviola.min.js` and `dist/moviola.css` next
-to your page and reference them directly. This is the intended path: the
-library is small enough to commit, and pages stay openable from `file://`.
+```sh
+npm install moviola
+```
+```js
+import Moviola from 'moviola'          // types included
+import 'moviola/moviola.css'
+```
+
+**From a CDN**, if you'd rather not build anything:
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/moviola/dist/moviola.css">
+<script src="https://cdn.jsdelivr.net/npm/moviola/dist/moviola.min.js"></script>
+```
+
+**Or vendor the two files.** Copy `dist/moviola.min.js` and `dist/moviola.css`
+next to your page and reference them directly — the library is small enough
+to commit, and this is the only route that keeps a story openable from
+`file://` with no network at all:
 
 ```html
 <link rel="stylesheet" href="moviola.css">
 <script src="moviola.min.js"></script>
 ```
 
-**Or clone and build.** `dist/` is committed, so this is only needed if you
+**To build from source.** `dist/` is committed, so this is only needed if you
 change `src/`:
 
 ```sh
@@ -56,18 +75,6 @@ cd moviola && bun install && bun run build
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-**npm** — the package is `moviola`, not published yet (tracked in
-[Roadmap](#roadmap)). The manifest is ready, so this works unchanged on the
-day it ships:
-
-```js
-import Moviola from 'moviola'   // dist/moviola.esm.js, types included
-```
-
-A moviola is the editing bench where a cutter holds the film and scrubs it
-back and forth by hand. That is what this library makes of a web page: no
-clock, no playback, just a reel and a reader's thumb on it.
 
 What's in `dist/`:
 
@@ -257,8 +264,8 @@ Neither costs the library a byte:
 
 ## Roadmap
 
-- first npm publish as `moviola`, plus jsdelivr/unpkg
 - `full` layout variant
+- trusted publishing (OIDC) so releases ship from a tag, not a laptop
 
 ## License
 

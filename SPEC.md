@@ -251,8 +251,11 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
   `window.Moviola`; the ESM build exports the same object as its default
   with no global side effect.
-- ⬜ npm publish + CDN (jsdelivr/unpkg) as `moviola-js`; name settled, the
-  publish itself is still human-gated.
+- ✅ npm publish + CDN: `moviola@0.1.0` published 2026-08-09, served by
+  jsdelivr/unpkg from `dist/`. First publish was manual — npm's trusted
+  publisher must be configured against an existing package, so OIDC cannot
+  carry a package's first version; `.github/workflows/release.yml` takes over
+  from the next tag.
 - ✅ **v0.4 amendment — single classic artifact**: `dist/moviola.iife.js`
   is removed. The canonical runtime artifact — the bytes embedded in
   examples, `skill/assets/`, and byte-matched by the §14 validator's lib
