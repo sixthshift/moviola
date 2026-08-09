@@ -1,4 +1,4 @@
-# scrolly — specification
+# moviola — specification
 
 **Status:** draft for review. The README is the user-facing contract; this
 document is the full requirements behind it — precise semantics, rationale,
@@ -10,22 +10,22 @@ open decisions are marked ❓.
 
 ## 1. Product statement
 
-scrolly is to scrollytelling what reveal.js is to slides: the complete
+moviola is to scrollytelling what reveal.js is to slides: the complete
 framework layer for a form that has only ever had primitives (scrollama) and
-niche formats (Closeread). You write semantic HTML; scrolly pins the graphic,
+niche formats (Closeread). You write semantic HTML; moviola pins the graphic,
 runs the scroll state machine, and expresses everything it knows as CSS-
 reactable state. One script tag, one stylesheet, no build step.
 
 Primary adopters, in order:
 1. **AI agents** (Claude Code et al.) producing self-contained scrollytelling
    HTML — the reveal.js-for-slides usage pattern. Served by a SKILL.md, since
-   scrolly has no training-data presence (§10).
+   moviola has no training-data presence (§10).
 2. **Developers** who today hand-roll sticky CSS + scrollama callbacks.
 3. **Data-journalism / data-viz authors** graduating from bespoke builds.
 
 ## 2. Design principles
 
-1. **Decorate, don't parse.** scrolly reads the DOM you wrote and stamps
+1. **Decorate, don't parse.** moviola reads the DOM you wrote and stamps
    state onto it. No AST, no markdown, no compiler, no measurement, no
    validation. Overflow is between the author and their eyes — exactly
    reveal.js's contract.
@@ -36,7 +36,7 @@ Primary adopters, in order:
 3. **The zero-callback path must cover the common case.** Image crossfades,
    step-driven styling, and progress-driven animation must all work with no
    author JavaScript. The event API exists for D3-class graphics only.
-4. **Structural CSS only.** scrolly.css owns geometry (pinning, columns,
+4. **Structural CSS only.** moviola.css owns geometry (pinning, columns,
    collapse) and visibility mechanics. It never owns typography, color, or
    aesthetics. Themes may do so later, as opt-in files (§12).
 5. **Boring runtime, no config surface.** Attributes on the element, not an
@@ -45,11 +45,11 @@ Primary adopters, in order:
 ### Non-goals (rejected, do not re-open casually)
 
 - Markdown/authoring formats, capacity validation, compile-time anything —
-  a future tool may *target* scrolly's conventions; scrolly stays ignorant
+  a future tool may *target* moviola's conventions; moviola stays ignorant
   of it.
 - Chart/map rendering. The graphic is arbitrary author HTML.
 - Scroll-jacking, smooth-scroll takeover, parallax physics. The browser owns
-  scrolling; scrolly only observes it.
+  scrolling; moviola only observes it.
 - Framework wrappers (React/Svelte/Vue) in core. Events bubble; wrappers can
   live outside.
 
@@ -68,7 +68,7 @@ Primary adopters, in order:
 ## 4. Document model (normative)
 
 ```html
-<article class="scrolly" data-layout="side-right" data-offset="0.5">
+<article class="moviola" data-layout="side-right" data-offset="0.5">
   <figure>
     <!-- graphic: arbitrary HTML; children opt into step-driven visibility -->
     <img src="a.png" data-show="intro">
@@ -83,7 +83,7 @@ Primary adopters, in order:
 
 Rules:
 
-- **Root**: any element carrying class `scrolly`. `<article>` recommended.
+- **Root**: any element carrying class `moviola`. `<article>` recommended.
 - **Graphic**: the first *direct child* `<figure>`. Exactly one; absent is
   legal (a text-only stepper still gets classes/events).
 - **Steps**: all *direct children* with class `step`, in DOM order.
@@ -93,7 +93,7 @@ Rules:
 - **`data-show`**: space-separated list of step ids (or index strings) on any
   descendant of the graphic. Graphic children without `data-show` are always
   visible.
-- Content between/around steps and outside `.scrolly` is untouched — stories
+- Content between/around steps and outside `.moviola` is untouched — stories
   embed in normal article flow.
 - A step's content SHOULD be a single block element (wrap in a `<div>` if
   more) — card styling in overlay/mobile modes targets `.step > *`.
@@ -163,7 +163,7 @@ Continuously (rAF-throttled while the story intersects the viewport):
 - **Mobile collapse**: below **720px**, side layouts become overlay
   (single column, card-styled steps). Fixed breakpoint, not configurable —
   revisit only with evidence. ✅
-- Card knobs: `--scrolly-card-bg`, `--scrolly-card-fg`. The only theming
+- Card knobs: `--moviola-card-bg`, `--moviola-card-fg`. The only theming
   surface in v0. ✅
 
 ### 6.2 Visibility mechanics
@@ -181,9 +181,9 @@ Bubbling, cancelable-irrelevant `CustomEvent`s dispatched on the root:
 
 | Event | Fires | `detail` |
 |---|---|---|
-| `scrolly:stepenter` | step becomes active | `{ step, id, index, direction }` |
-| `scrolly:stepexit` | step stops being active | `{ step, id, index, direction }` |
-| `scrolly:progress` | each rAF tick while a step is active | `{ step, id, index, progress, storyProgress }` |
+| `moviola:stepenter` | step becomes active | `{ step, id, index, direction }` |
+| `moviola:stepexit` | step stops being active | `{ step, id, index, direction }` |
+| `moviola:progress` | each rAF tick while a step is active | `{ step, id, index, progress, storyProgress }` |
 
 `direction` is `"down"` or `"up"`. Exit fires before enter. Plain DOM events
 so every framework interops with zero glue.
@@ -191,11 +191,11 @@ so every framework interops with zero glue.
 ### 7.2 API
 
 ```js
-Scrolly.init()            // all .scrolly on the page → Story[]
-Scrolly.init(elOrSel)     // one story → Story (throws if no match)
+Moviola.init()            // all .moviola on the page → Story[]
+Moviola.init(elOrSel)     // one story → Story (throws if no match)
 story.on(name, fn)        // sugar over addEventListener; name without prefix
 story.destroy()           // teardown
-Scrolly.version
+Moviola.version
 ```
 
 `data-offset` on the element beats `opts.offset` beats the 0.5 default.
@@ -204,7 +204,7 @@ Scrolly.version
 
 - ✅ (fixed) `story.on()` returns an unsubscribe function; `destroy()`
   removes all sugar-registered listeners.
-- ✅ (fixed) `Scrolly.init()` is idempotent per element — re-init returns
+- ✅ (fixed) `Moviola.init()` is idempotent per element — re-init returns
   the existing Story (WeakMap-backed); `destroy()` releases the element.
 
 ### 7.4 Keyboard stepping ✅
@@ -220,7 +220,7 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
 
 - **8.1 No-JS / JS-failed** ✅ **(fixed):** the runtime stamps `is-ready` on
   the root at init, and all visibility-hiding CSS is scoped under
-  `.scrolly.is-ready`. A no-JS page shows all graphic states stacked but
+  `.moviola.is-ready`. A no-JS page shows all graphic states stacked but
   *readable* — degraded, never blank. `destroy()` removes the stamp.
 - **Reduced motion**: `prefers-reduced-motion` disables the built-in
   transition; state changes become cuts. Progress variables still stream
@@ -237,7 +237,7 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
 
 ## 9. Packaging & distribution
 
-- v0: classic script exposing `window.Scrolly`; CSS file alongside. ✅
+- v0: classic script exposing `window.Moviola`; CSS file alongside. ✅
 - ✅ v0.2: dual ESM/classic build (originally a hand-maintained wrapper;
   see the v0.3 amendment below).
 - ✅ **v0.3 amendment — internal toolchain**: `src/` is TypeScript modules
@@ -246,40 +246,77 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   classic script from `file://`, zero runtime dependencies, size budgets.
   The bundler is repo tooling, never a consumer requirement. The canonical
   runtime artifact — the bytes embedded in examples, `skill/assets/`, and
-  matched by the §14 validator's lib detection — is `dist/scrolly.iife.js`,
+  matched by the §14 validator's lib detection — is `dist/moviola.iife.js`,
   kept in sync everywhere by `scripts/sync-embeds.mjs` and asserted by
   `test/unit/embeds.test.ts`. Only the classic (iife) script attaches
-  `window.Scrolly`; the ESM build exports the same object as its default
+  `window.Moviola`; the ESM build exports the same object as its default
   with no global side effect.
-- ⬜ npm publish + CDN (jsdelivr/unpkg) as `scrolly-js`; name settled, the
+- ⬜ npm publish + CDN (jsdelivr/unpkg) as `moviola-js`; name settled, the
   publish itself is still human-gated.
-- ✅ **v0.4 amendment — single classic artifact**: `dist/scrolly.iife.js`
+- ✅ **v0.4 amendment — single classic artifact**: `dist/moviola.iife.js`
   is removed. The canonical runtime artifact — the bytes embedded in
   examples, `skill/assets/`, and byte-matched by the §14 validator's lib
-  detection — is `dist/scrolly.min.js` (still a classic script attaching
-  `window.Scrolly`; mangling policy unchanged). The readable implementation
+  detection — is `dist/moviola.min.js` (still a classic script attaching
+  `window.Moviola`; mangling policy unchanged). The readable implementation
   reference is `src/`, shipped in the package; the §3 JS bar binds
-  `scrolly.min.js`. Rationale (decision 2026-07-07): the readable embed was
+  `moviola.min.js`. Rationale (decision 2026-07-07): the readable embed was
   a third copy of the implementation, its 4 KB share of the bar blocked
   §15, and view-source's job is teaching the rig — the author's markup and
   CSS — not lib internals.
-- ✅ **Name** (decision 2026-08-08): the npm name `scrolly` is taken — a
-  dormant 2014 vanilla-JS scrollbar plugin, 2 versions, latest 0.6.0. The
-  package publishes as **`scrolly-js`**. The authoring contract does not
-  move: `.scrolly`, the `scrolly:` event and diagnostic prefix,
-  `--scrolly-card-*`, `window.Scrolly`, and the `scrolly.min.js` /
-  `scrolly.css` filenames all stay. Rationale: the reveal.js split (package
-  name ≠ class name ≠ global) frees the npm name without invalidating a
-  single published example or skill template, where renaming the contract
-  would amend §5 and §7 for no author-visible gain.
+- ✅ **Name** (decision 2026-08-08, superseded 2026-08-09 — see the amendment
+  below): the npm name `scrolly` is taken by a dormant 2014 vanilla-JS
+  scrollbar plugin, so the package was to publish as `scrolly-js` with the
+  authoring contract left in place — the reveal.js split of package name ≠
+  class name ≠ global.
+
+- ✅ **v0.5 amendment — the project is renamed `moviola`** (decision
+  2026-08-09). `scrolly-js` cannot be published: npm's similarity guard
+  rejects it as too close to the existing `scrollyjs`, a current CSS
+  scroll-animation library. That forced the name open again, and the
+  reveal.js split stopped paying: a package called one thing and a contract
+  called another only works when the two names are obviously the same brand,
+  which `scrolly-js` and `scrolly` were and a distinct third name would not
+  be. A moviola is the editing bench where a cutter holds the film and
+  scrubs it back and forth by hand — the machine this library already
+  describes in §2 — so the name is taken all the way down rather than bolted
+  on at the registry.
+
+  **Renamed** (this is the §5/§7 contract amendment):
+
+  | Was | Is |
+  |---|---|
+  | npm `scrolly-js` | `moviola` |
+  | `window.Scrolly`, `Scrolly.init()` | `window.Moviola`, `Moviola.init()` |
+  | `.scrolly` root class | `.moviola` |
+  | `scrolly:` event and diagnostic prefix | `moviola:` |
+  | `--scrolly-card-bg` / `-fg` | `--moviola-card-bg` / `-fg` |
+  | `dist/scrolly.*`, `src/scrolly.css` | `dist/moviola.*`, `src/moviola.css` |
+  | `scrolly-director.js` | `moviola-director.js` |
+  | `<!-- scrolly:js -->` embed markers | `<!-- moviola:js -->` |
+  | `ScrollyOptions`, `ScrollyEventMap`, `ScrollyEventName` | `Moviola*` |
+  | GitHub `sixthshift/scrolly-js` | `sixthshift/moviola` |
+
+  **Unchanged, deliberately.** Everything that names a *concept* rather than
+  the project: `.step`, `is-past` / `is-active` / `is-future` / `is-ready` /
+  `is-shown`, every `data-*` attribute, `--step-progress` /
+  `--story-progress` / `--progress-<id>` / `--camera-transform` / `--t`, and
+  the API verbs `init` / `on` / `destroy` with `stepenter` / `stepexit` /
+  `progress`. `init` stays a lifecycle verb: the domain vocabulary is already
+  cinematic where it denotes something real (`data-camera`, `data-focus`,
+  `data-shot="wide|medium|close"`, `data-zoom`, `data-scrub`), and renaming
+  the one conventional call site would buy metaphor at the cost of every
+  reader who knows what `init` means.
+
+  Safe to do now and only now: nothing is published, so there is no
+  deprecation path to maintain and no author's page to break.
 - **Self-contained pattern** (the agent artifact): JS + CSS inlined into one
   HTML file. Must stay copy-paste-able — no external references anywhere in
   the lib. ✅ (property holds; template ships with the skill, §10)
 
 ## 10. Agent integration (release artifact, not afterthought)
 
-The strategic goal: **Claude Code reaches for scrolly the way it reaches for
-reveal.js.** scrolly has zero training-data presence; the skill closes that
+The strategic goal: **Claude Code reaches for moviola the way it reaches for
+reveal.js.** moviola has zero training-data presence; the skill closes that
 gap because the entire authoring surface is ~5 conventions over HTML/CSS the
 models already write fluently.
 
@@ -303,7 +340,7 @@ render.
 
 Most features people *expect* from scrollytelling are not library features —
 they are one small pattern over the contract. Recipes are the official
-answer to "does scrolly do X?", the same role patterns play in reveal's
+answer to "does moviola do X?", the same role patterns play in reveal's
 docs. They ship as a docs page of copy-paste snippets (live examples where
 feasible) and feed the SKILL.md patterns section (§10 item 5) verbatim.
 
@@ -328,7 +365,7 @@ a long recipe.
 | Chapter nav dots | `stepenter` + native `#id` anchors |
 
 Ruled out as recipes: horizontal-scroll sections (scroll-jacking adjacent,
-violates principle 5 — scrolly observes scroll, never owns it).
+violates principle 5 — moviola observes scroll, never owns it).
 
 ## 12. Milestones
 
@@ -361,7 +398,7 @@ Not a feature list — four observable outcomes:
 ## 14. Success criteria — the parity suite
 
 The ultimate test is recreation: canonical scrollytelling pieces, each a
-bespoke newsroom build, re-implemented on scrolly. **The suite tests
+bespoke newsroom build, re-implemented on moviola. **The suite tests
 choreography, not artwork**: the scoring boundary is that any failure must
 trace to graphic rendering (author-land: charts, maps, video — out of
 scope) and never to the pin/step/reveal/scrub choreography (lib-land: if the
@@ -403,7 +440,7 @@ Per target, parity means:
   reverse-scroll behavior are indistinguishable in kind from the original.
 - **Mobile** — the piece remains readable and choreographed under 720px via
   the built-in collapse (originals often shipped separate mobile builds;
-  scrolly must get there with zero extra work).
+  moviola must get there with zero extra work).
 - **Glue budget** — Tier 1: zero JS beyond drawing; Tier 2: author JS
   touches only the graphic, never scroll/trigger/sticky logic; Tier 3:
   one small binding (e.g. progress→currentTime) is acceptable.
@@ -439,11 +476,11 @@ fall off the zero-JS path into `stepenter` callbacks: every Tier 2 target in
 §14 is Tier 2 *only* because interpolation between graphic keyframes has no
 declarative surface. The motion layer is one idea applied three ways:
 
-> scrolly compiles scroll into state; the motion layer compiles **state
+> moviola compiles scroll into state; the motion layer compiles **state
 > changes** into platform-native motion — keyframes, camera, morph.
 
 Nothing here adds a rendering engine. Each primitive emits CSS-reactable
-state (principle 2) or batches the writes scrolly already makes; the
+state (principle 2) or batches the writes moviola already makes; the
 browser renders all motion (CSS animations, View Transitions).
 
 ### 15.1 DX axioms (normative for this layer's design)
@@ -500,7 +537,7 @@ supplies the scrubbing, the same way it already supplies the `data-show`
 crossfade:
 
 ```css
-.scrolly.is-ready [data-scrub] {
+.moviola.is-ready [data-scrub] {
   animation-duration: 1s;          /* normalized; keyframes are the timeline */
   animation-play-state: paused;
   animation-fill-mode: both;
@@ -577,10 +614,10 @@ root, continuously interpolated:
 | `--camera-transform` | the current shot; between two focused steps it interpolates across the earlier step's chapter progress — pan linear, **zoom in log space** (linear zoom reads as lurching; this is zero-math-rule territory) |
 
 Structural CSS applies it — the camera is geometry, squarely in
-scrolly.css's remit:
+moviola.css's remit:
 
 ```css
-.scrolly.is-ready [data-camera] { transform: var(--camera-transform, none); }
+.moviola.is-ready [data-camera] { transform: var(--camera-transform, none); }
 ```
 
 Author experience: mark the stage, point each step at a thing. No CSS, no
@@ -619,7 +656,7 @@ step-change's DOM writes (§5.2's atomic class/attribute/`is-shown` batch)
 in `document.startViewTransition()`. Any element the author names with CSS
 `view-transition-name` travels between its old and new rendered state;
 everything else cross-fades as today. All customization happens in author
-CSS on the `::view-transition-*` pseudo-elements — scrolly still only
+CSS on the `::view-transition-*` pseudo-elements — moviola still only
 writes state.
 
 Rules (ordering and honesty guarantees):
@@ -656,13 +693,13 @@ Writing is half the loop; *seeing* is the other half. reveal.js's ease is
 overview mode as much as its markup. scrollytelling's authoring loop today
 is scroll-down-scroll-up-squint; these close it:
 
-1. **Runtime diagnostics (in core).** `console.warn` with a `scrolly:`
+1. **Runtime diagnostics (in core).** `console.warn` with a `moviola:`
    prefix for referential mistakes that today fail silently: a `data-show`
    / `data-scrub` / `data-focus` token matching no step or element; a
    `data-camera` with no focused step. Diagnostics never alter behavior
-   (fail-soft rule, §15.1.6). ❓ Stripped from `scrolly.min.js` or kept —
+   (fail-soft rule, §15.1.6). ❓ Stripped from `moviola.min.js` or kept —
    decide by measuring; kept is better DX if the budget holds.
-2. **`scrolly-director.js` (separate opt-in file, like themes — zero core
+2. **`moviola-director.js` (separate opt-in file, like themes — zero core
    bytes).** One script tag during authoring adds: the **trigger line
    drawn on screen** with its offset value (the single most confusing
    invisible concept in the medium); a chapter rail with click-to-jump and
@@ -677,7 +714,7 @@ is scroll-down-scroll-up-squint; these close it:
 ### 15.7 Conformance and acceptance ✅
 
 - **Size**: the existing §3 bars hold — no amendment. Measured headroom at
-  proposal time: `scrolly.min.js` 2146 B of 4096 B gzipped, `scrolly.css`
+  proposal time: `moviola.min.js` 2146 B of 4096 B gzipped, `moviola.css`
   1226 B of 2048 B. The three primitives are estimated ≲ 1 KB gzipped
   combined; if implementation threatens the bar, the camera (largest) moves
   to a separate opt-in file *before* the bar moves.
@@ -885,7 +922,7 @@ shot, so every flight becomes a cut and the path above is never traversed.
 beyond the warns above. The validator's contact sheet is the storyboard for the
 framings a run actually produced; its forward-versus-reverse pass is the
 continuity report that pins a flight as a pure function of scroll position; and
-`scrolly-director.js` is the authoring viewfinder for the chapter progress a
+`moviola-director.js` is the authoring viewfinder for the chapter progress a
 flight is scrubbed by.
 
 ### 16.5 Size budget — change order CO-1 ✅
