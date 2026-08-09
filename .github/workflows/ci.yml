@@ -1,0 +1,46 @@
+# The same gate contributors run locally: `bun run check` ends with
+# `git diff --exit-code dist examples skill/assets`, so this also proves the
+# committed build artifacts match `src/` — the one thing a reviewer cannot
+# eyeball on a repo that commits `dist/`.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Node runs the build and the validator scripts (CONTRIBUTING: >= 20.11).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: bun install --frozen-lockfile
+
+      # --with-deps because the runner image lacks Chromium's shared libraries.
+      - run: bunx playwright install --with-deps chromium
+
+      - run: bun run check
+
+      # A headless failure is unreadable without the trace; keep it for a week.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

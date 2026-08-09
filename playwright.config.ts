@@ -19,7 +19,14 @@ export default defineConfig({
   // is a Chromium, and validator tests spawn a second one — uncapped workers
   // can OOM-crash renderers on smaller machines.
   fullyParallel: true,
-  workers: 4,
+  // Halved on CI: 4 was tuned for a 10-core dev box, and a GitHub runner has
+  // 4 vCPUs — the "smaller machine" the note above is about. Retries there
+  // rather than here because a flake that only appears under CI contention
+  // must stay visible (Playwright reports a pass-on-retry as flaky, not as
+  // passed) instead of turning a release into a coin flip; locally a failure
+  // stays a failure, with no reruns to hide behind.
+  workers: process.env.CI ? 2 : 4,
+  retries: process.env.CI ? 2 : 0,
   projects: [
     {
       name: 'chromium',

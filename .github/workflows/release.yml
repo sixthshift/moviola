@@ -1,0 +1,60 @@
+# Publishing is gated on a human pushing a `v*` tag — nothing here fires on
+# its own (SPEC §9: npm publish stays human-gated). The tag is the intent; the
+# job's job is to refuse to honour an intent that disagrees with the manifest,
+# and to publish bytes that a green `bun run check` just produced.
+#
+# Auth is npm trusted publishing (OIDC), which needs `id-token: write` below
+# AND a trusted publisher configured on npmjs.com for this package, naming
+# this repository and this workflow filename. No NPM_TOKEN is stored anywhere.
+# Until that is configured, this job fails at the publish step — set it up on
+# npm rather than adding a long-lived token.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing and --provenance need a recent npm, newer than the
+      # one bundled with the Node major above.
+      - run: npm install -g npm@latest
+
+      - run: bun install --frozen-lockfile
+
+      # A tag that disagrees with the manifest would publish a version nobody
+      # asked for, under a number that can never be reused. Refuse first, and
+      # before anything slow runs.
+      - name: Tag matches package.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json $pkg" >&2
+            exit 1
+          fi
+
+      - run: bunx playwright install --with-deps chromium
+
+      # Includes the dist-freshness gate, so a stale committed build cannot
+      # ship — `npm publish` alone would happily upload one.
+      - run: bun run check
+
+      - run: npm publish --provenance --access public
