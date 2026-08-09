@@ -267,7 +267,13 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   (`scripts/stamp-version.mjs`), rebuilds so the committed artifacts carry
   it, commits `chore(release): vX.Y.Z`, tags, publishes to npm with
   provenance, and cuts the GitHub release whose `--generate-notes` output
-  is the changelog. Pushing a tag by hand is no longer the trigger.
+  is the changelog. Pushing a tag by hand is no longer the trigger — nor is
+  creating one: 0.1.0 shipped before this workflow existed and no tag names
+  it, so the first run backfills `v0.1.0` at HEAD (unchanged in `dist/`,
+  `src/` and the manifest since that publish) and releases nothing. The step
+  distinguishes that case from a genuine first release by asking npm whether
+  the manifest's version is already published, and is inert once any `v*`
+  tag exists.
   Rationale: the tag was a human gate in name only — its content was
   mechanically derivable from commits already written, so it gated typing,
   not judgment. Cost accepted: a bad `feat:` on `main` ships. The gate that

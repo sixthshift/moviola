@@ -84,6 +84,33 @@ jobs:
             test-results/
           retention-days: 7
 
+      # moviola@0.1.0 was published by hand, before any of this existed, so no
+      # tag names the commit it shipped from. Without one, "commits since the
+      # last tag" is the entire history — every feat: ever written — and the
+      # first run would decide 0.2.0 and publish it. Backfilling the tag at
+      # HEAD is honest: dist/, src/ and package.json have not changed since
+      # 0.1.0 went out, so this commit names those exact bytes.
+      #
+      # Self-disabling: once a v* tag exists this is a no-op forever, which is
+      # why it is a step here and not a one-shot someone has to remember to
+      # run. A repo publishing its genuine first version has no tag either,
+      # but its manifest names a version npm has never seen — that case wants
+      # the full history, so it must not reach this step.
+      - name: Backfill the tag for the already-published version
+        run: |
+          if git describe --tags --match 'v[0-9]*' --abbrev=0 >/dev/null 2>&1; then
+            exit 0
+          fi
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if ! npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is not on npm — genuine first release, leaving the range unbounded"
+            exit 0
+          fi
+          echo "$name@$version is published but untagged — tagging HEAD as v$version"
+          git tag "v$version"
+          git push origin "v$version"
+
       - name: Decide the version
         id: version
         # Assigned before it is echoed, deliberately: inside `echo "$(...)"`
