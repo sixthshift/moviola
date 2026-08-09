@@ -21,7 +21,10 @@ loop** (human gates — never build around them, never mechanize them):
 - The browser **feel-pass** for flights and morphs (Chrome/Safari/Firefox,
   <720px, reduced-motion) — Jason's eyes.
 - **Parity judgment** (§14 "indistinguishable in kind") on the re-cuts.
-- The project **name**, npm publish, demo-site publish.
+- The project **name**, demo-site publish. (npm publish was here until
+  2026-08-09; it is now continuous off `main` — see SPEC §9 v0.6. The gate
+  that replaced it is the commit message: `feat:`/`fix:`/`!` ship, anything
+  else does not.)
 - SPEC ❓ decisions that are semantic: multi-chapter `data-scrub` spans,
   raw-coordinate `data-focus`, camera easing (van Wijk–Nuij). Proposals
   only; do not implement.
@@ -86,7 +89,9 @@ loop** (human gates — never build around them, never mechanize them):
   SPEC amendment: escalate.
 - Implementing any §15 item marked ❓ — proposals only.
 - Moving the size bars.
-- npm/GitHub publish, name changes — human-gated.
+- Name changes — human-gated. npm/GitHub publish is no longer: it runs off
+  every push to `main` (SPEC §9 v0.6). Workers must therefore assume any
+  `feat:`/`fix:`/`!` commit that lands ships to consumers.
 
 ## Baseline gate (every ticket, no exceptions)
 

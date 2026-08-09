@@ -1,6 +1,7 @@
 # moviola
 
-[![CI](https://github.com/sixthshift/moviola/actions/workflows/ci.yml/badge.svg)](https://github.com/sixthshift/moviola/actions/workflows/ci.yml)
+[![release](https://github.com/sixthshift/moviola/actions/workflows/release.yml/badge.svg)](https://github.com/sixthshift/moviola/actions/workflows/release.yml)
+[![npm](https://img.shields.io/npm/v/moviola)](https://www.npmjs.com/package/moviola)
 
 **The scrollytelling framework.** You write the DOM, moviola runs the state
 machine, effects live in your CSS.

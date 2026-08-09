@@ -1,60 +1,145 @@
-# Publishing is gated on a human pushing a `v*` tag — nothing here fires on
-# its own (SPEC §9: npm publish stays human-gated). The tag is the intent; the
-# job's job is to refuse to honour an intent that disagrees with the manifest,
-# and to publish bytes that a green `bun run check` just produced.
+# Every push to main that ships something cuts a release: gate it, decide the
+# version from the commits, stamp it into the source, rebuild the committed
+# artifacts, tag, publish to npm, cut the GitHub release. Pushing a tag by
+# hand is not the trigger — main is.
 #
-# Auth is npm trusted publishing (OIDC), which needs `id-token: write` below
-# AND a trusted publisher configured on npmjs.com for this package, naming
-# this repository and this workflow filename. No NPM_TOKEN is stored anywhere.
-# Until that is configured, this job fails at the publish step — set it up on
-# npm rather than adding a long-lived token.
-name: Release
+# One workflow does all of it deliberately. A tag pushed with GITHUB_TOKEN
+# does not trigger another workflow (GitHub suppresses it to prevent
+# recursion), so splitting "tag" and "publish" across two files would need a
+# stored PAT to bridge them. Keeping publish in the same run needs no
+# long-lived credential at all.
+#
+# Auth is npm trusted publishing (OIDC): `id-token: write` below, plus a
+# trusted publisher on npmjs.com naming this repository and this workflow
+# filename. Renaming this file breaks publishing until that config is
+# re-pointed. No NPM_TOKEN is stored anywhere. moviola@0.1.0 was published by
+# hand, so the publisher can now be configured — npm requires the package to
+# already exist — but until someone does it on npmjs.com this job fails at
+# the publish step. Set it up there rather than adding a long-lived token.
+#
+# The push happens before the publish, deliberately: a failed publish leaves
+# a tag and a stamp commit on main with nothing on npm, which is recoverable
+# by publishing that version by hand. The reverse — npm holding a version no
+# commit names — is not recoverable at all, because the number is burned.
+name: release
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+
+# Serialize. Two pushes landing together would both read the same last tag
+# and compute the same next version. Queue rather than cancel — a cancelled
+# run can leave a pushed tag with nothing published against it.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
+    # This job pushes its own stamp commit to main. The GITHUB_TOKEN
+    # suppression above should already stop that from re-entering here;
+    # this guard is the belt to that braces, and costs nothing.
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # next-version.mjs counts commits since the last tag
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      # Node runs the build and the validator scripts (CONTRIBUTING: >= 20.11).
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing and --provenance need a recent npm, newer than the
-      # one bundled with the Node major above.
+      # Trusted publishing and --provenance need a newer npm than the one
+      # bundled with the Node major above.
       - run: npm install -g npm@latest
 
       - run: bun install --frozen-lockfile
 
-      # A tag that disagrees with the manifest would publish a version nobody
-      # asked for, under a number that can never be reused. Refuse first, and
-      # before anything slow runs.
-      - name: Tag matches package.json version
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          pkg="$(node -p "require('./package.json').version")"
-          if [ "$tag" != "$pkg" ]; then
-            echo "tag v$tag does not match package.json $pkg" >&2
-            exit 1
-          fi
-
+      # --with-deps because the runner image lacks Chromium's shared libraries.
       - run: bunx playwright install --with-deps chromium
 
-      # Includes the dist-freshness gate, so a stale committed build cannot
-      # ship — `npm publish` alone would happily upload one.
+      # Gate before versioning, not after: a tag pointing at red main is a lie
+      # that npm will happily serve. This also runs the dist/embeds freshness
+      # diff, so the tree is known clean before the stamp makes it dirty.
       - run: bun run check
 
-      - run: npm publish --provenance --access public
+      # A headless failure is unreadable without the trace; keep it for a week.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Decide the version
+        id: version
+        # Assigned before it is echoed, deliberately: inside `echo "$(...)"`
+        # the exit status belongs to echo, so a crashing next-version.mjs
+        # would read as "nothing to release" and skip the release silently.
+        run: |
+          next="$(node scripts/next-version.mjs)"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Skipped
+        if: steps.version.outputs.next == ''
+        run: echo 'No releasable commits since the last tag — nothing to publish.'
+
+      - name: Stamp and rebuild
+        if: steps.version.outputs.next != ''
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        # The build re-runs sync-embeds, so the new version reaches dist/,
+        # examples/*.html and skill/assets/ — all committed, all carrying the
+        # version in their bytes.
+        run: |
+          node scripts/stamp-version.mjs "$NEXT"
+          bun run build
+
+      # The full gate already passed above; this re-runs only the fast unit
+      # suite, whose package/embeds tests are exactly the ones a botched stamp
+      # would break. Cheaper than a second Playwright pass, and it catches the
+      # failure before anything is pushed or published.
+      - name: Verify the stamp
+        if: steps.version.outputs.next != ''
+        run: bun run test
+
+      - name: Commit, tag and push
+        if: steps.version.outputs.next != ''
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "chore(release): v$NEXT"
+          git tag "v$NEXT"
+          # HEAD:main rather than main — if another push landed while this ran,
+          # this fails loudly instead of clobbering it.
+          git push origin "HEAD:main"
+          git push origin "v$NEXT"
+
+      - name: Publish to npm
+        if: steps.version.outputs.next != ''
+        run: npm publish --provenance --access public
+
+      - name: Cut the GitHub release
+        if: steps.version.outputs.next != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.version.outputs.next }}
+        # --generate-notes is the changelog: the repo keeps no CHANGELOG.md,
+        # so the release page is where a human reads what moved between
+        # versions.
+        run: gh release create "v$NEXT" --title "v$NEXT" --generate-notes

@@ -255,7 +255,23 @@ stepping is an enhancement, never scroll-jacking (principle 5, §2).
   jsdelivr/unpkg from `dist/`. First publish was manual — npm's trusted
   publisher must be configured against an existing package, so OIDC cannot
   carry a package's first version; `.github/workflows/release.yml` takes over
-  from the next tag.
+  from the next release.
+- ✅ **v0.6 amendment — releases are continuous** (decision 2026-08-09,
+  supersedes the human publish gate): every push to `main` runs the gate,
+  then `scripts/next-version.mjs` reads the conventional commits since the
+  last `v*` tag and decides the bump — `feat` minor, `fix`/`perf`/`revert`
+  patch, `!` or a `BREAKING CHANGE` footer major, capped to minor while
+  pre-1.0 because 1.0.0 is a human statement about stability. A range with
+  no releasable commit prints nothing and releases nothing. Otherwise the
+  workflow stamps the version into `package.json` and `src/index.ts`
+  (`scripts/stamp-version.mjs`), rebuilds so the committed artifacts carry
+  it, commits `chore(release): vX.Y.Z`, tags, publishes to npm with
+  provenance, and cuts the GitHub release whose `--generate-notes` output
+  is the changelog. Pushing a tag by hand is no longer the trigger.
+  Rationale: the tag was a human gate in name only — its content was
+  mechanically derivable from commits already written, so it gated typing,
+  not judgment. Cost accepted: a bad `feat:` on `main` ships. The gate that
+  remains is the commit itself.
 - ✅ **v0.4 amendment — single classic artifact**: `dist/moviola.iife.js`
   is removed. The canonical runtime artifact — the bytes embedded in
   examples, `skill/assets/`, and byte-matched by the §14 validator's lib

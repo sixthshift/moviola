@@ -2,11 +2,13 @@
 # `git diff --exit-code dist examples skill/assets`, so this also proves the
 # committed build artifacts match `src/` — the one thing a reviewer cannot
 # eyeball on a repo that commits `dist/`.
+#
+# Pull requests only. release.yml runs this identical gate on every push to
+# main before it decides a version, so triggering here on main too would buy
+# a second Playwright run and no extra safety.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
 
 concurrency:
