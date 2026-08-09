@@ -1,5 +1,7 @@
 # scrolly
 
+[![CI](https://github.com/sixthshift/scrolly-js/actions/workflows/ci.yml/badge.svg)](https://github.com/sixthshift/scrolly-js/actions/workflows/ci.yml)
+
 **The scrollytelling framework.** You write the DOM, scrolly runs the state
 machine, effects live in your CSS.
 
