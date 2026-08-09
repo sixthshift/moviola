@@ -39,7 +39,7 @@ function init(target?: string | HTMLElement, opts?: ScrollyOptions): Story | Sto
 }
 
 const Scrolly = {
-  version: '0.0.1',
+  version: '0.1.0',
   init,
 }
 

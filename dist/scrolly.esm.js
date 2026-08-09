@@ -803,7 +803,7 @@ function init(target, opts) {
 	return getOrCreateStory(el, opts);
 }
 var Scrolly = {
-	version: "0.0.1",
+	version: "0.1.0",
 	init
 };
 //#endregion

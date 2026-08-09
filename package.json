@@ -1,6 +1,6 @@
 {
   "name": "scrolly-js",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The scrollytelling framework — you write the DOM, scrolly runs the state machine, effects live in your CSS.",
   "type": "module",
   "license": "MIT",
